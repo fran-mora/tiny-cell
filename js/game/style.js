@@ -213,6 +213,7 @@ const CSS = `
 .mb-evobox .mb-kicker { font-size: 10.5px; font-weight: 800; letter-spacing: .2em; text-transform: uppercase; color: #ffd678; }
 .mb-evobox b { display: block; font-size: 19px; font-weight: 900; color: #ffe7a8; margin: 1px 0 2px; }
 .mb-evobox p { margin: 0; }
+.mb-fit { margin-top: 4px; font-size: 11.5px; font-weight: 800; color: #ffd678; }
 `;
 
 let injected = null, refs = 0;

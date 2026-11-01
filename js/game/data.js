@@ -57,7 +57,7 @@ export const MUTATIONS = [
   { id: 'chloro', name: 'Chloroplasts', rarity: 'common', maxLevel: 3, tags: ['sustain'],
     desc: 'Photosynthesis. Light heals you and UV shafts can no longer burn you.', lv: (l) => `heal ${3 * l} HP/s in light, UV immune` },
   { id: 'mito', name: 'Mitochondria', rarity: 'common', maxLevel: 4, tags: ['sustain'],
-    desc: 'Powerhouse organelles that slowly regenerate your membrane.', lv: (l) => `+${f1(0.9 * l)} HP/s regeneration` },
+    desc: 'Powerhouse organelles that slowly regenerate your membrane.', lv: (l) => `+${f1(0.5 * l)} HP/s regeneration` },
   { id: 'vacuole', name: 'Vacuole', rarity: 'common', maxLevel: 5, tags: ['growth'],
     desc: 'A storage sac. Every meal yields more biomass.', lv: (l) => `+${15 * l}% biomass per meal` },
   { id: 'pseudopod', name: 'Pseudopods', rarity: 'rare', maxLevel: 3, tags: ['growth', 'offense'],
@@ -79,7 +79,7 @@ export const MUTATIONS = [
   { id: 'osmo', name: 'Osmoregulation', rarity: 'common', maxLevel: 3, tags: ['defense'],
     desc: 'Pump out toxins and heat. Resist hazards and currents.', lv: (l) => `-${25 * l}% hazard damage` },
   { id: 'lysosome', name: 'Lysosomes', rarity: 'rare', maxLevel: 3, tags: ['sustain', 'offense'],
-    desc: 'Digestive enzymes. Meals heal you and boss bites hit harder.', lv: (l) => `meals heal ${2 * l}% HP, +${30 * l}% bite damage` },
+    desc: 'Digestive enzymes. Meals heal you and boss bites hit harder.', lv: (l) => `meals heal ${l}% HP, +${30 * l}% bite damage` },
 ];
 export const MUT_BY_ID = Object.fromEntries(MUTATIONS.map((m) => [m.id, m]));
 export const RARITY = {

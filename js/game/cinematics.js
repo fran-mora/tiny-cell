@@ -487,7 +487,7 @@ export const Cinematics = {
       el('div', {}, [
         el('div.mb-kicker', {}, 'You evolved'),
         el('b', {}, S.name),
-        el('p.dim.small', {}, `${S.slots} trait slots. ${S.blurb.replace(/^[^.]*\.\s*/, '')}`),
+        el('p.dim.small', {}, S.blurb.replace(/^[^.]*\.\s*/, '')),
       ]),
     ]);
   },

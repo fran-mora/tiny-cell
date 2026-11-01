@@ -70,11 +70,11 @@ class App {
   refreshHub() {
     const st = S(), c = C();
     const L = Game.levelConfig(c.level), stage = Game.STAGES[c.stage];
-    const used = (c.mutOrder || []).filter((id) => c.muts[id] > 0).length;
+    const used = (c.mutOrder || []).filter((id) => c.muts[id] > 0).length, total = Game.MUTATIONS.length;
     this.dnaChip.lastChild.textContent = `Evo ${c.evo.level}`;
     this.ageEl.replaceChildren(
       el('div.hub-age-name', {}, c.complete ? 'Journey complete' : `Level ${c.level} of ${Game.TOTAL_LEVELS} \u00b7 ${L.name}`),
-      el('div.small.dim', {}, `${stage.name} \u00b7 ${used}/${stage.slots} traits`),
+      el('div.small.dim', {}, `${stage.name} \u00b7 ${used} of ${total} traits collected`),
     );
     const label = c.complete ? 'Replay the final boss' : L.isBoss ? `Fight the ${Game.BOSSES[L.boss].name}` : `Play level ${c.level}`;
     this.diveBtn.innerHTML = icon(L.isBoss ? 'target' : 'microbe') + `<span>${label}</span>`;
@@ -228,7 +228,6 @@ class App {
         el('div.era-big', {}, S2.name),
         pic ? el('div', { style: { display: 'flex', justifyContent: 'center', margin: '4px 0 8px' } }, pic) : null,
         el('p.dim', { style: { margin: 0 } }, S2.blurb),
-        el('p.small', { style: { margin: '8px 0 0', color: 'var(--dna)' } }, `Trait slots: ${S2.slots}`),
       ]),
       buttons: [{ label: continueAfter ? `On to level ${C().level}` : 'Onward', cls: 'btn-primary btn-lg', onClick: () => { if (continueAfter) setTimeout(() => this.dive(), 200); } }],
     });
@@ -306,7 +305,7 @@ class App {
         el('div.thumb', { style: { width: '72px', height: '72px' } }, pic || icon('microbe', 'lg')),
         el('div.grow', {}, [
           el('div', { style: { fontWeight: 850, fontSize: '17px' } }, S2.name),
-          el('div.small.dim', {}, `${owned.length}/${S2.slots} trait slots \u00b7 Evolution Lv ${c.evo.level}`),
+          el('div.small.dim', {}, `${owned.length} of ${Game.MUTATIONS.length} traits collected \u00b7 Evolution Lv ${c.evo.level}`),
           el('div.bar.xp', { style: { marginTop: '8px' } }, el('i', { style: { width: Math.round(100 * c.evo.xp / evoNeed) + '%' } })),
         ]),
       ]),
@@ -386,7 +385,7 @@ class App {
       p('<b style="color:var(--text)">The journey:</b> 48 levels across 8 habitats. Survive the timer to clear a level. Every sixth level is a boss: bite its glowing weak spots and avoid its body.'),
       p('<b style="color:var(--text)">Dying</b> sends you back to the start of the same level. You never lose traits or evolution progress.'),
       p('<b style="color:var(--dna)">Evolution:</b> eating fills your evolution bar. When it fills, pick a trait. Traits stay for the whole journey and stack when picked again.'),
-      p('<b style="color:var(--text)">Body stages:</b> some bosses evolve you: Colony, Multicellular, Swimmer, Sea Creature. Each stage has more trait slots and new trait families. When your body is full, a new trait replaces an old one.'),
+      p('<b style="color:var(--text)">Body stages:</b> some bosses evolve you: Colony, Multicellular, Swimmer, Sea Creature. Each stage unlocks a new family of traits. There is no limit: every trait you pick stays with you, so you can collect them all.'),
     ] });
   }
 

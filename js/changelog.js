@@ -1,5 +1,15 @@
 // Player-facing release notes, newest first.
 export const CHANGELOG = [
+  { build: 10, title: 'Collect them all, and a real challenge', notes: [
+    'No more trait slots: every trait you pick stays with you. Collect all 31.',
+    'Traits arrive gradually: basics first, and answers to new dangers just before you meet them.',
+    'Offers favour what suits the habitat, with a note on the card (Useful here: UV light, toxic clouds, a boss ahead...).',
+    'Much harder: hunters keep pace with your size, more of them later on, and the deep water hits harder, especially after you evolve.',
+    'Evolution picks come at a steady pace, about two per level, instead of snowballing.',
+    'Speed, armour and healing traits now have limits when stacked.',
+    'Fixed: the Volvox Titan vanished when hit by toxins or spikes, so level 30 could never be finished.',
+    'Hunters thin out during boss fights so you can go for the weak spots.',
+  ] },
   { build: 9, title: 'Dying, diving and evolving', notes: [
     'Dying is a proper moment now: time slows, your membrane tears open, the insides spill out and the nucleus flickers out. The screen also tells you what killed you.',
     'Try again and your cell re-forms from drifting specks of itself.',

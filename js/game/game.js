@@ -144,15 +144,17 @@ class MicrobeGame {
     if (p.maxHp > oldMax) p.hp += p.maxHp - oldMax;
     p.hp = min(p.hp, p.maxHp);
     p.r = D.playerRadius(p.level);
-    this.speedMult = (1 + 0.06 * (g.motor | 0)) * (1 + 0.12 * (m.flagellum | 0)) * (1 + 0.1 * (m.muscle | 0)) * (1 + 0.12 * (m.fins | 0)) * Math.min(1.5, this.boonMult || 1);
+    let sm = (1 + 0.06 * (g.motor | 0)) * (1 + 0.12 * (m.flagellum | 0)) * (1 + 0.1 * (m.muscle | 0)) * (1 + 0.12 * (m.fins | 0));
+    if (this.camp && sm > C.TUNE.speedSoft) sm = C.TUNE.speedSoft + (sm - C.TUNE.speedSoft) * C.TUNE.speedK; // stacked speed has diminishing returns
+    this.speedMult = sm * Math.min(1.5, this.boonMult || 1);
     this.accel = 5.5 * (1 + 0.25 * (m.cilia | 0)) * (1 + 0.2 * (m.muscle | 0)) * (1 + 0.12 * (m.fins | 0));
     this.reach = (1 + 0.15 * (m.cilia | 0)) * (1 + 0.1 * (m.nerve | 0));
     this.magnet = (55 + p.r * 2.2) * (1 + 0.4 * (m.biolum | 0)) * (1 + 0.2 * (g.sensory | 0)) * (1 + 0.25 * (m.signal | 0)) * (1 + 0.3 * (m.eyes | 0)) * (1 + 0.3 * (m.tentacles | 0)) * this.reach;
     this.xpMult = (1 + 0.1 * (g.digest | 0)) * (1 + 0.15 * (m.vacuole | 0)) * (1 + 0.12 * (m.polyps | 0)) * (this.boonMult || 1);
-    this.regen = 0.9 * (m.mito | 0) + 1.5 * (m.gills | 0);
+    this.regen = 0.5 * (m.mito | 0) + 0.8 * (m.gills | 0);
     this.hazMult = 1 - 0.25 * (m.osmo | 0);
     this.sight = max(0.25, (1 - 0.22 * (m.mimicry | 0)) * (1 - 0.12 * (m.signal | 0)));
-    this.armor = min(0.6, 0.08 * (m.guard | 0) + 0.05 * (m.shell | 0) + 0.1 * (m.hide | 0));
+    this.armor = min(this.camp ? C.TUNE.armorCap : 0.6, 0.08 * (m.guard | 0) + 0.05 * (m.shell | 0) + 0.1 * (m.hide | 0));
     this.biteMult = (1 + 0.3 * (m.jaws | 0)) * (1 + 0.15 * (m.eyes | 0));
     this.auraDps = ((m.cnido | 0) ? 6 + 6 * m.cnido : 0) + 8 * (m.tentacles | 0);
     this.iframeBonus = 0.15 * (m.nerve | 0);
@@ -326,16 +328,18 @@ class MicrobeGame {
   Es() { return 0.5 * this.expR() + 0.5 * this.p.r; }
   spawn(kind, x, y, o = {}) {
     if (this.ents.length >= MAX_ENT && !o.force) return null;
-    const E = o.E || this.Es(), R = this.rng, dp = this.depth;
-    const sz = { drifter: [0.3, 0.42], grazer: [0.62, 1.3], diatom: [0.6, 1.0], hunter: [0.85, 1.6], amoeba: [2.0, 2.8], siphonophore: [0.6, 0.75], ciliate: [0.45, 0.62], rotifer: [0.9, 1.35], volvox: [1.5, 1.9], phage: [0.22, 0.28] }[kind] || [1, 1];
+    const track = this.camp && HOSTILE[kind] && kind !== 'phage' && kind !== 'siphonophore';
+    const E = o.E || (track ? (1 - C.TUNE.track) * this.expR() + C.TUNE.track * this.p.r : this.Es()), R = this.rng, dp = this.depth;
+    let sz = { drifter: [0.3, 0.42], grazer: [0.62, 1.3], diatom: [0.6, 1.0], hunter: [0.85, 1.6], amoeba: [2.0, 2.8], siphonophore: [0.6, 0.75], ciliate: [0.45, 0.62], rotifer: [0.9, 1.35], volvox: [1.5, 1.9], phage: [0.22, 0.28] }[kind] || [1, 1];
+    if (track && kind === 'hunter') sz = [0.7, 1.5]; // a few hunters are small enough to eat
     const r = o.r || E * R.float(sz[0], sz[1]);
     const spd = { drifter: 55, grazer: 42, diatom: 14, hunter: 92 + 7 * dp, amoeba: 30, siphonophore: 26, ciliate: 85, rotifer: 70, volvox: 12, phage: 155 }[kind] || 40;
     const e = {
       kind, x, y, vx: 0, vy: 0, r, ang: R.float(0, TAU), seed: R.float(0, 10), t: 0, alive: true,
-      spd: spd * Math.pow(r / 15, kind === 'phage' ? 0 : 0.25), hp: 0, maxHp: 0, flash: 0, dent: 0, dentA: 0, stretch: 0,
+      spd: spd * Math.pow(r / 15, kind === 'phage' ? 0 : (kind === 'hunter' || kind === 'rotifer') && this.camp ? 0.45 : 0.25), hp: 0, maxHp: 0, flash: 0, dent: 0, dentA: 0, stretch: 0,
       wander: R.float(0, TAU), timer: R.float(0, 2), chasing: false, hitCd: 0, latched: false, la: 0, armor: 0, armorMax: 0, kids: 5, edibleCache: false, spawnFade: 0,
     };
-    e.hp = e.maxHp = (6 + r * r * 0.08 * (1 + 0.25 * (dp - 1))) * (this.L ? this.L.hpMult : 1);
+    e.hp = e.maxHp = (6 + r * r * 0.08 * (1 + 0.25 * (dp - 1))) * (this.L ? this.L.hpMult * this.stageThreat(C.TUNE.stageHp) : 1);
     if (this.L) e.spd *= this.L.spdMult;
     if (kind === 'diatom') { e.armor = e.armorMax = 2 + (dp >= 3 ? 1 : 0); }
     if (kind === 'siphonophore') { e.segs = []; for (let i = 0; i < 4; i++) e.segs.push({ x: x - i * r * 1.8, y }); e.hp = e.maxHp = 40 + 25 * dp; }
@@ -370,7 +374,7 @@ class MicrobeGame {
       let target = pop[kind] * (HOSTILE[kind] ? k : eraBoost);
       if (this.firstRun && this.depth === 1 && (kind === 'hunter') && this.depthTime < 28) target = 0;
       if (this.depth === 1 && kind === 'hunter') target *= min(1, this.depthTime / 25 + 0.3);
-      if (this.boss && HOSTILE[kind]) target *= 0.4;
+      if (this.boss && HOSTILE[kind]) target *= this.camp ? 0.2 : 0.4; // let boss fights be about the boss
       target = Math.round(target);
       let have = counts[kind] || 0;
       let guard = 0;
@@ -503,13 +507,14 @@ class MicrobeGame {
     if (p.latched > 0 && p.wiggle > 5) { p.wiggle -= 2.5; this.detachPhages(1); }
     this.updateAbilitiesUI();
   }
+  stageThreat(k) { return 1 + k * max(0, (this.p.stage | 0 || 1) - 2); }
   heal(n) { const p = this.p; if (p.hp < p.maxHp) p.hp = min(p.maxHp, p.hp + n); }
   hurt(n, src = null, opts = {}) {
     const p = this.p;
     if (this.dead || this.victory || this.invuln || this.trans) return false;
     if (!opts.dot && (p.iframes > 0 || p.cyst > 0)) return false;
     if (opts.dot && p.cyst > 0) return false;
-    n *= (this.L ? this.L.dmgMult : 1) * (1 - (this.armor || 0));
+    n *= (this.L ? this.L.dmgMult * this.stageThreat(C.TUNE.stageDmg) : 1) * (1 - (this.armor || 0));
     p.hp -= n;
     // make every source of damage readable: red screen edge, HP pulse, and what hurt you
     this.hurtWhy = opts.why || this.hurtWhy || 'Taking damage';
@@ -571,16 +576,17 @@ class MicrobeGame {
     const x = v * this.xpMult * bonus;
     if (!(x > 0) || !Number.isFinite(x)) return;
     p.xp += x; this.stats.biomass += x;
-    if (meal && p.muts.lysosome) this.heal(p.maxHp * 0.02 * p.muts.lysosome);
-    if (meal && p.muts.polyps) this.heal(p.maxHp * 0.01 * p.muts.polyps);
+    if (meal && p.muts.lysosome) this.heal(p.maxHp * 0.01 * p.muts.lysosome);
+    if (meal && p.muts.polyps) this.heal(p.maxHp * 0.005 * p.muts.polyps);
     let need = D.xpToNext(p.level), guard = 0, grew = false;
+    const growth = x / need; // fraction of a body-size level this meal is worth
     while (p.xp >= need && guard++ < 60) {
       p.xp -= need; p.level++; grew = true;
       if (!this.camp) this.pendingLevels++;
       need = D.xpToNext(p.level);
     }
     if (p.xp >= need) p.xp = need * 0.99; // absurd grants: carry no more than one level
-    if (this.camp) { this.evo.xp += x * this.L.xpScale; this.checkEvo(); }
+    if (this.camp) { this.evo.xp += min(growth, 3) * 10; this.checkEvo(); }
     this.pendingLevels = min(this.pendingLevels, 30);
     if (grew || this.pendingLevels) this.recalc();
   }
@@ -844,7 +850,7 @@ class MicrobeGame {
     }
   }
   splitVolvox(e, nx, ny) {
-    if (!e.alive) return;
+    if (!e.alive || e.boss) return;
     e.alive = false;
     this.sfx('gulp', { vol: 0.7 }); this.buzz(15); this.burst(e.x, e.y, [140, 255, 150], 18, 200);
     const n = e.kids, kr = min(e.r * 0.36, this.p.r * 0.6);
@@ -873,8 +879,8 @@ class MicrobeGame {
   damage(e, n, src, quiet = false) {
     if (this.camp && !e.boss) n *= 1 + 0.3 * ((this.p.stage | 0 || 1) - 1); // bigger bodies hit harder
     if (!e.alive || e.ally) return;
+    if (e.boss) { this.bossDamage(n, quiet); return; } // before the volvox check: the Volvox Titan must never split
     if (e.kind === 'volvox' && !e.isKid) { this.splitVolvox(e, 0, 0); return; }
-    if (e.boss) { this.bossDamage(n, quiet); return; }
     e.hp -= n; e.flash = max(e.flash, quiet ? 0.45 : 1); e.hpShowT = 2.5;
     if (!quiet) { this.sfx('hit'); e.dent = 0.25; if (src) e.dentA = atan2(src.y - e.y, src.x - e.x) - e.ang; if (n >= 3) this.texts.push({ x: e.x, y: e.y - e.r, s: '-' + Math.round(n), life: 0.9, c: '#ffe28a' }); }
     else { e.qAcc = (e.qAcc || 0) + n; if (e.qAcc >= 6) { this.texts.push({ x: e.x + (random() - 0.5) * e.r, y: e.y - e.r, s: '-' + Math.round(e.qAcc), life: 0.7, c: '#ffd27a' }); e.qAcc = 0; } }
@@ -1043,7 +1049,7 @@ class MicrobeGame {
     const isQ = B.logic === 'queen';
     const b = this.spawn(kind, p.x + cos(a) * dist, p.y + sin(a) * dist, { force: true, r: isQ ? 120 + p.r * 1.2 : 120 + p.r * 1.5 });
     b.boss = true; b.B = B; b.logic = B.logic; b.bossId = B.id; if (B.col) b.col = B.col;
-    b.hp = b.maxHp = B.hp * (this.camp ? 1 + 0.02 * (this.L.c - 1) : 1); b.spd = B.speed;
+    b.hp = b.maxHp = B.hp * (this.camp ? 1 + C.TUNE.bossHpPer * (this.L.c - 1) : 1); b.spd = B.speed;
     b.armor = kind === 'diatom' ? 3 : 0; b.armorMax = b.armor; b.kids = 6; b.pullT = 6; b.burstT = 5;
     b.spots = []; const ns = isQ ? 3 : 4;
     for (let i = 0; i < ns; i++) b.spots.push({ a: (i / ns) * TAU + (isQ ? PI / 6 : 0.3), cd: 0, pulse: random() * TAU });
@@ -1293,15 +1299,18 @@ class MicrobeGame {
   }
 
   // ---------- overlays ----------
-  slots() { return this.camp ? C.STAGES[this.p.stage | 0 || 1].slots : 99; }
-  slotsUsed() { return this.mutOrder.filter((id) => this.p.muts[id] > 0).length; }
+  // no body limit: every trait you pick stays, so the goal is to collect them all
+  traitCount() { return this.mutOrder.filter((id) => this.p.muts[id] > 0).length; }
+  traitTotal() { return D.MUTATIONS.length + C.NEW_MUTATIONS.length; }
   pickOffers(n) {
     const p = this.p, R = this.rng;
     const all = this.camp ? [...D.MUTATIONS, ...C.NEW_MUTATIONS.filter((m) => m.stage <= (p.stage | 0 || 1))] : D.MUTATIONS;
-    const pool = all.filter((m) => (p.muts[m.id] | 0) < m.maxLevel);
+    // the journey introduces traits gradually, and favours the ones that suit this habitat
+    const pool = all.filter((m) => (p.muts[m.id] | 0) < m.maxLevel && (!this.camp || (C.TRAIT_FROM[m.id] || 1) <= this.L.c || p.muts[m.id]));
+    const fit = (x) => (this.camp ? C.traitFit(x.id, this.L)[0] : 1);
     const out = [];
     while (out.length < n && pool.length) {
-      const m = R.weighted(pool, (x) => D.RARITY[x.rarity].weight * (p.muts[x.id] ? 1.25 : 1) * (x.active && this.depth === 1 && p.level < 3 ? 0.5 : 1));
+      const m = R.weighted(pool, (x) => D.RARITY[x.rarity].weight * (p.muts[x.id] ? 1.25 : 1) * fit(x) * (x.active && this.depth === 1 && p.level < 3 ? 0.5 : 1));
       out.push(m); pool.splice(pool.indexOf(m), 1);
     }
     // when the genome is (nearly) complete, fill the remaining slots with repeatable boons so a
@@ -1334,6 +1343,7 @@ class MicrobeGame {
         const rc = D.RARITY[m.rarity];
         const pips = boon ? (lv ? el('div.mb-ceff', { style: { opacity: 0.7 } }, `Taken ${lv}\u00d7`) : null) : el('div.mb-clv', {}, Array.from({ length: m.maxLevel }, (_, k) => el('i', { class: k < lv ? 'on' : k === lv ? 'new' : '' })));
         const isNew = !boon && !(this.codex.mutations && this.codex.mutations[m.id]) && !this.disc.mutations.includes(m.id);
+        const [fw, why] = !boon && this.camp ? C.traitFit(m.id, this.L) : [1];
         const card = el('button.mb-card', { style: { '--rc': rc.color, animationDelay: i * 0.07 + 's' } }, [
           isNew ? el('span.mb-new', {}, 'NEW') : null,
           el('div.mb-port', {}, portrait('mutation', m.icon || m.id, 72)),
@@ -1341,14 +1351,13 @@ class MicrobeGame {
             el('div.mb-cname', {}, [m.name, el('span.tag', { style: { color: rc.color, background: rc.color + '22' } }, rc.label)]),
             el('div.mb-cdesc', {}, m.desc),
             el('div.mb-ceff', {}, boon ? m.eff : lv ? `${m.lv(lv)} → ${m.lv(lv + 1)}` : m.lv(1)),
-            (!boon && !lv && this.camp && this.slotsUsed() >= this.slots()) ? el('div.mb-swapnote', {}, 'Body full: replaces a trait') : null,
+            fw >= 1.4 && why ? el('div.mb-fit', {}, ['Useful here: ', why]) : null,
             pips,
           ]),
         ]);
         card.style.setProperty('--rc', rc.color);
         card.addEventListener('click', () => {
           if (ov.dataset.done) return;
-          if (!boon && !lv && this.camp && this.slotsUsed() >= this.slots()) { this.chooseSwap(m, ov, cardsBox, foot, () => card.click()); return; }
           ov.dataset.done = '1';
           this.sfx('evolve'); this.buzz(20);
           [...cardsBox.children].forEach((c) => c.classList.add(c === card ? 'chosen' : 'gone'));
@@ -1366,23 +1375,6 @@ class MicrobeGame {
     this.root.appendChild(ov);
     this.levelOv = ov;
     this.root.classList.add('mb-picking');
-  }
-  chooseSwap(m, ov, cardsBox, foot, confirmPick) {
-    this.sfx('click');
-    const prevCards = [...cardsBox.children], prevFoot = [...foot.children];
-    const back = () => { cardsBox.replaceChildren(...prevCards); foot.replaceChildren(...prevFoot); head.remove(); };
-    const head = el('div.mb-swaphead', {}, [el('b', {}, `Make room for ${m.name}`), el('span', {}, `Your body holds ${this.slots()} traits. Choose one to lose:`)]);
-    cardsBox.parentNode.insertBefore(head, cardsBox);
-    const list = this.mutOrder.filter((id) => this.p.muts[id] > 0).map((id) => {
-      const d = mutDef(id);
-      return el('button.mb-swapitem', { onclick: () => {
-        this.removeMutation(id);
-        back();
-        confirmPick();
-      } }, [portrait('mutation', id, 34), el('span', {}, d ? d.name : id), el('sup', {}, '' + this.p.muts[id])]);
-    });
-    cardsBox.replaceChildren(el('div.mb-swaplist', {}, list));
-    foot.replaceChildren(el('button.btn.btn-ghost', { onclick: () => { this.sfx('click'); back(); } }, [icon('back'), 'Back']));
   }
   removeMutation(id) {
     const p = this.p;
@@ -1609,7 +1601,7 @@ class MicrobeGame {
         el('div', {}, [el('b', {}, '' + this.stats.kills), el('span', {}, 'Eaten')]),
       ]),
       el('div.panel.mb-dnabox', {}, [
-        el('div.mb-dnarow.on', {}, [el('span', {}, ['Evolution ', el('b', {}, 'Lv ' + this.evo.level)]), el('span.dim.small', {}, `${this.slotsUsed()}/${this.slots()} trait slots`)]),
+        el('div.mb-dnarow.on', {}, [el('span', {}, ['Evolution ', el('b', {}, 'Lv ' + this.evo.level)]), el('span.dim.small', {}, `${this.traitCount()} of ${this.traitTotal()} traits`)]),
         el('div.bar.xp', { style: { marginTop: '8px' } }, el('i', { style: { width: evoK + '%' } })),
       ]),
       gained.length ? el('div.mb-sec', {}, 'New this attempt') : null,
@@ -1638,8 +1630,7 @@ class MicrobeGame {
     if (c.xp !== xpk) { c.xp = xpk; this.xpBar.style.width = xpk + '%'; }
     if (c.lv !== lvN) { c.lv = lvN; this.lvEl.textContent = (this.camp ? 'Evo ' : 'Lv ') + lvN; }
     if (this.camp) {
-      const used = this.slotsUsed(), slots = this.slots();
-      const key = used + '/' + slots;
+      const key = this.traitCount() + '/' + this.traitTotal();
       if (c.dna !== key) { if (c.dna !== undefined) { this.dnaChip.classList.remove('pulse'); void this.dnaChip.offsetWidth; this.dnaChip.classList.add('pulse'); } c.dna = key; this.dnaNum.textContent = key; }
     } else {
       const dna = this.calcDNA().total;
