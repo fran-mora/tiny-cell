@@ -87,6 +87,8 @@ class MicrobeGame {
     this.buildDOM();
     this.buildArt();
     this.resize();
+    // camera zoom must exist before the first spawns (ringPos uses it)
+    this.zoomV = clamp(min(this.W, this.H) * 0.06 / this.p.r, 0.32, 1.45);
     this.on(window, 'resize', () => this.resize());
     this.on(window, 'keydown', (e) => this.onKey(e, true));
     this.on(window, 'keyup', (e) => this.onKey(e, false));
@@ -171,7 +173,8 @@ class MicrobeGame {
     this.depthLabel = el('div.mb-depth-label', {}, '');
     this.depthBar = el('i'); this.pips = el('div.mb-pips');
     this.depthBox = el('div.mb-depth', {}, [this.depthLabel, el('div.bar', {}, this.depthBar), this.pips]);
-    hud.appendChild(el('div.mb-top', {}, [el('div.mb-row', {}, [this.hpStat, xpStat, this.dnaChip, pauseBtn]), this.depthBox]));
+    this.hurtEl = el('div.mb-hurtwhy');
+    hud.appendChild(el('div.mb-top', {}, [el('div.mb-row', {}, [this.hpStat, xpStat, this.dnaChip, pauseBtn]), this.hurtEl, this.depthBox]));
     this.abBox = el('div.mb-abilities'); hud.appendChild(this.abBox);
     this.toasts = el('div.mb-toasts'); hud.appendChild(this.toasts);
     this.flashEl = el('div.mb-flash'); this.fadeEl = el('div.mb-fade');
@@ -203,7 +206,7 @@ class MicrobeGame {
     this.W = max(1, r.width); this.H = max(1, r.height);
     this.dpr = this.battery ? 1 : min(2, window.devicePixelRatio || 1);
     this.canvas.width = Math.round(this.W * this.dpr); this.canvas.height = Math.round(this.H * this.dpr);
-    this.bgGrad = null; this.vig = null; this.redVig = null; this.frozenFrames = 0;
+    this.bgGrad = null; this.vig = null; this.redVig = null; this.dmgVig = null; this.frozenFrames = 0;
   }
 
   // ---------- input ----------
@@ -347,7 +350,7 @@ class MicrobeGame {
     const c = this.spawn('clone', p.x + 30, p.y + 30, { r: p.r * 0.55, force: true });
     if (c) { c.spd = 150; c.ally = true; c.hp = c.maxHp = 9999; }
   }
-  viewR() { return hypot(this.W, this.H) / 2 / this.zoomV; }
+  viewR() { return hypot(this.W, this.H) / 2 / (this.zoomV || 1); }
   ringPos(minF = 1.1, maxF = 1.5) {
     const vr = this.viewR(), a = random() * TAU, d = vr * (minF + random() * (maxF - minF));
     return [this.p.x + cos(a) * d, this.p.y + sin(a) * d];
@@ -410,6 +413,7 @@ class MicrobeGame {
 
   update(dt) {
     this.T += dt;
+    if (this.dmgPulse) this.dmgPulse = max(0, this.dmgPulse - dt * 2.4);
     const p = this.p;
     if (!this.dead && !this.victory && !this.trans) { this.time += dt; this.depthTime += dt; }
     if (this.dead) this.slowmo = min(1, this.slowmo + dt * 0.3);
@@ -501,6 +505,11 @@ class MicrobeGame {
     if (opts.dot && p.cyst > 0) return false;
     n *= (this.L ? this.L.dmgMult : 1) * (1 - (this.armor || 0));
     p.hp -= n;
+    // make every source of damage readable: red screen edge, HP pulse, and what hurt you
+    this.hurtWhy = opts.why || this.hurtWhy || 'Taking damage';
+    this.hurtT = this.T;
+    if (opts.dot) { this.dmgPulse = max(this.dmgPulse || 0, 0.5); this.drainAcc = (this.drainAcc || 0) + n; if (this.drainAcc >= 3) { this.texts.push({ x: p.x + (random() - 0.5) * p.r, y: p.y - p.r, s: '-' + Math.round(this.drainAcc), life: 0.8, c: '#ff8a9a' }); this.drainAcc = 0; } }
+    else { this.dmgPulse = 1; this.texts.push({ x: p.x, y: p.y - p.r * 1.2, s: '-' + Math.round(n), life: 1, c: '#ff6b7d' }); this.hpStat.classList.remove('hit'); void this.hpStat.offsetWidth; this.hpStat.classList.add('hit'); }
     if (!opts.dot) {
       p.iframes = (opts.iframes ?? 0.55) + (this.iframeBonus || 0); p.flashT = 0.25; this.shake = min(14, this.shake + 6 + n * 0.3); this.flash = 0.25;
       this.sfx('hurt'); this.buzz(25);
@@ -607,6 +616,7 @@ class MicrobeGame {
       if (!e.alive) continue;
       e.t += dt; e.flash = max(0, e.flash - dt * 4); e.dent *= exp(-dt * 5); e.hitCd = max(0, e.hitCd - dt); e.timer -= dt;
       if (e.stun) e.stun = max(0, e.stun - dt);
+      if (e.hpShowT) e.hpShowT = max(0, e.hpShowT - dt);
       const dx = p.x - e.x, dy = p.y - e.y, d2 = dx * dx + dy * dy, d = sqrt(d2) + 0.0001;
       if (d2 > far2 && !e.boss && !e.ally) { e.alive = false; if (e.latched) p.latched--; continue; }
       // discovery
@@ -656,7 +666,7 @@ class MicrobeGame {
           if (e.latched) {
             const a = e.la + p.ang, rr = p.r * 0.95 + e.r * 0.6;
             e.x = p.x + cos(a) * rr; e.y = p.y + sin(a) * rr; e.ang = a + PI;
-            this.hurt(2.4 * dt, null, { dot: true });
+            this.hurt(2.4 * dt, null, { dot: true, why: 'Phages latched on' });
             if (!e.fx || e.fx < T) { e.fx = T + 0.5; this.sparkle(e.x, e.y, [255, 120, 160], 1); }
             ents[wi++] = e; continue;
           }
@@ -694,8 +704,37 @@ class MicrobeGame {
       if (e.alive) ents[wi++] = e;
     }
     ents.length = wi;
+    this.separate();
     // offensive auras: clouds, symbionts
     this.updateAuras(dt);
+  }
+  // Cells push each other apart instead of piling up on top of one another.
+  separate() {
+    const p = this.p, vr = this.viewR() * 1.5, vr2 = vr * vr;
+    const L = this.sepList || (this.sepList = []);
+    L.length = 0;
+    for (const e of this.ents) {
+      if (!e.alive || e.latched || e.ally || e.segs) continue;
+      const dx = e.x - p.x, dy = e.y - p.y;
+      if (dx * dx + dy * dy < vr2) L.push(e);
+    }
+    for (let i = 0; i < L.length; i++) {
+      const a = L[i];
+      for (let j = i + 1; j < L.length; j++) {
+        const b = L[j];
+        const rr = (a.r + b.r) * 0.9, dx = b.x - a.x, dy = b.y - a.y;
+        if (dx > rr || dx < -rr || dy > rr || dy < -rr) continue;
+        const d2 = dx * dx + dy * dy;
+        if (d2 >= rr * rr) continue;
+        const d = sqrt(d2) || 0.01, ov = rr - d, nx = dx / d, ny = dy / d;
+        const ma = a.boss ? 1e6 : a.r * a.r, mb = b.boss ? 1e6 : b.r * b.r, t = ma + mb;
+        const ka = mb / t, kb = ma / t;
+        a.x -= nx * ov * ka * 0.6; a.y -= ny * ov * ka * 0.6;
+        b.x += nx * ov * kb * 0.6; b.y += ny * ov * kb * 0.6;
+        const rv = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny; // closing speed
+        if (rv < 0) { const imp = rv * 0.6; a.vx += nx * imp * ka; a.vy += ny * imp * ka; b.vx -= nx * imp * kb; b.vy -= ny * imp * kb; }
+      }
+    }
   }
   nearestMote(x, y, R) {
     let best = null, bd = R * R;
@@ -767,13 +806,13 @@ class MicrobeGame {
     if (p.dashT > 0) { this.damage(e, 25 + 10 * (p.muts.dash | 0), p); e.vx += nx * 300; e.vy += ny * 300; e.stun = 0.8; return; }
     if (p.muts.spikes) this.damage(e, 10 * p.muts.spikes * dt * 2, p, true);
     if (e.kind === 'amoeba') {
-      this.hurt((16 + 3 * this.depth) * dt * this.hazMult, null, { dot: true });
+      this.hurt((16 + 3 * this.depth) * dt * this.hazMult, null, { dot: true, why: 'Amoeba engulfing you' });
       if (!e.fx || e.fx < this.T) { e.fx = this.T + 0.25; p.flashT = 0.2; this.shake = min(6, this.shake + 1.5); this.sfx('hurt', { vol: 0.5 }); this.sparkle(p.x, p.y, [255, 150, 90], 3); }
       p.vx *= exp(-dt * 3); p.vy *= exp(-dt * 3);
       return;
     }
     const dmg = e.kind === 'hunter' ? 9 + 3.5 * this.depth : e.kind === 'rotifer' ? 8 + 3 * this.depth : 5 + 2 * this.depth;
-    if (this.hurt(dmg, e)) { e.vx += nx * 140; e.vy += ny * 140; e.stun = 0.4; }
+    if (this.hurt(dmg, e, { why: e.kind === 'grazer' ? 'Bumped a bigger cell' : (D.SPECIES_BY_ID[e.kind] ? D.SPECIES_BY_ID[e.kind].name : 'Hit') })) { e.vx += nx * 140; e.vy += ny * 140; e.stun = 0.4; }
   }
   siphHit(e, dt) {
     const p = this.p;
@@ -794,7 +833,7 @@ class MicrobeGame {
     if (hit) {
       if (p.muts.spikes) this.damage(e, 10 * p.muts.spikes * dt * 2, p, true);
       if (p.dashT > 0) { this.damage(e, 30, p); return; }
-      this.hurt((14 + 2 * this.depth) * dt * 2.2 * this.hazMult, null, { dot: true });
+      this.hurt((14 + 2 * this.depth) * dt * 2.2 * this.hazMult, null, { dot: true, why: 'Siphonophore sting' });
       if (!e.fx || e.fx < this.T) { e.fx = this.T + 0.3; p.flashT = 0.2; this.sfx('toxin', { vol: 0.35 }); this.sparkle(p.x, p.y, [255, 120, 220], 3); this.shake = min(6, this.shake + 1.5); }
     }
   }
@@ -830,8 +869,9 @@ class MicrobeGame {
     if (!e.alive || e.ally) return;
     if (e.kind === 'volvox' && !e.isKid) { this.splitVolvox(e, 0, 0); return; }
     if (e.boss) { this.bossDamage(n, quiet); return; }
-    e.hp -= n; e.flash = 1;
-    if (!quiet) { this.sfx('hit'); e.dent = 0.25; if (src) e.dentA = atan2(src.y - e.y, src.x - e.x) - e.ang; }
+    e.hp -= n; e.flash = max(e.flash, quiet ? 0.45 : 1); e.hpShowT = 2.5;
+    if (!quiet) { this.sfx('hit'); e.dent = 0.25; if (src) e.dentA = atan2(src.y - e.y, src.x - e.x) - e.ang; if (n >= 3) this.texts.push({ x: e.x, y: e.y - e.r, s: '-' + Math.round(n), life: 0.9, c: '#ffe28a' }); }
+    else { e.qAcc = (e.qAcc || 0) + n; if (e.qAcc >= 6) { this.texts.push({ x: e.x + (random() - 0.5) * e.r, y: e.y - e.r, s: '-' + Math.round(e.qAcc), life: 0.7, c: '#ffd27a' }); e.qAcc = 0; } }
     if (e.hp <= 0) this.kill(e, true);
   }
   kill(e, drops) {
@@ -902,14 +942,14 @@ class MicrobeGame {
           if (abs(p.x - sx) < h.r * 0.5) {
             if (p.muts.chloro) { this.heal(3 * p.muts.chloro * dt); if (random() < dt * 6) this.sparkle(p.x + (random() - 0.5) * p.r * 2, p.y + (random() - 0.5) * p.r * 2, [140, 255, 150], 1); }
             else {
-              this.hurt(5 * this.hazMult * dt, null, { dot: true }); p.uvT = (p.uvT || 0) + dt;
+              this.hurt(5 * this.hazMult * dt, null, { dot: true, why: 'UV light burns' }); p.uvT = (p.uvT || 0) + dt;
               if (this.firstRun && !this.hints.shown.uv && p.uvT > 0.6) this.hint('uv', 'UV light burns! Chloroplasts would turn it into food', 'sun', 3500, false, 'warn');
             }
           }
         } else if (h.type === 'toxic') {
-          if (d < h.r * 0.8) { this.hurt(7 * this.hazMult * dt, null, { dot: true }); if (random() < dt * 4) this.sparkle(p.x, p.y, [160, 230, 90], 1); }
+          if (d < h.r * 0.8) { this.hurt(7 * this.hazMult * dt, null, { dot: true, why: 'Toxic cloud' }); if (random() < dt * 4) this.sparkle(p.x, p.y, [160, 230, 90], 1); }
         } else if (h.type === 'vent') {
-          if (d < h.r * 0.42 + p.r) { this.hurt(26 * this.hazMult * dt, null, { dot: true }); if (random() < dt * 8) { this.sparkle(p.x, p.y, [255, 120, 70], 1); p.flashT = 0.1; } }
+          if (d < h.r * 0.42 + p.r) { this.hurt(26 * this.hazMult * dt, null, { dot: true, why: 'Vent heat' }); if (random() < dt * 8) { this.sparkle(p.x, p.y, [255, 120, 70], 1); p.flashT = 0.1; } }
         }
       }
       if (h.type === 'vent') {
@@ -1141,7 +1181,7 @@ class MicrobeGame {
       p.x += cos(na) * pen; p.y += sin(na) * pen;
       if (p.dashT > 0) this.bossDamage(15);
       if (p.muts.spikes) this.bossDamage(6 * p.muts.spikes * dt, true);
-      if (this.hurt((isQ ? 16 : 14) + 2 * (this.camp ? 3 : this.depth), b, { iframes: 0.8 })) { p.vx = cos(na) * 420; p.vy = sin(na) * 420; }
+      if (this.hurt((isQ ? 16 : 14) + 2 * (this.camp ? 3 : this.depth), b, { iframes: 0.8, why: b.B ? b.B.name : 'Boss' })) { p.vx = cos(na) * 420; p.vy = sin(na) * 420; }
     }
   }
   bossDamage(n, quiet = false) {
@@ -1177,7 +1217,7 @@ class MicrobeGame {
       if (s.life <= 0) continue;
       if (!this.dead && hypot(p.x - s.x, p.y - s.y) < p.r + 6) {
         if (p.muts.spikes && random() < 0.25 * p.muts.spikes) { this.sparkle(s.x, s.y, [220, 255, 250], 4); continue; }
-        if (this.hurt(9 + 2 * this.depth, s)) { this.sparkle(s.x, s.y, [200, 220, 255], 6); continue; }
+        if (this.hurt(9 + 2 * this.depth, s, { why: 'Shards' })) { this.sparkle(s.x, s.y, [200, 220, 255], 6); continue; }
       }
       this.shards[w++] = s;
     }
@@ -1572,6 +1612,13 @@ class MicrobeGame {
   // ---------- HUD ----------
   updateHUD() {
     const p = this.p, c = this.hudCache;
+    const hurting = this.hurtT !== undefined && this.T - this.hurtT < 0.35 && !this.dead;
+    if (c.hurting !== hurting || (hurting && c.why !== this.hurtWhy)) {
+      c.hurting = hurting; c.why = this.hurtWhy;
+      this.hpStat.classList.toggle('drain', hurting);
+      if (hurting) { this.hurtEl.innerHTML = icon('heart') + '<span>' + this.hurtWhy + '</span>'; }
+      this.hurtEl.classList.toggle('on', hurting);
+    }
     const hp = max(0, Math.ceil(p.hp));
     if (c.hp !== hp || c.mhp !== p.maxHp) { c.hp = hp; c.mhp = p.maxHp; this.hpBar.style.width = (100 * hp / p.maxHp) + '%'; this.hpNum.textContent = hp; this.hpStat.classList.toggle('low', hp < p.maxHp * 0.3); }
     const lvN = this.camp ? this.evo.level : p.level;
@@ -1691,6 +1738,14 @@ class MicrobeGame {
       if (e.flash > 0) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = e.flash * 0.6; ctx.drawImage(glowSprite(WHITE), -1.2, -1.2, 2.4, 2.4); ctx.globalCompositeOperation = 'source-over'; }
       ctx.restore();
       ctx.globalAlpha = 1;
+      // health bar for anything you have hurt recently
+      if (e.hpShowT > 0 && !e.boss && e.maxHp > 0 && e.maxHp < 9000) {
+        const k = max(0, e.hp / e.maxHp), bw = max(26 / z, e.r * 1.5), bh = 5 / z, bx = e.x - bw / 2, by = e.y - e.r - 10 / z;
+        ctx.globalAlpha = min(1, e.hpShowT * 2);
+        ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(bx - 1 / z, by - 1 / z, bw + 2 / z, bh + 2 / z);
+        ctx.fillStyle = k > 0.5 ? '#7cf0a3' : k > 0.25 ? '#ffc65c' : '#ff6b7d'; ctx.fillRect(bx, by, bw * k, bh);
+        ctx.globalAlpha = 1;
+      }
       if (e.edibleCache && e.r > p.r * 0.45 && hypot(e.x - p.x, e.y - p.y) < 260) {
         ctx.beginPath(); ctx.arc(e.x, e.y, e.r + 4 / z + sin(T * 5) * 1.5 / z, 0, TAU);
         ctx.strokeStyle = 'rgba(140,255,200,0.4)'; ctx.lineWidth = 1.5 / z; ctx.stroke();
@@ -1765,6 +1820,12 @@ class MicrobeGame {
       this.vig = g;
     }
     ctx.fillStyle = this.vig; ctx.fillRect(0, 0, W, H);
+    // damage flash: the screen edge pulses red whenever anything hurts you
+    if (this.dmgPulse > 0.01 && !this.dead) {
+      if (!this.dmgVig) { const g = ctx.createRadialGradient(W / 2, H / 2, min(W, H) * 0.32, W / 2, H / 2, hypot(W, H) * 0.58); g.addColorStop(0, 'rgba(255,20,50,0)'); g.addColorStop(0.7, 'rgba(255,30,60,0.35)'); g.addColorStop(1, 'rgba(255,40,70,0.85)'); this.dmgVig = g; }
+      ctx.globalAlpha = min(1, this.dmgPulse) * 0.85;
+      ctx.fillStyle = this.dmgVig; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1;
+    }
     // low hp red vignette
     const hpk = p.hp / p.maxHp;
     if (hpk < 0.35 && !this.dead) {

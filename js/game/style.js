@@ -173,6 +173,14 @@ const CSS = `
 .mb-swapitem span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* while choosing a trait, the top HUD steps aside so tall card stacks never overlap it */
 .mb-root.mb-picking .mb-top { opacity: 0; transition: opacity .2s; }
+/* damage feedback */
+.mb-stat.mb-hp.hit { animation: mbHpHit .45s ease; }
+.mb-stat.mb-hp.drain { border-color: rgba(255, 107, 125, .9); box-shadow: 0 0 0 1px rgba(255,107,125,.6) inset, 0 0 14px rgba(255, 80, 100, .55); animation: mbHpDrain .5s ease-in-out infinite alternate; }
+@keyframes mbHpHit { 0% { transform: scale(1); background: rgba(255, 60, 90, .85); } 35% { transform: scale(1.08); } 100% { transform: scale(1); } }
+@keyframes mbHpDrain { from { background: rgba(70, 14, 28, .85); } to { background: rgba(130, 20, 40, .9); } }
+.mb-hurtwhy { position: absolute; top: 86px; left: 0; display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px 0 8px; border-radius: 99px; background: rgba(120, 16, 36, .9); border: 1px solid rgba(255, 120, 140, .6); color: #ffe3e7; font-size: 12px; font-weight: 800; opacity: 0; transform: translateY(-4px); transition: opacity .15s, transform .15s; pointer-events: none; }
+.mb-hurtwhy.on { opacity: 1; transform: none; }
+.mb-hurtwhy svg { width: 14px; height: 14px; color: #ff8a9a; }
 `;
 
 let injected = null, refs = 0;

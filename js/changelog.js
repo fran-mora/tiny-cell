@@ -1,5 +1,12 @@
 // Player-facing release notes, newest first.
 export const CHANGELOG = [
+  { build: 8, title: 'Clearer damage, no pile-ups', notes: [
+    'Fixed: some levels started with a blank screen because hunters spawned before the camera existed.',
+    'When something hurts you, the screen edges flash red, your health pill pulses and a label says what is hurting you (UV light, toxic cloud, vent heat, a hunter...).',
+    'Floating numbers show damage you take and deal.',
+    'Cells you hurt show a health bar, so you can see your toxins, spikes and stings working.',
+    'Cells push each other apart instead of piling up on top of one another.',
+  ] },
   { build: 7, title: 'The evolution journey', notes: [
     '48 levels across 8 habitats: Sunlit Shallows, Kelp Twilight, Midnight Gyre, Violet Abyss, Green Sea, Ember Vents, Glass Reef and the Origin Trench.',
     'A boss ends every habitat: Colossal Amoeba, Great Ciliate, Phage Queen, Rotifer Tyrant, Volvox Titan, Colossus Prime, Diatom Leviathan and the Progenitor.',
