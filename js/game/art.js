@@ -188,7 +188,7 @@ function spikeRing(ctx, n, len, base, t, c, rot = 0, sx = 1, sy = 1) {
 // e: entity-like { kind, seed, t (age), ang, flash, stretch, dentA, dent, ... }
 export function drawSpecies(ctx, e, T, s, opts = {}) {
   const kind = e.kind;
-  const col = COLORS[kind] || COLORS.grazer;
+  const col = e.col || COLORS[kind] || COLORS.grazer;
   const t = T + e.seed * 10;
   const lw = (px) => px / s;
   const lod = s < 9;
