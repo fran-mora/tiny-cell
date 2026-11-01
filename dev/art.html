@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tiny Cell art gallery</title>
+<style>
+  :root { --bg: #050a16; --panel: #0b1424; --line: rgba(160, 200, 255, 0.14); --text: #eaf3ff; --dim: #9fb3cf; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 13px/1.35 ui-rounded, "SF Pro Rounded", "Nunito", system-ui, sans-serif; }
+  main { width: 900px; margin: 0 auto; padding: 14px 0 40px; }
+  h1 { font-size: 18px; margin: 4px 0 2px; }
+  h2 { font-size: 14px; color: var(--dim); font-weight: 600; margin: 22px 0 8px; letter-spacing: .02em; }
+  nav a { color: #7cf0a3; margin-right: 12px; }
+  canvas.stage { display: block; width: 900px; border-radius: 14px; background: radial-gradient(ellipse at 50% 40%, #0e3a46 0%, #06141e 75%); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
+  .grid figure { margin: 0; padding: 8px 4px 6px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; text-align: center; }
+  .grid figure canvas { display: block; margin: 0 auto 4px; }
+  .grid figcaption { color: var(--dim); font-size: 11px; }
+  .small figure canvas { margin-bottom: 2px; }
+  #status { color: var(--dim); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Tiny Cell — art gallery</h1>
+  <nav><a href="?view=main">main</a><a href="?view=grid">traits × stages</a><a href="?view=zoom">up close</a><a href="?view=boss">bosses (large)</a><a href="?view=states">states</a><a href="?view=diff">stage-1 regression</a> <span id="status"></span></nav>
+  <div id="root"></div>
+</main>
+<script type="module" src="./art.js"></script>
+</body>
+</html>

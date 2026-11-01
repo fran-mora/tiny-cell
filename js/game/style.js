@@ -161,6 +161,18 @@ const CSS = `
 /* no frosted glass over the live game canvas: re-blurring every frame is slow and drains battery */
 .mb-root *, .mb-root .icon-btn, .mb-root .chip, .mb-root .panel { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
 .mb-root .icon-btn, .mb-root .chip { background: rgba(6, 18, 34, .8); }
+.mb-swapnote { margin-top: 4px; font-size: 11.5px; font-weight: 800; color: var(--warn); }
+.mb-swaphead { text-align: center; display: flex; flex-direction: column; gap: 4px; margin: 0 16px 10px; max-width: 420px; }
+.mb-swaphead b { font-size: 17px; }
+.mb-swaphead span { font-size: 13px; color: var(--text-dim); }
+.mb-swaplist { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; width: 100%; max-width: 420px; margin: 0 auto; box-sizing: border-box; }
+.mb-swapitem { appearance: none; min-width: 0; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 14px; border: 1px solid var(--line-hi); background: rgba(14, 28, 52, .92); color: var(--text); font-weight: 750; font-size: 13px; cursor: pointer; text-align: left; }
+.mb-swapitem:active { transform: scale(.96); }
+.mb-swapitem canvas { width: 34px; height: 34px; flex: none; }
+.mb-swapitem sup { color: var(--text-faint); margin-left: auto; }
+.mb-swapitem span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* while choosing a trait, the top HUD steps aside so tall card stacks never overlap it */
+.mb-root.mb-picking .mb-top { opacity: 0; transition: opacity .2s; }
 `;
 
 let injected = null, refs = 0;

@@ -1,6 +1,15 @@
 // Player-facing release notes, newest first.
 export const CHANGELOG = [
-  { build: 4, title: 'Quiet exit', notes: ['Fixed the harsh noise when closing or switching away from the app: sound now fades out instantly and music restarts cleanly when you come back.'] },
+  { build: 7, title: 'The evolution journey', notes: [
+    '48 levels across 8 habitats: Sunlit Shallows, Kelp Twilight, Midnight Gyre, Violet Abyss, Green Sea, Ember Vents, Glass Reef and the Origin Trench.',
+    'A boss ends every habitat: Colossal Amoeba, Great Ciliate, Phage Queen, Rotifer Tyrant, Volvox Titan, Colossus Prime, Diatom Leviathan and the Progenitor.',
+    'Die and you retry the same level. Traits and evolution progress are never lost.',
+    'Eating fills your evolution bar. Each time it fills you pick a trait that stays for the whole journey.',
+    'Five body stages: Single Cell, Colony, Multicellular, Swimmer and Sea Creature, each with its own look, more trait slots and new traits (guard cells, jaws, stinging cells, fins, eyes, shell, tentacles, gills and more).',
+    'When your body is full, a new trait replaces one you choose.',
+    'New home screen with your Journey map and Traits. The DNA shop is gone: traits are your upgrades now.',
+  ] },
+  { build: 5, title: 'Quiet exit', notes: ['Fixed the harsh noise when closing or switching away from the app: sound now fades out instantly and music restarts cleanly when you come back.'] },
   { build: 3, title: 'Calmer start', notes: ['The game opens straight onto the home screen: no welcome popup. Look around and dive when you\u2019re ready.', 'The tip about spending DNA after your first dive is now a quiet message instead of a popup.'] },
   { build: 1, title: 'Tiny Cell is its own game', notes: [
     'The microbe dives from Tiny World are now a standalone game with their own home screen.',

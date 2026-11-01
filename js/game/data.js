@@ -25,6 +25,18 @@ export const MICROBE_SPECIES = [
     desc: 'Guardian of the Midnight Gyre. Bite its glowing weak spots and never touch its body.' },
   { id: 'queen', name: 'Phage Queen', firstEra: 1, role: 'boss',
     desc: 'A crystalline virus the size of a reef. She guards the Vent of Origins.' },
+  { id: 'greatciliate', name: 'Great Ciliate', firstEra: 1, role: 'boss',
+    desc: 'A golden blur of beating hairs that rules the Kelp Twilight. It charges in straight lines and calls its kin.' },
+  { id: 'tyrant', name: 'Rotifer Tyrant', firstEra: 1, role: 'boss',
+    desc: 'Its spinning crown drags everything towards its mouth. Swim hard against the pull.' },
+  { id: 'titan', name: 'Volvox Titan', firstEra: 1, role: 'boss',
+    desc: 'A rolling world of green cells that sheds glassy shards as it turns.' },
+  { id: 'prime', name: 'Colossus Prime', firstEra: 1, role: 'boss',
+    desc: 'A vent-forged colossus: faster, angrier and surrounded by hunters.' },
+  { id: 'leviathan', name: 'Diatom Leviathan', firstEra: 1, role: 'boss',
+    desc: 'Living glass the size of a reef, firing storms of silica shards.' },
+  { id: 'progenitor', name: 'The Progenitor', firstEra: 1, role: 'boss',
+    desc: 'The ancestor of all life, guarding the bottom of the Origin Trench. Three forms.' },
 ];
 export const SPECIES_BY_ID = Object.fromEntries(MICROBE_SPECIES.map((s) => [s.id, s]));
 

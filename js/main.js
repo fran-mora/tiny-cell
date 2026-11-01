@@ -2,11 +2,13 @@
 import { store } from './store.js';
 import { el, icon, fmt, toast, sheet, dialog, confirm, duration, closeTopModal, anyModalOpen } from './ui.js';
 import { audio, haptic } from './audio.js';
-import { AGES, roman, dnaMultFor, advanceAge } from './ages.js';
 import { CHANGELOG } from './changelog.js';
 import { BUILD, BUILD_TIME } from './version.js';
 import * as Game from './game/index.js';
 import { drawPlayer, glowSprite } from './game/art.js';
+
+const C = () => store.state.campaign;
+const habitatOf = (c) => Math.ceil(c / Game.LEVELS_PER_HABITAT);
 
 const S = () => store.state;
 
@@ -18,7 +20,6 @@ class App {
     audio.setSfx(st.settings.sfx); audio.setMusic(st.settings.music);
     this.app = document.getElementById('app');
     this.fade = el('div.fade-cover'); this.app.appendChild(this.fade);
-    advanceAge(st);
     this.buildHub();
     this.startHubAnim();
     document.getElementById('boot').classList.add('hide');
@@ -31,7 +32,7 @@ class App {
     window.addEventListener('pagehide', () => { audio.suspend(); store.save(); });
     document.addEventListener('freeze', () => audio.suspend());
     window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !this.run) closeTopModal(); });
-    if (store.imported) setTimeout(() => toast(`Brought over your progress from Tiny World: <b>${store.imported.genes}</b> genome upgrades, <b>${store.imported.runs}</b> dives and <b class="dna-c">${fmt(store.imported.dna)} DNA</b>.`, { icon: 'dna', kind: 'dna', ms: 6000 }), 900);
+    if (store.migratedFromV1) { store.save(); setTimeout(() => toast('Tiny Cell is now a <b>48-level evolution journey</b>. Your codex and records came with you.', { icon: 'star', ms: 6500 }), 900); }
     window.__tc = this;
     this.registerSW();
   }
@@ -41,12 +42,13 @@ class App {
     const st = S();
     this.hub = el('div.hub');
     this.canvas = el('canvas.hub-bg');
-    this.dnaChip = el('button.chip.hub-dna', { onclick: () => this.openGenome() }, [icon('dna'), el('span.num.dna-c', {}, fmt(st.dna))]);
+    this.dnaChip = el('button.chip.hub-dna', { onclick: () => this.openTraits() }, [icon('dna'), el('span.num.dna-c', {}, '')]);
     this.dnaChip.querySelector('svg').style.color = 'var(--dna)';
     const menuBtn = el('button.icon-btn', { 'aria-label': 'Menu', onclick: () => { audio.sfx('click'); this.openMenu(); } }, icon('menu'));
-    this.ageEl = el('button.hub-age.panel', { onclick: () => { audio.sfx('click'); this.openAges(); } });
-    this.diveBtn = el('button.btn.btn-primary.btn-lg.btn-block.hub-dive', { onclick: () => this.dive() }, [icon('microbe'), 'Dive']);
-    this.genomeBtn = el('button.hub-tile', { onclick: () => this.openGenome() }, [icon('dna'), el('span', {}, 'Genome')]);
+    this.ageEl = el('button.hub-age.panel', { onclick: () => { audio.sfx('click'); this.openJourney(); } });
+    this.diveBtn = el('button.btn.btn-primary.btn-lg.btn-block.hub-dive', { onclick: () => this.dive() }, [icon('microbe'), 'Play']);
+    const journeyBtn = el('button.hub-tile', { onclick: () => { audio.sfx('click'); this.openJourney(); } }, [icon('globe'), el('span', {}, 'Journey')]);
+    this.genomeBtn = el('button.hub-tile', { onclick: () => this.openTraits() }, [icon('dna'), el('span', {}, 'Traits')]);
     const codexBtn = el('button.hub-tile', { onclick: () => this.openCodex() }, [icon('book'), el('span', {}, 'Codex')]);
     const recBtn = el('button.hub-tile', { onclick: () => this.openRecords() }, [icon('chart'), el('span', {}, 'Records')]);
     this.lastRunEl = el('div.hub-last');
@@ -57,7 +59,7 @@ class App {
       el('div.hub-bottom', {}, [
         this.lastRunEl,
         this.diveBtn,
-        el('div.hub-tiles', {}, [this.genomeBtn, codexBtn, recBtn]),
+        el('div.hub-tiles', {}, [journeyBtn, this.genomeBtn, codexBtn, recBtn]),
         el('button.build-tag', { onclick: () => this.whatsNew() }, [`Build ${BUILD} · ${BUILD_TIME} · `, el('u', {}, 'What’s new')]),
       ]),
     );
@@ -66,18 +68,20 @@ class App {
   }
 
   refreshHub() {
-    const st = S(), A = AGES[st.age];
-    this.dnaChip.lastChild.textContent = fmt(st.dna);
+    const st = S(), c = C();
+    const L = Game.levelConfig(c.level), stage = Game.STAGES[c.stage];
+    const used = (c.mutOrder || []).filter((id) => c.muts[id] > 0).length;
+    this.dnaChip.lastChild.textContent = `Evo ${c.evo.level}`;
     this.ageEl.replaceChildren(
-      el('div.hub-age-name', { style: { color: A.color } }, `Ocean Age ${roman(st.age)} · ${A.name}`),
-      el('div.small.dim', {}, A.goal ? `Next age: ${A.goal}` : 'The oldest ocean. Can you beat it again?'),
+      el('div.hub-age-name', {}, c.complete ? 'Journey complete' : `Level ${c.level} of ${Game.TOTAL_LEVELS} \u00b7 ${L.name}`),
+      el('div.small.dim', {}, `${stage.name} \u00b7 ${used}/${stage.slots} traits`),
     );
-    const canBuy = Game.GENOME_UPGRADES.some((u) => (st.genome[u.id] | 0) < u.maxLevel && st.dna >= u.cost(st.genome[u.id] | 0));
-    let dot = this.genomeBtn.querySelector('.dot');
-    if (canBuy && !dot) this.genomeBtn.appendChild(el('i.dot'));
-    if (!canBuy && dot) dot.remove();
+    const label = c.complete ? 'Replay the final boss' : L.isBoss ? `Fight the ${Game.BOSSES[L.boss].name}` : `Play level ${c.level}`;
+    this.diveBtn.innerHTML = icon(L.isBoss ? 'target' : 'microbe') + `<span>${label}</span>`;
+    this.diveBtn.classList.toggle('boss', L.isBoss);
     const last = st.history[0];
-    this.lastRunEl.textContent = last ? `Last dive: depth ${last.depth} · level ${last.level} · +${last.dna} DNA${last.win ? ' · victory!' : ''}` : 'Drag anywhere to swim. Eat what is smaller, flee what is bigger.';
+    const tries = c.attempts[c.level] | 0;
+    this.lastRunEl.textContent = last ? (last.cleared ? `Cleared level ${last.level} \u00b7 +${last.gained} new trait${last.gained === 1 ? '' : 's'}` : `Level ${c.level}: ${tries} attempt${tries === 1 ? '' : 's'} so far \u00b7 your traits stay with you`) : 'Drag anywhere to swim. Eat what is smaller, flee what is bigger.';
   }
 
   startHubAnim() {
@@ -98,8 +102,8 @@ class App {
       const W = c.clientWidth, H = c.clientHeight;
       if (c.width !== Math.round(W * dpr) || c.height !== Math.round(H * dpr)) { c.width = Math.round(W * dpr); c.height = Math.round(H * dpr); }
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      const age = S().age;
-      const tint = [[12, 70, 86], [10, 82, 84], [14, 90, 70], [40, 80, 60], [20, 92, 58], [44, 40, 96]][age - 1];
+      const pal = Game.HABITATS[habitatOf(C().level)].pal.bg;
+      const tint = [pal[0] * 0.8, pal[1] * 0.8, pal[2] * 0.8].map(Math.round);
       const g = ctx.createRadialGradient(W / 2, H * 0.42, 10, W / 2, H * 0.5, Math.max(W, H) * 0.8);
       g.addColorStop(0, `rgb(${tint[0] + 18},${tint[1] + 30},${tint[2] + 30})`); g.addColorStop(1, '#020812');
       ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
@@ -118,7 +122,7 @@ class App {
       }
       ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
       // the player's cell, wearing the mutations of its last dive
-      cell.muts = S().lastMuts || {};
+      cell.muts = C().muts || {}; cell.stage = C().stage;
       cell.ang = -1.57 + Math.sin(t * 0.4) * 0.35;
       // sit the cell in the open water between the age panel and the dive button
       const top = this.ageEl ? this.ageEl.getBoundingClientRect().bottom : H * 0.4;
@@ -139,128 +143,168 @@ class App {
     audio.init(); audio.sfx('descend'); haptic(15);
     store.save();
     this.fade.classList.add('on');
-    setTimeout(() => {
-      const st = S();
-      this.hub.style.display = 'none';
-      this.host = el('div.run-host');
-      this.app.insertBefore(this.host, this.fade);
-      audio.music('microbe');
-      this.runStart = performance.now();
-      this.run = Game.startMicrobeRun({
-        host: this.host, era: st.age, genome: { ...st.genome },
-        codex: { microbes: { ...st.codex.microbes }, mutations: { ...st.codex.mutations } },
-        settings: { ...st.settings }, firstRun: st.totals.runs === 0, dnaMult: dnaMultFor(st.age),
-        returnLabel: 'Back to the surface', debug: location.search.includes('debug'),
-        onExit: (res) => this.endRun(res),
-      });
-      setTimeout(() => this.fade.classList.remove('on'), 60);
-    }, 420);
+    setTimeout(() => this.startLevel(), 420);
+  }
+
+  startLevel() {
+    const st = S(), c = C();
+    if (c.complete) c.level = Game.TOTAL_LEVELS;
+    this.hub.style.display = 'none';
+    this.host?.remove();
+    this.host = el('div.run-host');
+    this.app.insertBefore(this.host, this.fade);
+    audio.music('microbe');
+    this.run = Game.startMicrobeRun({
+      host: this.host,
+      campaign: { level: c.level, stage: c.stage, evo: { ...c.evo }, muts: { ...c.muts }, mutOrder: [...c.mutOrder], attempts: c.attempts[c.level] | 0 },
+      codex: { microbes: { ...st.codex.microbes }, mutations: { ...st.codex.mutations } },
+      settings: { ...st.settings }, debug: location.search.includes('debug'),
+      onExit: (res) => this.endRun(res),
+    });
+    setTimeout(() => this.fade.classList.remove('on'), 60);
   }
 
   endRun(res) {
-    const st = S();
-    const ageBefore = st.age;
+    const st = S(), c = C();
     this.fade.classList.add('on');
+    let evolved = 0;
+    if (res && res.campaign) {
+      // evolution progress is always kept, cleared or not
+      c.muts = { ...res.muts }; c.mutOrder = [...res.mutOrder]; c.evo = { ...res.evo };
+      c.attempts[res.level] = (c.attempts[res.level] | 0) + 1;
+      st.totals.attempts++;
+      st.totals.kills += res.kills || 0; st.totals.bossKills += res.bossKills || 0;
+      st.totals.playTimeSec += res.timeSec || 0; st.totals.biomass += res.biomass || 0;
+      for (const id of res.discovered?.microbes || []) st.codex.microbes[id] = true;
+      for (const id of res.mutOrder || []) st.codex.mutations[id] = true;
+      for (const id of res.gained || []) st.codex.mutations[id] = true;
+      if (res.cleared) {
+        st.totals.cleared++;
+        c.best = Math.max(c.best, res.level);
+        if (res.boss) c.bosses[res.boss] = true;
+        const before = c.stage;
+        c.stage = Math.max(c.stage, Game.stageForCleared(Math.floor(c.best / Game.LEVELS_PER_HABITAT)));
+        if (c.stage > before) evolved = c.stage;
+        if (res.level >= Game.TOTAL_LEVELS) c.complete = true; else c.level = Math.max(c.level, res.level + 1);
+      } else if (!res.abandoned) st.totals.deaths++;
+      st.history.unshift({ d: Date.now(), level: res.level, cleared: !!res.cleared, gained: new Set(res.gained || []).size, time: res.timeSec });
+      st.history = st.history.slice(0, 30);
+    }
+    store.save();
+    const choice = res?.choice || 'home';
     setTimeout(() => {
       try { this.run && this.run.destroy(); } catch (e) { console.warn(e); }
       this.run = null; this.host?.remove(); this.host = null;
-      if (res) {
-        const dna = Math.max(0, Math.round(res.dna || 0));
-        st.dna += dna; st.totals.dnaEarned += dna;
-        st.totals.runs++;
-        if (res.victory) st.totals.wins++;
-        st.totals.bestDepth = Math.max(st.totals.bestDepth, res.depth || 0);
-        st.totals.bestLevel = Math.max(st.totals.bestLevel, res.level || 0);
-        st.totals.bossKills += res.bossKills || 0;
-        st.totals.kills += res.kills || 0;
-        st.totals.playTimeSec += res.timeSec || 0;
-        if (res.victory) st.totals.bestTime = st.totals.bestTime ? Math.min(st.totals.bestTime, res.timeSec) : res.timeSec;
-        for (const id of res.discovered?.microbes || []) st.codex.microbes[id] = true;
-        for (const id of res.discovered?.mutations || []) st.codex.mutations[id] = true;
-        for (const id of res.mutations || []) st.codex.mutations[id] = true;
-        st.lastMuts = Object.fromEntries((res.mutations || []).map((id) => [id, 2]));
-        st.history.unshift({ d: Date.now(), dna, depth: res.depth, level: res.level, win: !!res.victory, time: res.timeSec, age: st.age });
-        st.history = st.history.slice(0, 30);
-      }
-      advanceAge(st);
-      store.save();
+      const goOn = (choice === 'next' || choice === 'retry') && !(choice === 'next' && c.complete);
+      if (goOn && !evolved) { this.startLevel(); return; }
       this.hub.style.display = '';
       audio.music('title');
       this.refreshHub();
       this.startHubAnim();
       setTimeout(() => this.fade.classList.remove('on'), 60);
-      if (res && res.dna) setTimeout(() => { toast(`<b class="dna-c">+${fmt(res.dna)} DNA</b>`, { icon: 'dna', kind: 'dna', sound: 'coin' }); }, 450);
-      if (st.age > ageBefore) setTimeout(() => this.ageUp(st.age), 1100);
-      else if (res && st.totals.runs === 1) setTimeout(() => this.afterFirstRun(), 1100);
+      if (evolved) setTimeout(() => this.evolveDialog(evolved, goOn), 500);
+      else if (c.complete && res?.cleared && res.level >= Game.TOTAL_LEVELS) setTimeout(() => this.endingDialog(), 500);
     }, 420);
   }
 
   // ---------------------------------------------------------------- dialogs
-  afterFirstRun() {
-    toast('DNA buys permanent upgrades for every future cell. Tap <b>Genome</b> when you\u2019re ready.', { icon: 'dna', kind: 'dna', ms: 5000 });
-  }
-
-  ageUp(age) {
-    const A = AGES[age];
-    audio.sfx('milestone'); haptic([20, 40, 20]);
+  evolveDialog(stage, continueAfter) {
+    const S2 = Game.STAGES[stage];
+    audio.sfx('evolve'); setTimeout(() => audio.sfx('milestone'), 300); haptic([20, 40, 20, 40, 60]);
+    let pic = null; try { pic = Game.portrait('stage', stage, 200); pic.style.width = pic.style.height = '160px'; } catch (e) {}
     dialog({
       dismissable: false,
       body: el('div.center', {}, [
-        el('div.era-kicker', { style: { color: A.color } }, `Ocean Age ${roman(age)}`),
-        el('div.era-big', {}, A.name),
-        el('p.dim', { style: { margin: '0 0 6px' } }, A.blurb),
-        el('p.small', { style: { margin: 0, color: 'var(--dna)' } }, `DNA from every dive: +${Math.round((dnaMultFor(age) - 1) * 100)}%`),
+        el('div.era-kicker', {}, 'You evolved'),
+        el('div.era-big', {}, S2.name),
+        pic ? el('div', { style: { display: 'flex', justifyContent: 'center', margin: '4px 0 8px' } }, pic) : null,
+        el('p.dim', { style: { margin: 0 } }, S2.blurb),
+        el('p.small', { style: { margin: '8px 0 0', color: 'var(--dna)' } }, `Trait slots: ${S2.slots}`),
       ]),
-      buttons: [{ label: 'Onward', cls: 'btn-primary btn-lg' }],
+      buttons: [{ label: continueAfter ? `On to level ${C().level}` : 'Onward', cls: 'btn-primary btn-lg', onClick: () => { if (continueAfter) setTimeout(() => this.dive(), 200); } }],
     });
   }
 
-  openAges() {
+  endingDialog() {
+    audio.sfx('victory'); haptic([30, 60, 30, 60, 30]);
     const st = S();
-    const items = [];
-    for (let a = 1; a <= 6; a++) {
-      const A = AGES[a], cur = a === st.age, past = a < st.age;
-      items.push(el('div.card', { style: { borderColor: cur ? A.color : '', boxShadow: cur ? `0 0 0 1px ${A.color} inset` : '', opacity: a > st.age + 1 ? 0.55 : 1 } }, [
-        el('div.row.between', {}, [el('div', { style: { fontWeight: 850, color: A.color } }, `${roman(a)} · ${A.name}`), el('span.tag', { class: past || cur ? 'good' : '' }, past ? 'Reached' : cur ? 'Now' : 'Locked')]),
-        el('div.small.dim', { style: { marginTop: '4px' } }, a <= st.age + 1 ? A.blurb : '???'),
-        a === st.age && A.goal ? el('div.small', { style: { marginTop: '6px' } }, ['To advance: ', el('b', {}, A.goal)]) : null,
-        el('div.small', { style: { marginTop: '4px', color: 'var(--dna)' } }, `+${Math.round((dnaMultFor(a) - 1) * 100)}% DNA`),
-      ]));
-    }
-    sheet({ title: 'Ocean Ages', body: [el('p.dim', { style: { margin: '0 0 12px', fontSize: '14px' } }, 'Each age makes the ocean richer and stranger: more food, new species, tougher bosses and more DNA.'), el('div.list', {}, items)] });
+    dialog({
+      dismissable: false,
+      body: el('div.center', {}, [
+        el('div.era-kicker', {}, 'Journey complete'),
+        el('div.era-big', {}, 'From a single cell'),
+        el('p.dim', { style: { margin: '0 0 10px' } }, 'You crossed eight habitats, beat eight bosses and evolved into a true creature of the deep.'),
+        el('div.stat-grid', {}, [
+          el('div.stat', {}, [el('div.v', {}, fmt(st.totals.attempts)), el('div.k', {}, 'Attempts')]),
+          el('div.stat', {}, [el('div.v', {}, duration(st.totals.playTimeSec)), el('div.k', {}, 'Time underwater')]),
+        ]),
+      ]),
+      buttons: [{ label: 'Wonderful', cls: 'btn-primary btn-lg' }],
+    });
   }
 
-  openGenome() {
-    audio.sfx('click');
-    const content = el('div');
-    const head = el('div.row', { style: { marginBottom: '12px' } });
-    const sh = sheet({ title: 'Genome', body: [head, content], onClose: () => this.refreshHub() });
-    const render = () => {
-      const st = S();
-      head.replaceChildren(el('span.chip', {}, [icon('dna'), el('span.dna-c.num', {}, fmt(st.dna))]), el('span.small.dim.grow', {}, 'Permanent upgrades. Every new cell is born with them.'));
-      head.firstChild.querySelector('svg').style.color = 'var(--dna)';
-      const list = el('div.list');
-      for (const u of Game.GENOME_UPGRADES) {
-        const l = st.genome[u.id] | 0, max = l >= u.maxLevel, cost = max ? 0 : u.cost(l);
-        let p = null; try { p = Game.portrait('genome', u.id, 112); p.style.width = p.style.height = '100%'; } catch (e) {}
-        list.appendChild(el('div.card.res-card', {}, [
-          el('div.thumb', {}, p || icon('dna', 'lg')),
-          el('div.info', {}, [
-            el('div.nm', {}, [u.name, el('span.pips', {}, Array.from({ length: u.maxLevel }, (_, k) => el('i', { class: k < l ? 'on' : '' })))]),
-            el('div.ds', {}, u.desc),
-            el('div.ds', { style: { color: 'var(--dna)' } }, l > 0 ? `Now: ${u.effect(l)}${max ? '' : ` → ${u.effect(l + 1)}`}` : `Next: ${u.effect(1)}`),
-          ]),
-          max ? el('span.tag.good', {}, 'Max') : el('button.btn.btn-dna', { class: st.dna >= cost ? '' : 'disabled', onclick: () => {
-            if (st.dna < cost) return;
-            st.dna -= cost; st.genome[u.id] = l + 1; store.save();
-            audio.sfx('evolve'); haptic(12); render(); this.refreshHub();
-          } }, [icon('dna', 'sm'), fmt(cost)]),
-        ]));
+  openJourney() {
+    const c = C();
+    const items = [];
+    for (let h = 1; h < Game.HABITATS.length; h++) {
+      const H = Game.HABITATS[h], B = Game.BOSSES[H.boss];
+      const first = (h - 1) * Game.LEVELS_PER_HABITAT + 1, lastL = h * Game.LEVELS_PER_HABITAT;
+      const reached = c.level >= first || c.best >= first;
+      const done = c.best >= lastL;
+      const dots = el('div.jr-dots');
+      for (let lv = first; lv <= lastL; lv++) {
+        const boss = lv === lastL;
+        dots.appendChild(el('i', { class: (c.best >= lv ? 'on' : '') + (lv === c.level && !c.complete ? ' cur' : '') + (boss ? ' boss' : '') }));
       }
-      content.replaceChildren(list);
-    };
-    render();
-    return sh;
+      const evo = Game.EVOLVE_AFTER[h];
+      let bossPic = null;
+      if (reached) { try { bossPic = Game.portrait('microbe', B.id, 88); bossPic.style.width = bossPic.style.height = '100%'; } catch (e) {} }
+      items.push(el('div.card.jr-card', { class: (done ? 'done' : '') + (!reached ? ' locked' : '') + (c.level >= first && c.level <= lastL && !c.complete ? ' cur' : '') }, [
+        el('div.thumb', {}, bossPic || icon('lock', 'lg')),
+        el('div.grow', {}, [
+          el('div.jr-name', {}, [`${h} \u00b7 ${reached ? H.name : '???'}`, done ? el('span.tag.good', {}, 'Cleared') : null]),
+          el('div.small.dim', {}, reached ? `Boss: ${c.bosses[B.id] || done ? B.name : '???'}` : `Levels ${first}\u2013${lastL}`),
+          dots,
+          evo ? el('div.small', { style: { color: 'var(--dna)', marginTop: '4px' } }, `Beat the boss to evolve: ${Game.STAGES[evo].name}`) : null,
+        ]),
+      ]));
+    }
+    sheet({ title: 'Journey', body: [el('p.dim', { style: { margin: '0 0 12px', fontSize: '14px' } }, `48 levels across 8 habitats. You are on level ${c.complete ? 48 : c.level}. Die and you retry the same level, keeping every trait.`), el('div.list', {}, items)] });
+  }
+
+  openTraits() {
+    audio.sfx('click');
+    const c = C(), S2 = Game.STAGES[c.stage];
+    const owned = (c.mutOrder || []).filter((id) => c.muts[id] > 0);
+    const defs = Object.fromEntries(Game.MUTATIONS.map((m) => [m.id, m]));
+    let pic = null; try { pic = Game.portrait('stage', c.stage, 160); pic.style.width = pic.style.height = '100%'; } catch (e) {}
+    const evoNeed = Game.evoNeed(c.evo.level);
+    const rows = owned.map((id) => {
+      const d = defs[id]; const l = c.muts[id];
+      let p = null; try { p = Game.portrait('mutation', id, 96); p.style.width = p.style.height = '100%'; } catch (e) {}
+      return el('div.card.res-card', {}, [
+        el('div.thumb', {}, p || icon('dna')),
+        el('div.info', {}, [el('div.nm', {}, [d ? d.name : id, el('span.pips', {}, Array.from({ length: d ? d.maxLevel : l }, (_, k) => el('i', { class: k < l ? 'on' : '' })))]), el('div.ds', {}, d ? d.desc : ''), d && d.lv ? el('div.ds', { style: { color: 'var(--dna)' } }, d.lv(l)) : null]),
+      ]);
+    });
+    const tiers = [2, 3, 4, 5].map((stg) => {
+      const list = Game.MUTATIONS.filter((m) => m.stage === stg);
+      const open = c.stage >= stg;
+      return el('div.small', { style: { margin: '4px 2px', color: open ? 'var(--text-dim)' : 'var(--text-faint)' } }, [el('b', { style: { color: open ? 'var(--good)' : 'var(--text-faint)' } }, `${Game.STAGES[stg].name}: `), list.map((m) => m.name).join(', '), open ? '' : ' (locked)']);
+    });
+    sheet({ title: 'Traits', body: [
+      el('div.card.row', { style: { marginBottom: '12px' } }, [
+        el('div.thumb', { style: { width: '72px', height: '72px' } }, pic || icon('microbe', 'lg')),
+        el('div.grow', {}, [
+          el('div', { style: { fontWeight: 850, fontSize: '17px' } }, S2.name),
+          el('div.small.dim', {}, `${owned.length}/${S2.slots} trait slots \u00b7 Evolution Lv ${c.evo.level}`),
+          el('div.bar.xp', { style: { marginTop: '8px' } }, el('i', { style: { width: Math.round(100 * c.evo.xp / evoNeed) + '%' } })),
+        ]),
+      ]),
+      owned.length ? el('div.list', {}, rows) : el('div.empty', {}, 'No traits yet. Eat to fill your evolution bar and pick your first trait.'),
+      el('div.section-title', {}, 'Trait families'),
+      ...tiers,
+    ] });
   }
 
   openCodex() {
@@ -281,23 +325,22 @@ class App {
 
   openRecords() {
     audio.sfx('click');
-    const st = S(), T = st.totals;
+    const st = S(), T = st.totals, c = C();
     const stat = (v, k) => el('div.stat', {}, [el('div.v', {}, v), el('div.k', {}, k)]);
     const hist = st.history.slice(0, 15).map((h) => el('div.row', { style: { padding: '8px 2px', borderBottom: '1px solid var(--line)', fontSize: '13.5px' } }, [
-      el('span', { style: { color: h.win ? 'var(--good)' : 'var(--text-dim)', display: 'inline-flex' }, html: icon(h.win ? 'star' : 'microbe', 'sm') }),
-      el('div.grow', {}, `Depth ${h.depth} · Lv ${h.level}${h.time ? ' · ' + duration(h.time) : ''}`),
-      el('span.dna-c', { style: { fontWeight: 800 } }, `+${h.dna}`),
+      el('span', { style: { color: h.cleared ? 'var(--good)' : 'var(--text-dim)', display: 'inline-flex' }, html: icon(h.cleared ? 'check' : 'microbe', 'sm') }),
+      el('div.grow', {}, `Level ${h.level} \u00b7 ${h.cleared ? 'cleared' : 'dissolved'}${h.time ? ' \u00b7 ' + duration(h.time) : ''}`),
+      h.gained ? el('span.dna-c', { style: { fontWeight: 800 } }, `+${h.gained} trait${h.gained === 1 ? '' : 's'}`) : null,
     ]));
     sheet({ title: 'Records', body: [
       el('div.stat-grid', {}, [
-        stat(fmt(T.runs), 'Dives'), stat(fmt(T.wins), 'Victories'),
-        stat(String(T.bestDepth || 0), 'Deepest depth'), stat(String(T.bestLevel || 0), 'Highest level'),
-        stat(fmt(T.bossKills), 'Bosses defeated'), stat(fmt(T.kills), 'Cells eaten'),
-        stat(fmt(T.dnaEarned), 'DNA earned'), stat(T.bestTime ? duration(T.bestTime) : '—', 'Fastest victory'),
-        stat(duration(T.playTimeSec), 'Time underwater'), stat(`${roman(st.age)}`, 'Ocean Age'),
+        stat(`${c.complete ? 48 : c.best}/48`, 'Levels cleared'), stat(Game.STAGES[c.stage].name, 'Body'),
+        stat(`Lv ${c.evo.level}`, 'Evolution'), stat(fmt(T.attempts), 'Attempts'),
+        stat(fmt(T.deaths), 'Times dissolved'), stat(fmt(T.bossKills), 'Bosses defeated'),
+        stat(fmt(T.kills), 'Cells eaten'), stat(duration(T.playTimeSec), 'Time underwater'),
       ]),
-      el('div.section-title', {}, 'Recent dives'),
-      hist.length ? el('div', {}, hist) : el('div.empty', {}, 'No dives yet.'),
+      el('div.section-title', {}, 'Recent attempts'),
+      hist.length ? el('div', {}, hist) : el('div.empty', {}, 'No attempts yet.'),
     ] });
   }
 
@@ -320,7 +363,7 @@ class App {
       el('div.section-title', {}, 'Save data'),
       el('div.list', {}, [
         el('button.btn.btn-block', { onclick: () => this.backup() }, [icon('shield'), 'Back up or restore save']),
-        el('button.btn.btn-block.btn-danger', { onclick: async () => { if (await confirm('Erase all progress?', 'Your genome, codex, records and DNA will be wiped. This cannot be undone.', 'Erase everything', 'btn-danger')) { store.wipe(); localStorage.setItem('tinycell.noimport', '1'); location.reload(); } } }, [icon('trash'), 'Erase all progress']),
+        el('button.btn.btn-block.btn-danger', { onclick: async () => { if (await confirm('Erase all progress?', 'Your journey, traits, codex and records will be wiped. This cannot be undone.', 'Erase everything', 'btn-danger')) { store.wipe(); location.reload(); } } }, [icon('trash'), 'Erase all progress']),
       ]),
       el('div.small.faint.center', { style: { marginTop: '18px' } }, `Tiny Cell · Build ${BUILD} (${BUILD_TIME})`),
     ] });
@@ -330,11 +373,11 @@ class App {
     const p = (t) => el('p', { style: { margin: '0 0 10px', fontSize: '14px', color: 'var(--text-dim)' }, html: t });
     sheet({ title: 'How to play', body: [
       p('<b style="color:var(--text)">Swim:</b> drag anywhere on the screen. The further you drag, the faster you go. Let go to drift.'),
-      p('<b style="color:var(--text)">Eat</b> glowing motes and any cell smaller than you. Anything bigger than you is dangerous. Red spiky Hunters chase you.'),
-      p('<b style="color:var(--text)">Evolve:</b> every level you pick a mutation that changes how your cell looks and plays. Some give an active ability: tap its button (bottom right) to use it.'),
-      p('<b style="color:var(--text)">Depths:</b> survive each depth to sink deeper. A boss waits at the end of depth 3 and depth 5. Bite their glowing weak spots and avoid their bodies.'),
-      p('<b style="color:var(--dna)">DNA</b> from every dive buys permanent <b style="color:var(--text)">Genome</b> upgrades.'),
-      p('<b style="color:var(--text)">Ocean Ages:</b> going deeper and beating bosses awakens older oceans with more food, new species, tougher bosses and more DNA.'),
+      p('<b style="color:var(--text)">Eat</b> glowing motes and any cell smaller than you. Anything bigger is dangerous. You start each level small and grow as you eat.'),
+      p('<b style="color:var(--text)">The journey:</b> 48 levels across 8 habitats. Survive the timer to clear a level. Every sixth level is a boss: bite its glowing weak spots and avoid its body.'),
+      p('<b style="color:var(--text)">Dying</b> sends you back to the start of the same level. You never lose traits or evolution progress.'),
+      p('<b style="color:var(--dna)">Evolution:</b> eating fills your evolution bar. When it fills, pick a trait. Traits stay for the whole journey and stack when picked again.'),
+      p('<b style="color:var(--text)">Body stages:</b> some bosses evolve you: Colony, Multicellular, Swimmer, Sea Creature. Each stage has more trait slots and new trait families. When your body is full, a new trait replaces an old one.'),
     ] });
   }
 
