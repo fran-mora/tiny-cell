@@ -1,5 +1,6 @@
 // Player-facing release notes, newest first.
 export const CHANGELOG = [
+  { build: 4, title: 'Quiet exit', notes: ['Fixed the harsh noise when closing or switching away from the app: sound now fades out instantly and music restarts cleanly when you come back.'] },
   { build: 3, title: 'Calmer start', notes: ['The game opens straight onto the home screen: no welcome popup. Look around and dive when you\u2019re ready.', 'The tip about spending DNA after your first dive is now a quiet message instead of a popup.'] },
   { build: 1, title: 'Tiny Cell is its own game', notes: [
     'The microbe dives from Tiny World are now a standalone game with their own home screen.',

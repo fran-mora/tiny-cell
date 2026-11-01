@@ -27,8 +27,9 @@ class App {
     const first = () => { audio.init(); audio.music(this.run ? 'microbe' : 'title'); };
     window.addEventListener('pointerdown', first, { once: true, capture: true });
     window.addEventListener('pointerdown', () => { if (audio.ready) audio.resume(); }, { passive: true });
-    document.addEventListener('visibilitychange', () => { if (document.hidden) { store.save(); audio.suspend(); } else audio.resume(); });
-    window.addEventListener('pagehide', () => store.save());
+    document.addEventListener('visibilitychange', () => { if (document.hidden) { audio.suspend(); store.save(); } else audio.resume(); });
+    window.addEventListener('pagehide', () => { audio.suspend(); store.save(); });
+    document.addEventListener('freeze', () => audio.suspend());
     window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !this.run) closeTopModal(); });
     if (store.imported) setTimeout(() => toast(`Brought over your progress from Tiny World: <b>${store.imported.genes}</b> genome upgrades, <b>${store.imported.runs}</b> dives and <b class="dna-c">${fmt(store.imported.dna)} DNA</b>.`, { icon: 'dna', kind: 'dna', ms: 6000 }), 900);
     window.__tc = this;
@@ -369,7 +370,7 @@ class App {
   registerSW() {
     if (!('serviceWorker' in navigator) || location.protocol === 'file:') return;
     navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((reg) => {
-      document.addEventListener('visibilitychange', () => { if (!document.hidden) reg.update().catch(() => {}); });
+      document.addEventListener('visibilitychange', () => { if (!document.hidden && reg) reg.update().catch(() => {}); });
     }).catch((e) => console.warn('SW failed', e));
     const had = !!navigator.serviceWorker.controller;
     let refreshing = false;
