@@ -146,19 +146,21 @@ class App {
     setTimeout(() => this.startLevel(), 420);
   }
 
-  startLevel() {
+  startLevel(intro = 'dive', cover = null) {
     const st = S(), c = C();
     if (c.complete) c.level = Game.TOTAL_LEVELS;
     this.hub.style.display = 'none';
     this.host?.remove();
     this.host = el('div.run-host');
+    // between levels the old level hands over a colour, and the new one fades in from it
+    if (cover) this.host.style.background = `rgb(${cover.join(',')})`;
     this.app.insertBefore(this.host, this.fade);
     audio.music('microbe');
     this.run = Game.startMicrobeRun({
       host: this.host,
       campaign: { level: c.level, stage: c.stage, evo: { ...c.evo }, muts: { ...c.muts }, mutOrder: [...c.mutOrder], attempts: c.attempts[c.level] | 0 },
       codex: { microbes: { ...st.codex.microbes }, mutations: { ...st.codex.mutations } },
-      settings: { ...st.settings }, debug: location.search.includes('debug'),
+      settings: { ...st.settings }, debug: location.search.includes('debug'), intro,
       onExit: (res) => this.endRun(res),
     });
     setTimeout(() => this.fade.classList.remove('on'), 60);
@@ -166,7 +168,6 @@ class App {
 
   endRun(res) {
     const st = S(), c = C();
-    this.fade.classList.add('on');
     let evolved = 0;
     if (res && res.campaign) {
       // evolution progress is always kept, cleared or not
@@ -192,17 +193,25 @@ class App {
     }
     store.save();
     const choice = res?.choice || 'home';
+    const goOn = (choice === 'next' || choice === 'retry') && !(choice === 'next' && c.complete);
+    if (goOn && res?.seamless && (!evolved || res.evolveShown)) {
+      // the level already played its own outro: swap straight into the next one, no black screen
+      try { this.run && this.run.destroy(); } catch (e) { console.warn(e); }
+      this.run = null;
+      this.startLevel(choice === 'retry' ? 'retry' : 'next', res.cover);
+      return;
+    }
+    this.fade.classList.add('on');
     setTimeout(() => {
       try { this.run && this.run.destroy(); } catch (e) { console.warn(e); }
       this.run = null; this.host?.remove(); this.host = null;
-      const goOn = (choice === 'next' || choice === 'retry') && !(choice === 'next' && c.complete);
-      if (goOn && !evolved) { this.startLevel(); return; }
+      if (goOn && (!evolved || res?.evolveShown)) { this.startLevel(choice === 'retry' ? 'retry' : 'next'); return; }
       this.hub.style.display = '';
       audio.music('title');
       this.refreshHub();
       this.startHubAnim();
       setTimeout(() => this.fade.classList.remove('on'), 60);
-      if (evolved) setTimeout(() => this.evolveDialog(evolved, goOn), 500);
+      if (evolved && !res?.evolveShown) setTimeout(() => this.evolveDialog(evolved, goOn), 500);
       else if (c.complete && res?.cleared && res.level >= Game.TOTAL_LEVELS) setTimeout(() => this.endingDialog(), 500);
     }, 420);
   }

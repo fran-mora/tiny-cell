@@ -1,5 +1,13 @@
 // Player-facing release notes, newest first.
 export const CHANGELOG = [
+  { build: 9, title: 'Dying, diving and evolving', notes: [
+    'Dying is a proper moment now: time slows, your membrane tears open, the insides spill out and the nucleus flickers out. The screen also tells you what killed you.',
+    'Try again and your cell re-forms from drifting specks of itself.',
+    'Clearing a level pulls golden light into you. Going on dives you down through rushing water straight into the next level, with no black screen.',
+    'Arriving in a new habitat shows its name with a line about the place.',
+    'Beating the Great Ciliate, Rotifer Tyrant, Colossus Prime or Diatom Leviathan plays your metamorphosis right there in the water.',
+    'Hunters lose interest once you have won a level, so they no longer crowd the celebration.',
+  ] },
   { build: 8, title: 'Clearer damage, no pile-ups', notes: [
     'Fixed: some levels started with a blank screen because hunters spawned before the camera existed.',
     'When something hurts you, the screen edges flash red, your health pill pulses and a label says what is hurting you (UV light, toxic cloud, vent heat, a hunter...).',

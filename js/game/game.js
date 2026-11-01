@@ -6,6 +6,7 @@ import * as D from './data.js';
 import * as C from './campaign.js';
 import { drawSpecies, drawPlayer, glowSprite, makeCausticTile, makeShaft, portrait, mixRGB, rgbStr, WHITE } from './art.js';
 import { injectStyle, releaseStyle } from './style.js';
+import { Cinematics } from './cinematics.js';
 
 const TAU = Math.PI * 2;
 const { sin, cos, atan2, hypot, min, max, abs, sqrt, exp, floor, random, PI } = Math;
@@ -33,6 +34,7 @@ class MicrobeGame {
     this.o = opts;
     this.host = opts.host;
     this.camp = opts.campaign || null;
+    this.introKind = opts.intro || 'dive';
     this.L = this.camp ? C.levelConfig(this.camp.level) : null;
     this.era = this.camp ? 3 : clamp(opts.era | 0 || 1, 1, 6);
     this.genome = opts.genome || {};
@@ -105,7 +107,7 @@ class MicrobeGame {
 
     if (this.settings.music !== false) audio.music('microbe');
     this.enterDepth(this.camp ? this.L.j : 1, true);
-    if (this.camp) this.buildAbilities();
+    if (this.camp) { this.buildAbilities(); this.cineStart(this.introKind); }
     this.last = performance.now();
     this.loop = this.loop.bind(this);
     this.raf = requestAnimationFrame(this.loop);
@@ -159,6 +161,7 @@ class MicrobeGame {
   // ---------- DOM ----------
   buildDOM() {
     const root = this.root = el('div.mb-root');
+    if (this.camp) root.classList.add('mb-intro'); // HUD starts hidden and slides in after the arrival
     this.canvas = el('canvas.mb-canvas');
     this.ctx = this.canvas.getContext('2d', { alpha: false });
     root.appendChild(this.canvas);
@@ -259,7 +262,7 @@ class MicrobeGame {
     for (let i = 0; i < (70 + this.era * 8) * (this.L ? this.L.food : 1); i++) this.spawnMote(this.p.x + (random() - 0.5) * 1400, this.p.y + (random() - 0.5) * 1800, 1);
     this.populate(true);
     this.renderPips();
-    if (this.camp) this.banner(`Level ${this.L.c}`, this.L.isBoss ? `${this.L.name} · Boss` : this.L.title, this.L.isBoss ? 'danger' : '');
+    if (this.camp) this.levelBanner();
     else this.banner(`Depth ${n}`, this.D.name, n === 5 ? 'danger' : '');
     // re-spawn clones near player
     for (let i = 0; i < (this.p.muts.fission | 0); i++) this.spawnClone();
@@ -308,12 +311,9 @@ class MicrobeGame {
       this.sfx('evolve'); this.buzz([40, 40, 80]); this.toast('Cyst Memory', 'Revived from a dormant cyst', 'cystmem', 'genome');
       this.shockwave(p.x, p.y, p.r * 9, 30, true); return;
     }
-    this.dead = true; p.hp = 0; this.slowmo = 0.25;
-    this.sfx('death'); this.buzz([60, 40, 120]);
-    this.burst(p.x, p.y, [110, 255, 225], 40, 260);
-    if (this.camp) { this.banner('Dissolved', `Level ${this.L.c}`, 'danger'); this.later(2300, () => this.showCampaignResults(false)); return; }
-    this.banner('Dissolved', `Depth ${this.depth} · Level ${p.level}`, 'danger');
-    this.later(2300, () => this.showResults());
+    this.dead = true; p.hp = 0;
+    this.sfx('death');
+    this.startDeathFx(); // shows the results when the animation ends
   }
 
   // ---------- spawning ----------
@@ -406,7 +406,12 @@ class MicrobeGame {
     if (!(dt > 0)) dt = 0; dt = min(dt, 1 / 20);
     const t0 = performance.now();
     const frozen = this.paused || !!this.modal;
-    if (!frozen) { this.update(dt * this.slowmo); this.frozenFrames = 0; }
+    if (!frozen) {
+      this.cineTick(dt);
+      if (this.destroyed) return; // the outro may have handed over to the next level
+      if (this.hitStop > 0) this.hitStop -= dt; else this.update(dt * this.slowmo);
+      this.frozenFrames = 0;
+    }
     if (!frozen || (this.frozenFrames = (this.frozenFrames || 0) + 1) <= 3) this.render(dt);
     this.frameMs = performance.now() - t0;
   }
@@ -416,7 +421,7 @@ class MicrobeGame {
     if (this.dmgPulse) this.dmgPulse = max(0, this.dmgPulse - dt * 2.4);
     const p = this.p;
     if (!this.dead && !this.victory && !this.trans) { this.time += dt; this.depthTime += dt; }
-    if (this.dead) this.slowmo = min(1, this.slowmo + dt * 0.3);
+    if (this.dead && !this.deathFx) this.slowmo = min(1, this.slowmo + dt * 0.3);
     // transition
     if (this.trans) {
       const tr = this.trans; tr.t += dt / this.slowmo;
@@ -460,6 +465,7 @@ class MicrobeGame {
     p.dashCd = max(0, p.dashCd - dt); p.novaCd = max(0, p.novaCd - dt);
     p.dent *= exp(-dt * 6);
     if (this.dead) { p.vx *= 0.9; p.vy *= 0.9; return; }
+    if (this.cineLock()) { this.cineMove(dt); return; }
     const [dx, dy, mag] = this.moveDir();
     if (mag > 0) this.hints.moved += dt;
     const latchSlow = 1 - min(0.45, p.latched * 0.07);
@@ -645,22 +651,22 @@ class MicrobeGame {
         case 'diatom': wander(); sp *= 0.6; break;
         case 'hunter': {
           const sight = sightBase * (1 + 0.1 * this.depth);
-          if (!this.dead && bigger && d < (e.chasing ? sight * 1.5 : sight)) { chase(1); e.chasing = true; steer = 2.6; }
+          if (!this.dead && !this.victory && bigger && d < (e.chasing ? sight * 1.5 : sight)) { chase(1); e.chasing = true; steer = 2.6; }
           else if (edible && d < 220) { flee(1.15); e.chasing = false; }
           else { e.chasing = false; wander(); sp *= 0.45; }
           if (this.firstRun && e.chasing && !this.hints.shown.hunter) this.hint('hunter', 'Red spiky cells hunt you — stay away until you’re bigger', 'shield', 5000, false, 'warn');
           break;
         }
-        case 'amoeba': if (!this.dead && bigger && d < sightBase * 1.1) chase(1); else { wander(); sp *= 0.6; } steer = 0.8; break;
+        case 'amoeba': if (!this.dead && !this.victory && bigger && d < sightBase * 1.1) chase(1); else { wander(); sp *= 0.6; } steer = 0.8; break;
         case 'rotifer': {
-          if (!this.dead && bigger && d < sightBase) { chase(1); e.chasing = true; }
+          if (!this.dead && !this.victory && bigger && d < sightBase) { chase(1); e.chasing = true; }
           else if (edible && d < 200) { flee(1.3); e.chasing = false; } else { wander(); sp *= 0.5; e.chasing = false; }
           // crown vortex sucks motes
           const ca = e.ang, cx = e.x + cos(ca) * e.r, cy = e.y + sin(ca) * e.r;
           for (const m of this.motes) { const mx = cx - m.x, my = cy - m.y, md2 = mx * mx + my * my; if (md2 < 14400) { const md = sqrt(md2) + 0.01; m.vx += mx / md * 260 * dt; m.vy += my / md * 260 * dt; if (md < e.r * 0.6) m.life = -99; } }
           break;
         }
-        case 'siphonophore': if (!this.dead && d < sightBase * 0.9) chase(0.9); else { wander(); sp *= 0.7; } steer = 0.6; break;
+        case 'siphonophore': if (!this.dead && !this.victory && d < sightBase * 0.9) chase(0.9); else { wander(); sp *= 0.7; } steer = 0.6; break;
         case 'volvox': wander(); sp *= 0.6; break;
         case 'phage': {
           if (e.latched) {
@@ -671,7 +677,7 @@ class MicrobeGame {
             ents[wi++] = e; continue;
           }
           if (e.stun > 0) { tx = 0; ty = 0; sp = 0; }
-          else if (!this.dead && d < 520) { chase(1); steer = 3.5; }
+          else if (!this.dead && !this.victory && d < 520) { chase(1); steer = 3.5; }
           else { wander(); sp *= 0.6; }
           break;
         }
@@ -1544,11 +1550,11 @@ class MicrobeGame {
     };
     this.later(350, step);
   }
-  exit(choice = 'home') {
+  exit(choice = 'home', extra = {}) {
     if (this.exited) return;
     this.exited = true;
     const r = this.camp ? this.campaignResult() : (this.resultData || this.result());
-    const out = { ...r, choice }; delete out.breakdown;
+    const out = { ...r, choice, evolveShown: !!this.evolvedTo, ...extra }; delete out.breakdown;
     try { this.onExit(out); } catch (e) { console.error(e); }
   }
   levelComplete() {
@@ -1557,7 +1563,9 @@ class MicrobeGame {
     this.p.iframes = 99;
     this.sfx('victory'); this.buzz([30, 50, 30, 50, 80]);
     if (!this.L.isBoss) this.banner('Level complete', this.L.title, 'gold');
-    this.later(this.L.isBoss ? 600 : 2000, () => this.showCampaignResults(true));
+    const to = this.L.isBoss ? C.EVOLVE_AFTER[this.L.h] | 0 : 0;
+    if (to > (this.p.stage | 0 || 1) && this.L.c < C.TOTAL_LEVELS) this.evolvedTo = to;
+    this.startClearFx(); // golden spiral, then the metamorphosis if you evolve, then the results
   }
   campaignResult() {
     return {
@@ -1575,23 +1583,26 @@ class MicrobeGame {
     this.root.classList.add('mb-ended');
     const L = this.L, p = this.p;
     const last = L.c >= C.TOTAL_LEVELS;
-    const evolveTo = cleared && L.isBoss ? C.EVOLVE_AFTER[L.h] : 0;
+    const evolveTo = cleared ? this.evolvedTo | 0 : 0;
     const ov = el('div.mb-overlay.mb-res-ov');
     const gained = [...new Set(this.gained)];
     const kicker = cleared ? (last ? 'Journey complete' : L.isBoss ? 'Boss defeated' : 'Level complete') : this.abandoned ? 'Left the level' : 'Your cell dissolved';
     const title = cleared && last ? 'You are the Progenitor now' : L.isBoss ? C.BOSSES[L.boss].name : L.title;
-    const sub = cleared ? (last ? 'From a single cell to a creature of the deep. The ocean is yours.' : evolveTo ? `You evolve into a ${C.STAGES[evolveTo].name}!` : `On to level ${L.c + 1}`) : 'You keep every mutation you earned. Try again!';
+    const nextL = !last ? C.levelConfig(L.c + 1) : null;
+    const sub = cleared ? (last ? 'From a single cell to a creature of the deep. The ocean is yours.' : nextL.j === 1 ? `Next: ${nextL.name}` : `On to level ${L.c + 1}`) : 'You keep every mutation you earned. Try again!';
     const evoK = Math.round(100 * this.evo.xp / C.evoNeed(this.evo.level));
     const mainBtn = cleared
-      ? (last ? null : el('button.btn.btn-primary.btn-lg.btn-block', { onclick: () => { this.sfx('click'); this.exit('next'); } }, [icon('play'), `Level ${L.c + 1}`]))
-      : el('button.btn.btn-primary.btn-lg.btn-block', { onclick: () => { this.sfx('click'); this.exit('retry'); } }, [icon('refresh'), 'Try again']);
+      ? (last ? null : el('button.btn.btn-primary.btn-lg.btn-block', { onclick: () => { this.sfx('click'); this.goNext(); } }, [icon('play'), `Level ${L.c + 1}`]))
+      : el('button.btn.btn-primary.btn-lg.btn-block', { onclick: () => { this.sfx('click'); this.goRetry(); } }, [icon('refresh'), 'Try again']);
     const homeBtn = el('button.btn.btn-ghost.btn-block', { onclick: () => { this.sfx('click'); this.exit('home'); } }, [icon('globe'), 'Home']);
     const panel = el('div.mb-results', {}, [
       el('div.mb-res-head', { class: cleared ? 'win' : 'lose' }, [
         el('div.mb-kicker', {}, kicker),
         el('h1', {}, title),
         el('p.dim.small', {}, sub),
+        !cleared && !this.abandoned && this.deathWhy ? el('div.mb-why', { html: icon('heart') + '<span></span>' }) : null,
       ]),
+      evolveTo ? this.evolveBox(evolveTo) : null,
       el('div.mb-statgrid', {}, [
         el('div', {}, [el('b', {}, this.fmtTime(this.time)), el('span', {}, 'Time')]),
         el('div', {}, [el('b', {}, fmt(this.stats.biomass)), el('span', {}, 'Biomass')]),
@@ -1605,6 +1616,7 @@ class MicrobeGame {
       gained.length ? el('div.mb-mutlist', {}, gained.filter((id) => p.muts[id]).map((id) => el('span.mb-mut', {}, [portrait('mutation', id, 26), (mutDef(id) || { name: id }).name, el('sup', {}, '' + p.muts[id])]))) : null,
       el('div.mb-res-foot.stack-8', {}, [mainBtn, homeBtn]),
     ]);
+    const why = panel.querySelector('.mb-why span'); if (why) why.textContent = this.deathWhy;
     ov.appendChild(panel);
     this.root.appendChild(ov);
   }
@@ -1648,7 +1660,7 @@ class MicrobeGame {
     // camera
     const tz = clamp(min(W, H) * 0.06 / p.r, 0.32, 1.45) * (this.boss ? 0.8 : 1);
     this.zoomV = this.zoomV ? lerp(this.zoomV, tz, 1 - exp(-dt * 1.5)) : tz;
-    const z = this.zoomV;
+    const z = this.zoomV * this.cineZoom(); // cinematic push-ins sit on top of the gameplay zoom
     this.camX = this.camX === undefined ? p.x : lerp(this.camX, p.x + p.vx * 0.15, 1 - exp(-dt * 5));
     this.camY = this.camY === undefined ? p.y : lerp(this.camY, p.y + p.vy * 0.15, 1 - exp(-dt * 5));
     let cx = this.camX, cy = this.camY;
@@ -1761,12 +1773,14 @@ class MicrobeGame {
       ctx.restore();
     }
     // player
-    if (!this.dead || this.slowmo < 0.6) {
-      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.ang); ctx.scale(p.r, p.r);
-      if (p.iframes > 0 && p.cyst <= 0 && !this.trans && floor(T * 20) % 2 === 0) ctx.globalAlpha = 0.55;
+    this.cineBack(ctx);
+    const pv = this.cinePlayer();
+    if (pv) {
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.ang); ctx.scale(p.r * pv.s, p.r * pv.s);
+      if (p.iframes > 0 && p.cyst <= 0 && !this.trans && !this.intro && !this.victory && floor(T * 20) % 2 === 0) ctx.globalAlpha = 0.55;
       if (p.muts.mimicry) ctx.globalAlpha *= 1 - 0.12 * p.muts.mimicry;
-      if (this.dead) ctx.globalAlpha = max(0, 1 - (this.slowmo - 0.25) * 3);
-      drawPlayer(ctx, p, T, p.r * sc);
+      ctx.globalAlpha *= pv.a;
+      drawPlayer(ctx, p, T, p.r * sc * pv.s);
       if (p.flashT > 0) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = p.flashT * 2.5; ctx.drawImage(glowSprite([255, 80, 100]), -1.3, -1.3, 2.6, 2.6); ctx.globalCompositeOperation = 'source-over'; }
       ctx.restore(); ctx.globalAlpha = 1;
     }
@@ -1782,6 +1796,7 @@ class MicrobeGame {
         ctx.restore();
       }
     }
+    this.cineFront(ctx, z);
     // particles
     ctx.globalCompositeOperation = 'lighter';
     for (const q of this.parts) {
@@ -1833,9 +1848,10 @@ class MicrobeGame {
       if (!this.redVig) { const g = ctx.createRadialGradient(W / 2, H / 2, min(W, H) * 0.3, W / 2, H / 2, hypot(W, H) * 0.6); g.addColorStop(0, 'rgba(255,0,40,0)'); g.addColorStop(1, 'rgba(255,30,60,0.55)'); this.redVig = g; }
       ctx.fillStyle = this.redVig; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1;
     }
+    this.cineScreen(ctx, W, H);
     // joystick
     const I = this.input;
-    if (I.active && !this.modal) {
+    if (I.active && !this.modal && !this.cineLock() && !this.dead) {
       ctx.beginPath(); ctx.arc(I.ox, I.oy, 62, 0, TAU); ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = 2; ctx.stroke();
       ctx.fillStyle = 'rgba(255,255,255,0.04)'; ctx.fill();
       const kx = I.ox + I.jx * I.mag * 57, ky = I.oy + I.jy * I.mag * 57;
@@ -2020,3 +2036,4 @@ class MicrobeGame {
     };
   }
 }
+Object.assign(MicrobeGame.prototype, Cinematics);

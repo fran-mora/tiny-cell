@@ -197,6 +197,23 @@ const SFX = {
     const d = out(o, 0.5);
     [12, 7, 3, 0, -5].forEach((s, i) => tone(t + i * 0.12, { type: 'triangle', f0: midi(64 + s), dur: 0.4, vol: 0.16, dest: d }));
   },
+  burst(t, o) { // a membrane tearing open: wet pop and a low thump
+    const d = out(o, 0.25);
+    noiseHit(t, { dur: 0.4, vol: 0.3, f: 1800, f1: 160, type: 'lowpass', dest: d });
+    tone(t, { type: 'sine', f0: 170, f1: 38, dur: 0.55, vol: 0.4, dest: d });
+    tone(t + 0.015, { type: 'triangle', f0: 900, f1: 260, dur: 0.12, vol: 0.12, dest: d });
+  },
+  reform(t, o) { // specks drifting back together
+    const d = out(o, 0.55);
+    [0, 5, 7, 12].forEach((s, i) => tone(t + i * 0.17, { type: 'sine', f0: midi(62 + s), f1: midi(63 + s), a: 0.06, dur: 0.55, vol: 0.09, dest: d }));
+    noiseHit(t, { dur: 0.9, vol: 0.05, f: 2000, f1: 7000, type: 'highpass', dest: d });
+  },
+  metamorph(t, o) { // the swell before you evolve
+    const d = out(o, 0.5);
+    tone(t, { type: 'sine', f0: 110, f1: 440, a: 0.85, dur: 1.15, vol: 0.2, dest: d });
+    tone(t, { type: 'triangle', f0: 165, f1: 660, a: 0.85, dur: 1.15, vol: 0.08, dest: d });
+    noiseHit(t, { dur: 1.1, vol: 0.06, f: 400, f1: 6000, q: 1.2, dest: d });
+  },
   victory(t, o) {
     const d = out(o, 0.6);
     const seq = [0, 4, 7, 12, 7, 12, 16, 19, 24];

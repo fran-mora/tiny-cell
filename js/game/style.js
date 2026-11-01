@@ -181,6 +181,38 @@ const CSS = `
 .mb-hurtwhy { position: absolute; top: 86px; left: 0; display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px 0 8px; border-radius: 99px; background: rgba(120, 16, 36, .9); border: 1px solid rgba(255, 120, 140, .6); color: #ffe3e7; font-size: 12px; font-weight: 800; opacity: 0; transform: translateY(-4px); transition: opacity .15s, transform .15s; pointer-events: none; }
 .mb-hurtwhy.on { opacity: 1; transform: none; }
 .mb-hurtwhy svg { width: 14px; height: 14px; color: #ff8a9a; }
+/* cinematic moments: HUD steps aside, titles, results slide in */
+.mb-top, .mb-abilities { transition: opacity .45s ease, transform .45s ease; }
+.mb-toasts, .mb-hint, .mb-hand { transition: opacity .35s ease; }
+.mb-root.mb-intro .mb-top { opacity: 0; transform: translateY(-10px); }
+.mb-root.mb-intro .mb-abilities { opacity: 0; transform: translateY(10px); }
+.mb-root.mb-cine .mb-top, .mb-root.mb-cine .mb-abilities, .mb-root.mb-cine .mb-toasts, .mb-root.mb-cine .mb-hint, .mb-root.mb-cine .mb-hand { opacity: 0; pointer-events: none; }
+.mb-root.mb-cine .mb-hud * { pointer-events: none !important; }
+.mb-banner.death { top: 29%; animation: mbDeath 2.5s ease forwards; z-index: 8; }
+.mb-banner.death h1 { font-size: 40px; color: #ffc2ca; text-shadow: 0 2px 24px rgba(0,0,0,.7), 0 0 36px rgba(255,80,105,.6); animation: mbDeathTxt 2.5s cubic-bezier(.2,.7,.2,1) forwards; }
+@keyframes mbDeath { 0% { opacity: 0; transform: scale(1.14); } 16% { opacity: 1; transform: none; } 84% { opacity: 1; } 100% { opacity: 0; transform: translateY(-6px); } }
+@keyframes mbDeathTxt { from { letter-spacing: -.05em; } to { letter-spacing: .1em; } }
+.mb-why { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; padding: 5px 12px 5px 9px; border-radius: 99px; background: rgba(70, 12, 26, .8); border: 1px solid rgba(255, 107, 125, .45); color: #ffd6dc; font-size: 12.5px; font-weight: 800; }
+.mb-why svg { width: 14px; height: 14px; color: #ff8a9a; }
+.mb-habitat { position: absolute; left: 0; right: 0; top: 27%; padding: 0 24px; text-align: center; z-index: 7; pointer-events: none; animation: mbHab 4s ease forwards; }
+.mb-habitat .mb-kicker { font-size: 12px; font-weight: 800; letter-spacing: .3em; text-transform: uppercase; color: var(--acc); }
+.mb-habitat h1 { font-size: 38px; font-weight: 900; letter-spacing: -.01em; line-height: 1.05; margin: 8px 0 12px; text-shadow: 0 2px 22px rgba(0,0,0,.65), 0 0 34px var(--accg); }
+.mb-habitat .mb-hab-line { height: 2px; width: 0; margin: 0 auto 12px; border-radius: 2px; background: linear-gradient(90deg, transparent, var(--acc), transparent); animation: mbHabLine 1.5s .35s cubic-bezier(.2,.8,.2,1) forwards; }
+.mb-habitat p { margin: 0 auto; max-width: 300px; font-size: 14px; color: var(--text-dim); text-shadow: 0 1px 10px rgba(0,0,0,.7); }
+.mb-habitat .mb-hab-lv { margin-top: 6px; font-size: 12px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--text-faint); }
+@keyframes mbHab { 0% { opacity: 0; transform: translateY(16px); } 10% { opacity: 1; transform: none; } 84% { opacity: 1; } 100% { opacity: 0; transform: translateY(-10px); } }
+@keyframes mbHabLine { to { width: 220px; } }
+.mb-res-ov { animation: fadeIn .5s ease; }
+.mb-res-ov .mb-results { animation: mbResIn .6s cubic-bezier(.2,.9,.3,1.06) .08s both; }
+.mb-res-ov.closing .mb-results { animation: mbResOut .26s ease forwards; }
+@keyframes mbResIn { from { opacity: 0; transform: translateY(44px) scale(.97); } to { opacity: 1; transform: none; } }
+@keyframes mbResOut { to { opacity: 0; transform: translateY(30px) scale(.97); } }
+.mb-res-head .mb-why { margin-top: 10px; }
+.mb-evobox { display: flex; align-items: center; gap: 12px; padding: 12px 14px; margin-top: 8px; border-color: rgba(255, 214, 120, .45); box-shadow: 0 0 24px -8px rgba(255, 214, 120, .6); }
+.mb-evobox canvas { flex: none; }
+.mb-evobox .mb-kicker { font-size: 10.5px; font-weight: 800; letter-spacing: .2em; text-transform: uppercase; color: #ffd678; }
+.mb-evobox b { display: block; font-size: 19px; font-weight: 900; color: #ffe7a8; margin: 1px 0 2px; }
+.mb-evobox p { margin: 0; }
 `;
 
 let injected = null, refs = 0;
