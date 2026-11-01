@@ -1,5 +1,8 @@
 // Player-facing release notes, newest first.
 export const CHANGELOG = [
+  { build: 11, title: 'Erase really erases', notes: [
+    'Fixed: Erase all progress did nothing, because the game saved your old progress again while reloading. It now starts you from scratch (your sound settings are kept).',
+  ] },
   { build: 10, title: 'Collect them all, and a real challenge', notes: [
     'No more trait slots: every trait you pick stays with you. Collect all 31.',
     'Traits arrive gradually: basics first, and answers to new dangers just before you meet them.',

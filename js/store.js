@@ -42,6 +42,14 @@ export const store = {
     } catch (e) { console.warn('save failed', e); }
   },
   wipe() { try { localStorage.removeItem(KEY); localStorage.removeItem(BAK); } catch (e) {} },
+  // Start over. Replaces the in-memory state too: the app saves on pagehide, so wiping storage
+  // alone would let the old progress be written straight back during the reload.
+  reset() {
+    const settings = this.state && this.state.settings;
+    this.state = defaultState();
+    if (settings) this.state.settings = { ...this.state.settings, ...settings }; // keep sound/vibration choices
+    try { localStorage.removeItem(BAK); localStorage.setItem(KEY, JSON.stringify(this.state)); } catch (e) {}
+  },
   export() { return btoa(unescape(encodeURIComponent(JSON.stringify(this.state)))); },
   import(str) { this.state = migrate(JSON.parse(decodeURIComponent(escape(atob(str.trim()))))); this.save(); },
 };

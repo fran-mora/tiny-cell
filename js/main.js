@@ -371,7 +371,7 @@ class App {
       el('div.section-title', {}, 'Save data'),
       el('div.list', {}, [
         el('button.btn.btn-block', { onclick: () => this.backup() }, [icon('shield'), 'Back up or restore save']),
-        el('button.btn.btn-block.btn-danger', { onclick: async () => { if (await confirm('Erase all progress?', 'Your journey, traits, codex and records will be wiped. This cannot be undone.', 'Erase everything', 'btn-danger')) { store.wipe(); location.reload(); } } }, [icon('trash'), 'Erase all progress']),
+        el('button.btn.btn-block.btn-danger', { onclick: async () => { if (await confirm('Erase all progress?', 'Your journey, traits, codex and records will be wiped. This cannot be undone.', 'Erase everything', 'btn-danger')) { store.reset(); location.reload(); } } }, [icon('trash'), 'Erase all progress']),
       ]),
       el('div.small.faint.center', { style: { marginTop: '18px' } }, `Tiny Cell · Build ${BUILD} (${BUILD_TIME})`),
     ] });
