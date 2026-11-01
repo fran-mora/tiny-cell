@@ -31,7 +31,6 @@ class App {
     window.addEventListener('pagehide', () => store.save());
     window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !this.run) closeTopModal(); });
     if (store.imported) setTimeout(() => toast(`Brought over your progress from Tiny World: <b>${store.imported.genes}</b> genome upgrades, <b>${store.imported.runs}</b> dives and <b class="dna-c">${fmt(store.imported.dna)} DNA</b>.`, { icon: 'dna', kind: 'dna', ms: 6000 }), 900);
-    else if (st.totals.runs === 0) setTimeout(() => this.welcome(), 700);
     window.__tc = this;
     this.registerSW();
   }
@@ -196,24 +195,8 @@ class App {
   }
 
   // ---------------------------------------------------------------- dialogs
-  welcome() {
-    dialog({
-      body: el('div.center', {}, [
-        el('div.era-kicker', {}, 'Welcome to'),
-        el('div.era-big', {}, 'Tiny Cell'),
-        el('p.dim', { style: { margin: '0 0 8px' } }, 'You are a single cell in a young ocean. Eat what is smaller, flee what is bigger, and evolve a new mutation every time you grow.'),
-        el('p.dim', { style: { margin: 0 } }, 'Every dive earns DNA, spent on permanent upgrades to your genome. Dive deeper to awaken older, richer oceans.'),
-      ]),
-      buttons: [{ label: 'Dive in', cls: 'btn-primary btn-lg', onClick: () => setTimeout(() => this.dive(), 200) }, { label: 'Look around first', cls: 'btn-ghost' }],
-    });
-  }
-
   afterFirstRun() {
-    dialog({
-      title: 'Your genome',
-      text: 'DNA buys permanent upgrades that every future cell is born with. Tap <b>Genome</b> to spend it, then dive again.',
-      buttons: [{ label: 'Open Genome', cls: 'btn-dna', onClick: () => setTimeout(() => this.openGenome(), 200) }, { label: 'Later', cls: 'btn-ghost' }],
-    });
+    toast('DNA buys permanent upgrades for every future cell. Tap <b>Genome</b> when you\u2019re ready.', { icon: 'dna', kind: 'dna', ms: 5000 });
   }
 
   ageUp(age) {
