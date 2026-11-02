@@ -1,6 +1,6 @@
 // Procedural audio: generative ambient music + synthesized sound effects (WebAudio, no files).
 
-let ctx = null, master = null, sfxBus = null, musicBus = null, reverb = null;
+let ctx = null, master = null, sfxBus = null, musicBus = null, reverb = null, sfxVerb = null, musicVerb = null;
 let sfxOn = true, musicOn = true;
 let musicMode = null, musicTimer = null, droneNodes = [];
 let hidden = false, suspendTimer = null;
@@ -23,6 +23,9 @@ export const audio = {
     reverb = makeReverb(2.8);
     const rvGain = ctx.createGain(); rvGain.gain.value = 0.55;
     reverb.connect(rvGain); rvGain.connect(comp);
+    // echo sends go through their own on/off switch, so turning music or effects off silences their echo too
+    sfxVerb = ctx.createGain(); sfxVerb.gain.value = sfxOn ? 1 : 0; sfxVerb.connect(reverb);
+    musicVerb = ctx.createGain(); musicVerb.gain.value = musicOn ? 1 : 0; musicVerb.connect(reverb);
     if (musicMode) { const m = musicMode; musicMode = null; this.music(m); }
   },
 
@@ -46,13 +49,18 @@ export const audio = {
     const go = () => {
       if (!wasHidden) return;
       try { master.gain.cancelScheduledValues(ctx.currentTime); master.gain.setValueAtTime(0, ctx.currentTime); master.gain.linearRampToValueAtTime(0.8, ctx.currentTime + 0.6); } catch (e) {}
-      if (musicMode && !musicTimer) startMusic(musicMode);
+      if (musicMode && !musicTimer && musicOn) startMusic(musicMode);
     };
     if (ctx.state === 'suspended') ctx.resume().then(go).catch(() => {}); else go();
   },
 
-  setSfx(on) { sfxOn = on; if (sfxBus) sfxBus.gain.setTargetAtTime(on ? 0.7 : 0, ctx.currentTime, 0.05); },
-  setMusic(on) { musicOn = on; if (musicBus) musicBus.gain.setTargetAtTime(on ? 0.32 : 0, ctx.currentTime, 0.3); },
+  setSfx(on) { sfxOn = on; if (sfxBus) { sfxBus.gain.setTargetAtTime(on ? 0.7 : 0, ctx.currentTime, 0.05); sfxVerb.gain.setTargetAtTime(on ? 1 : 0, ctx.currentTime, 0.05); } },
+  setMusic(on) {
+    musicOn = on;
+    if (musicBus) { musicBus.gain.setTargetAtTime(on ? 0.32 : 0, ctx.currentTime, 0.3); musicVerb.gain.setTargetAtTime(on ? 1 : 0, ctx.currentTime, 0.3); }
+    if (!on && musicMode && ctx) { const m = musicMode; stopMusic(); musicMode = m; } // stop the sequencer outright
+    else if (on && musicMode && ctx && !musicTimer && !hidden) startMusic(musicMode);
+  },
 
   // name: string; opts: { pitch, vol, pan }
   sfx(name, opts = {}) {
@@ -72,7 +80,7 @@ export const audio = {
     musicMode = mode;
     if (!ctx) return;
     stopMusic();
-    if (mode) startMusic(mode);
+    if (mode && musicOn) startMusic(mode); // with music off, nothing runs at all
   },
 };
 
@@ -108,7 +116,7 @@ function out(opts, wet = 0.25) {
     g.connect(p); node = p;
   }
   node.connect(sfxBus);
-  if (wet > 0) { const s = ctx.createGain(); s.gain.value = wet; node.connect(s); s.connect(reverb); }
+  if (wet > 0) { const s = ctx.createGain(); s.gain.value = wet; node.connect(s); s.connect(sfxVerb); }
   return g;
 }
 
@@ -281,7 +289,7 @@ function startMusic(mode) {
   let next = ctx.currentTime + 0.1;
   // drone
   const dg = ctx.createGain(); dg.gain.value = 0; dg.connect(musicBus);
-  const dsend = ctx.createGain(); dsend.gain.value = 0.6; dg.connect(dsend); dsend.connect(reverb);
+  const dsend = ctx.createGain(); dsend.gain.value = 0.6; dg.connect(dsend); dsend.connect(musicVerb);
   const df = ctx.createBiquadFilter(); df.type = 'lowpass'; df.frequency.value = M.drone === 'deep' ? 260 : 420; df.connect(dg);
   const lfo = ctx.createOscillator(); lfo.frequency.value = 0.07; const lg = ctx.createGain(); lg.gain.value = 120; lfo.connect(lg); lg.connect(df.frequency); lfo.start();
   const oscs = [0, 7, 12].map((s, i) => {
@@ -329,7 +337,7 @@ function pad(t, f, dur, vol) {
   const flt = ctx.createBiquadFilter(); flt.type = 'lowpass'; flt.frequency.value = 900;
   flt.connect(g);
   g.connect(musicBus);
-  const s = ctx.createGain(); s.gain.value = 0.8; g.connect(s); s.connect(reverb);
+  const s = ctx.createGain(); s.gain.value = 0.8; g.connect(s); s.connect(musicVerb);
   for (const det of [-7, 7]) {
     const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.detune.value = det;
     o.connect(flt); o.start(t); o.stop(t + dur + 0.1);
@@ -338,7 +346,7 @@ function pad(t, f, dur, vol) {
 
 function bell(t, f, vol) {
   const g = ctx.createGain(); g.connect(musicBus);
-  const s = ctx.createGain(); s.gain.value = 1.2; g.connect(s); s.connect(reverb);
+  const s = ctx.createGain(); s.gain.value = 1.2; g.connect(s); s.connect(musicVerb);
   g.gain.setValueAtTime(0.0001, t);
   g.gain.exponentialRampToValueAtTime(vol, t + 0.01);
   g.gain.exponentialRampToValueAtTime(0.0001, t + 2.2);

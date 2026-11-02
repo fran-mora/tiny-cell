@@ -29,7 +29,7 @@ export const NEW_MUTATIONS = [
   { id: 'muscle', stage: 3, name: 'Muscle Fibres', rarity: 'common', maxLevel: 4, tags: ['speed'],
     desc: 'Contractile tissue. Faster top speed and much quicker acceleration.', lv: (l) => `+${10 * l}% speed, +${20 * l}% acceleration` },
   { id: 'jaws', stage: 3, name: 'Jaws', rarity: 'rare', maxLevel: 3, tags: ['offense'],
-    desc: 'A pair of mandibles. Bite bosses harder and swallow bigger prey.', lv: (l) => `+${30 * l}% bite damage, engulf +${6 * l}%` },
+    desc: 'A pair of mandibles. Bite bosses harder and swallow bigger prey.', lv: (l) => `+${30 * l}% bite damage, engulf +${2 * l}%` },
   { id: 'nerve', stage: 3, name: 'Nerve Net', rarity: 'rare', maxLevel: 3, tags: ['utility', 'defense'],
     desc: 'A web of neurons. React faster: longer invulnerability after a hit and wider reach.', lv: (l) => `+${f1(0.15 * l)}s safety after hits, +${10 * l}% reach` },
   { id: 'cnido', stage: 3, name: 'Stinging Cells', rarity: 'epic', maxLevel: 3, tags: ['offense'],
@@ -68,12 +68,14 @@ export function traitFit(id, L) {
   const bossNear = L.isBoss || L.j >= 5, phages = !!L.phageEvery;
   switch (id) {
     case 'chloro': return hz.uv ? [2.4, 'UV light'] : H.sun >= 0.5 ? [1.2] : H.sun === 0 ? [0.25] : [0.7];
-    case 'osmo': return hz.vent ? [2.2, 'scalding vents'] : hz.toxic ? [2, 'toxic clouds'] : hz.uv ? [1.1] : [0.5];
+    case 'osmo': return hz.vortex ? [2.2, 'whirlpools'] : (hz.mucus | 0) >= 3 ? [2.2, 'sticky mucus'] : hz.vent ? [2.2, 'scalding vents'] : hz.toxic ? [2, 'toxic clouds'] : hz.uv ? [1.1] : [0.5];
+    case 'symbionts': return pop.spitter ? [1.7, 'spitters (they block shards)'] : [1];
     case 'spikes': return phages ? [1.6, 'phage swarms'] : [1];
-    case 'dash': return phages ? [1.5, 'phages to shake off'] : (pop.diatom | 0) >= 6 ? [1.5, 'armoured diatoms'] : [1];
+    case 'dash': return pop.lurker >= 2 ? [1.6, 'lunging lurkers'] : phages ? [1.5, 'phages to shake off'] : (pop.diatom | 0) >= 6 ? [1.5, 'armoured diatoms'] : [1];
     case 'lysosome': case 'jaws': case 'eyes': return bossNear ? [1.9, 'a boss ahead'] : [1];
     case 'mimicry': case 'cyst': case 'membrane': case 'guard': case 'shell': case 'hide': return hunters >= 7 ? [1.4, 'packs of hunters'] : [1];
-    case 'toxin': case 'nova': case 'cnido': case 'tentacles': return hunters >= 7 ? [1.4, 'crowds of predators'] : [1];
+    case 'toxin': case 'nova': return (pop.mine | 0) >= 3 ? [1.6, 'spore mines to pop'] : hunters >= 7 ? [1.4, 'crowds of predators'] : [1];
+    case 'cnido': case 'tentacles': return hunters >= 7 ? [1.4, 'crowds of predators'] : [1];
     case 'flagellum': case 'cilia': case 'fins': case 'muscle': return (hz.current | 0) >= 3 ? [1.4, 'strong currents'] : [1];
     case 'pseudopod': return (pop.diatom | 0) + (pop.ciliate | 0) >= 7 ? [1.4, 'plenty of prey'] : [1];
     default: return [1];
@@ -108,19 +110,19 @@ export const HABITATS = [
     pop: { drifter: 10, grazer: 8, diatom: 4, hunter: 4, amoeba: 2, siphonophore: 1, ciliate: 3 }, hazards: { toxic: 3, current: 2 }, phage: 18, food: 1.0 },
   { n: 4, name: 'Violet Abyss', tag: 'Cold, crushing and full of hunters', boss: 'tyrant', sun: 0,
     pal: { bg: [44, 20, 92], edge: [7, 3, 24], caustic: [205, 130, 255], shaft: [185, 115, 255], plankton: [215, 160, 255], mote: [255, 175, 240], accent: [200, 120, 255] },
-    pop: { drifter: 10, grazer: 8, diatom: 4, hunter: 5, amoeba: 2, siphonophore: 2, rotifer: 3 }, hazards: { toxic: 2, vent: 1, current: 1 }, phage: 15, food: 1.0 },
+    pop: { drifter: 10, grazer: 8, diatom: 4, hunter: 4, amoeba: 2, siphonophore: 1, rotifer: 2, lurker: 2 }, hazards: { toxic: 2, vent: 1, current: 1 }, phage: 15, food: 1.0 },
   { n: 5, name: 'Green Sea', tag: 'An algal bloom, thick with life', boss: 'titan', sun: 0.8,
     pal: { bg: [20, 92, 58], edge: [3, 26, 14], caustic: [150, 255, 140], shaft: [190, 255, 160], plankton: [170, 255, 160], mote: [255, 240, 150], accent: [140, 255, 150] },
-    pop: { drifter: 12, grazer: 9, diatom: 4, hunter: 8, ciliate: 4, rotifer: 4, volvox: 3, amoeba: 2, siphonophore: 1 }, hazards: { uv: 3, current: 2 }, phage: 16, food: 1.15 },
+    pop: { drifter: 12, grazer: 9, diatom: 4, hunter: 7, ciliate: 4, rotifer: 4, volvox: 3, amoeba: 2, siphonophore: 1, lurker: 1 }, hazards: { uv: 3, current: 2, mucus: 4 }, phage: 16, food: 1.15 },
   { n: 6, name: 'Ember Vents', tag: 'Scalding vents feed strange chemistry', boss: 'prime', sun: 0,
     pal: { bg: [48, 14, 44], edge: [10, 2, 14], caustic: [255, 120, 105], shaft: [255, 110, 90], plankton: [255, 160, 135], mote: [255, 205, 120], accent: [255, 100, 80] },
-    pop: { drifter: 9, grazer: 8, diatom: 4, hunter: 8, amoeba: 3, rotifer: 4, siphonophore: 3 }, hazards: { vent: 4, toxic: 2 }, phage: 12, food: 1.05 },
+    pop: { drifter: 9, grazer: 8, diatom: 4, hunter: 7, amoeba: 3, rotifer: 4, siphonophore: 2, lurker: 1, mine: 6 }, hazards: { vent: 4, toxic: 2, mucus: 1 }, phage: 12, food: 1.05 },
   { n: 7, name: 'Glass Reef', tag: 'A reef of living glass', boss: 'leviathan', sun: 0.35,
     pal: { bg: [14, 60, 92], edge: [2, 12, 26], caustic: [170, 230, 255], shaft: [190, 235, 255], plankton: [190, 230, 255], mote: [255, 245, 200], accent: [150, 220, 255] },
-    pop: { drifter: 10, grazer: 8, diatom: 9, hunter: 8, siphonophore: 3, ciliate: 3, rotifer: 4, amoeba: 2 }, hazards: { current: 3, uv: 1, toxic: 1 }, phage: 11, food: 1.05 },
+    pop: { drifter: 10, grazer: 8, diatom: 9, hunter: 6, siphonophore: 2, ciliate: 3, rotifer: 3, amoeba: 2, spitter: 3, lurker: 2, mine: 3 }, hazards: { current: 3, uv: 1, toxic: 1, mucus: 1 }, phage: 11, food: 1.05 },
   { n: 8, name: 'Origin Trench', tag: 'The deepest water. Where it all began', boss: 'progenitor', sun: 0,
     pal: { bg: [36, 26, 16], edge: [6, 4, 2], caustic: [255, 210, 130], shaft: [255, 200, 120], plankton: [255, 220, 160], mote: [200, 255, 230], accent: [255, 200, 110] },
-    pop: { drifter: 9, grazer: 8, diatom: 5, hunter: 9, amoeba: 3, siphonophore: 3, ciliate: 3, rotifer: 4, volvox: 2 }, hazards: { vent: 3, toxic: 2, current: 2 }, phage: 9, food: 1.0 },
+    pop: { drifter: 9, grazer: 8, diatom: 5, hunter: 7, amoeba: 3, siphonophore: 2, ciliate: 3, rotifer: 3, volvox: 2, lurker: 2, spitter: 2, mine: 3 }, hazards: { vent: 2, toxic: 2, current: 1, vortex: 2, mucus: 2 }, phage: 9, food: 1.0 },
 ];
 
 export const LEVELS_PER_HABITAT = 6;
@@ -130,7 +132,8 @@ export const TOTAL_LEVELS = (HABITATS.length - 1) * LEVELS_PER_HABITAT; // 48
 export const TUNE = {
   evoA: 25, evoB: 2.6,       // evolution cost: evoA + evoB * level, in tenths of a body-size level grown
   track: 0.8,                // how closely hostile cells keep pace with your size (0 = habitat size only, 1 = your size)
-  dmgPer: 0.03, dmgSq: 0.0022, // enemy damage growth per level (+ a late-game curve)
+  dmgPer: 0.025, dmgSq: 0.0005, // creature damage growth per level (+ a late-game curve); bites also scale with the biter's size
+  envPer: 0.02,              // hazard damage (UV, toxins, vents, phages) grows gently
   spdPer: 0.024,             // enemy speed growth per level
   hpPer: 0.04, hpSq: 0.001,  // enemy toughness growth per level (+ a late-game curve)
   bossHpPer: 0.03,           // boss toughness growth per level
@@ -138,7 +141,11 @@ export const TUNE = {
   bossRamp: 3,               // boss levels are populated like this level of the habitat until the boss arrives
   speedSoft: 1.35, speedK: 0.3, // speed traits: full effect up to x1.45, then diminishing
   armorCap: 0.5,             // most damage traits can ever block
-  stageDmg: 0.35, stageHp: 0.3, // from Multicellular on, the world toughens with every body stage you reach
+  huntGrow: 0.03,            // how fast smaller predators grow to keep pace with you (per second)
+  biteCap: 1.5,              // most extra damage a much bigger biter does
+  engulfCap: 0.98,           // the biggest cell you can swallow, relative to your size
+  huntMin: 0.003, huntMax: 0.002, // how hunters' size range grows over the journey
+  stageDmg: 0.15, stageHp: 0.3, // from Multicellular on, the world toughens with every body stage you reach
 };
 
 // Build the configuration for campaign level c (1..48).
@@ -161,12 +168,13 @@ export function levelConfig(c) {
     diff: c,                                    // global difficulty
     hpMult: 1 + TUNE.hpPer * (c - 1) + TUNE.hpSq * (c - 1) ** 2,
     dmgMult: 1 + TUNE.dmgPer * (c - 1) + TUNE.dmgSq * (c - 1) ** 2,
+    envMult: 1 + TUNE.envPer * (c - 1),
     spdMult: 1 + TUNE.spdPer * (c - 1),
     expectedR: 15 + 2.6 * (j - 1),              // enemy size reference within the habitat
     xpScale: 1 + 0.09 * (c - 1),                // biomass value grows with the journey
   };
 }
-const HOSTILE_KINDS = { hunter: 1, amoeba: 1, rotifer: 1, siphonophore: 1, phage: 1 };
+const HOSTILE_KINDS = { hunter: 1, amoeba: 1, rotifer: 1, siphonophore: 1, phage: 1, lurker: 1, spitter: 1, mine: 1 };
 
 // evolution XP needed for the next mutation pick at evolution level L
 export const evoNeed = (L) => Math.round(TUNE.evoA + TUNE.evoB * L);

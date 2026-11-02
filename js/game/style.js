@@ -125,6 +125,11 @@ const CSS = `
 .mb-pause-traits::-webkit-scrollbar { display: none; }
 .mb-pause-traits .mb-mutlist { margin: 0; }
 .mb-pause-btns { flex: none; margin-top: 12px; }
+.mb-setrow { flex: none; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+.mb-set { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 4px 7px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255,255,255,.04); color: var(--text-faint); font: inherit; font-size: 11.5px; font-weight: 800; cursor: pointer; position: relative; }
+.mb-set svg { width: 20px; height: 20px; }
+.mb-set.on { color: var(--text); border-color: rgba(124,240,163,.55); background: rgba(124,240,163,.1); }
+.mb-set:not(.on)::after { content: ''; position: absolute; top: 9px; left: 50%; width: 26px; height: 2px; margin-left: -13px; background: currentColor; transform: rotate(-35deg); border-radius: 2px; }
 .mb-pause-panel h2 { font-size: 26px; text-align: center; }
 .mb-statgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 14px 0; }
 .mb-statgrid > div { background: rgba(255,255,255,.05); border: 1px solid var(--line); border-radius: 14px; padding: 8px 6px; text-align: center; }
@@ -221,6 +226,12 @@ const CSS = `
 .mb-evobox b { display: block; font-size: 19px; font-weight: 900; color: #ffe7a8; margin: 1px 0 2px; }
 .mb-evobox p { margin: 0; }
 .mb-fit { margin-top: 4px; font-size: 11.5px; font-weight: 800; color: #ffd678; }
+.toast.mb-threat { border-color: rgba(255, 130, 150, .6); box-shadow: 0 8px 28px rgba(0,0,0,.45), 0 0 22px -6px rgba(255, 110, 140, .7); max-width: min(360px, calc(100% - 24px)); align-items: flex-start; }
+.toast.mb-threat small { color: #ff9fb0; }
+.toast.mb-threat .mb-tt b { display: block; font-size: 15px; margin: 1px 0 2px; }
+.toast.mb-threat .mb-tt span { font-size: 12.5px; line-height: 1.35; color: var(--text-dim); }
+.mb-threat-ic { width: 48px; height: 48px; flex: none; border-radius: 14px; display: grid; place-items: center; background: rgba(255,255,255,.06); color: #ffb3c0; }
+.mb-threat-ic svg { width: 26px; height: 26px; }
 `;
 
 let injected = null, refs = 0;

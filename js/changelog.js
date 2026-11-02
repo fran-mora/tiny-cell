@@ -1,5 +1,16 @@
 // Player-facing release notes, newest first.
 export const CHANGELOG = [
+  { build: 13, title: 'New threats, fairer bites', notes: [
+    'Fixed: in its final form the Progenitor sped up every frame and flew off the map, so the last level could not be finished. Bosses can no longer leave the arena.',
+    'Five new threats, one more per habitat from the Violet Abyss: Lurkers (camouflaged, they flash and lunge), Mucus mats (sticky slime that slows you), Spore mines (burst when you get close, pop them with toxins), Spitters (fire shard volleys) and Whirlpools (drag you to a crushing core). Each gets an introduction the first time you meet it.',
+    'Bites now depend on size: a smaller cell barely nips you, one your size hurts, a big one hurts a lot.',
+    'Hazards like toxic clouds and vents no longer scale to absurd damage late in the journey.',
+    'Food-magnet traits have diminishing returns, so you can no longer level up by standing still.',
+    'You can only swallow cells smaller than yourself, and smaller predators grow as you do, so hunters stay a threat.',
+    'Sound, music and vibration switches are now in the pause screen too.',
+    'Fixed: with music off, a faint echo of the music kept playing.',
+    'Fixed: the pause screen showed the word "null" before you had any traits.',
+  ] },
   { build: 12, title: 'Pause screen fits', notes: [
     'Fixed: with lots of traits the pause screen pushed Resume off the bottom and could not scroll. The trait list now scrolls on its own and the buttons always stay on screen.',
     'The pause screen shows your level and trait count instead of the old depth number.',

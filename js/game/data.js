@@ -21,6 +21,12 @@ export const MICROBE_SPECIES = [
     desc: 'A tiny animal whose spinning crown sucks in food (and careless cells).' },
   { id: 'volvox', name: 'Volvox', firstEra: 5, role: 'neutral',
     desc: 'A great green colony of cells. Bump it and it bursts into edible daughter colonies.' },
+  { id: 'lurker', name: 'Lurker', firstEra: 1, role: 'predator',
+    desc: 'A camouflaged hunter of the deep. Nearly invisible until it flashes and lunges in a straight line. Dodge sideways.' },
+  { id: 'spitter', name: 'Spitter', firstEra: 1, role: 'predator',
+    desc: 'A glassy rotifer that keeps its distance and fires volleys of silica shards. It glows just before it shoots.' },
+  { id: 'mine', name: 'Spore Mine', firstEra: 1, role: 'hazard',
+    desc: 'A drifting puffball that swells and bursts when anything comes close. Toxins and spikes pop it from a safe distance.' },
   { id: 'colossus', name: 'Colossal Amoeba', firstEra: 1, role: 'boss',
     desc: 'Guardian of the Midnight Gyre. Bite its glowing weak spots and never touch its body.' },
   { id: 'queen', name: 'Phage Queen', firstEra: 1, role: 'boss',
@@ -61,7 +67,7 @@ export const MUTATIONS = [
   { id: 'vacuole', name: 'Vacuole', rarity: 'common', maxLevel: 5, tags: ['growth'],
     desc: 'A storage sac. Every meal yields more biomass.', lv: (l) => `+${15 * l}% biomass per meal` },
   { id: 'pseudopod', name: 'Pseudopods', rarity: 'rare', maxLevel: 3, tags: ['growth', 'offense'],
-    desc: 'Flowing arms that wrap around bigger prey.', lv: (l) => `engulf cells up to ${85 + 7 * l}% your size` },
+    desc: 'Flowing arms that wrap around bigger prey.', lv: (l) => `engulf cells up to ${85 + 4 * l}% your size` },
   { id: 'biolum', name: 'Bioluminescence', rarity: 'common', maxLevel: 4, tags: ['growth', 'utility'],
     desc: 'Glow softly to lure glucose motes from afar.', lv: (l) => `+${40 * l}% mote magnet radius` },
   { id: 'symbionts', name: 'Symbionts', rarity: 'rare', maxLevel: 4, tags: ['offense', 'defense'],
@@ -157,6 +163,7 @@ export const COLORS = {
   volvox: { body: [110, 235, 120], mem: [200, 255, 200], nuc: [40, 140, 60], glow: [120, 240, 130] },
   colossus: { body: [255, 120, 80], mem: [255, 200, 160], nuc: [170, 50, 40], glow: [255, 110, 70] },
   queen: { body: [150, 175, 255], mem: [230, 240, 255], nuc: [90, 90, 220], glow: [150, 180, 255] },
+  mine: { body: [205, 160, 75], mem: [255, 225, 150], nuc: [120, 80, 30], glow: [255, 180, 90] },
 };
 
 // ---------- formulas ----------

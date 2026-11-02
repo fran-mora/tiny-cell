@@ -204,7 +204,14 @@ function spikeRing(ctx, n, len, base, t, c, rot = 0, sx = 1, sy = 1) {
 // All drawn in unit space (cell radius = 1), facing +x. `s` = device px per unit (for LOD / line widths).
 // e: entity-like { kind, seed, t (age), ang, flash, stretch, dentA, dent, col?, ... }
 // opts: { queenPhase, hd } — hd forces the high-detail (boss-scale) look; it is automatic when s > 150.
+// late-journey threats reuse existing anatomy in new colours
+export const ALIAS_ART = {
+  lurker: { base: 'hunter', col: { body: [125, 70, 205], mem: [200, 160, 255], nuc: [50, 20, 110], glow: [160, 100, 255] } },
+  spitter: { base: 'rotifer', col: { body: [150, 225, 255], mem: [235, 250, 255], nuc: [60, 140, 210], glow: [140, 220, 255] } },
+};
 export function drawSpecies(ctx, e, T, s, opts = {}) {
+  const al = ALIAS_ART[e.kind];
+  if (al) e = { ...e, kind: al.base, col: e.col || al.col };
   const kind = e.kind;
   const col = e.col || COLORS[kind] || COLORS.grazer;
   const t = T + e.seed * 10;
@@ -324,6 +331,21 @@ export function drawSpecies(ctx, e, T, s, opts = {}) {
         ctx.beginPath(); ctx.arc(0.55, 0, 0.16, 0, TAU); ctx.fillStyle = chase ? '#ffe28a' : '#ff9a6a'; ctx.fill();
         ctx.beginPath(); ctx.arc(0.6, 0, 0.07, 0, TAU); ctx.fillStyle = '#3a0010'; ctx.fill();
       }
+      break;
+    }
+    case 'mine': {
+      // spore puffball: knobbly spikes around a speckled sac that swells when it is about to burst
+      const arm = e.armK || 0, k = 1 + 0.05 * sin(t * 3) + arm * 0.28;
+      ctx.save(); ctx.scale(k, k); ctx.rotate(t * 0.15);
+      ctx.beginPath();
+      for (let i = 0; i < 12; i++) { const a = (i / 12) * TAU; ctx.moveTo(cos(a) * 0.78, sin(a) * 0.78); ctx.lineTo(cos(a) * 1.22, sin(a) * 1.22); }
+      ctx.strokeStyle = cstr(col.mem); ctx.lineWidth = lw(2.2); ctx.lineCap = 'round'; ctx.stroke();
+      if (!lod) { ctx.beginPath(); for (let i = 0; i < 12; i++) { const a = (i / 12) * TAU; ctx.moveTo(cos(a) * 1.22 + 0.1, sin(a) * 1.22); ctx.arc(cos(a) * 1.22, sin(a) * 1.22, 0.1, 0, TAU); } ctx.fillStyle = arm > 0 ? `rgb(255,${140 - 80 * arm | 0},70)` : cstr(col.glow); ctx.fill(); }
+      ctx.beginPath(); ctx.arc(0, 0, 0.84, 0, TAU);
+      ctx.fillStyle = bodyGrad(ctx, arm > 0 ? [255, 170 - 90 * arm | 0, 80] : col.body); ctx.fill();
+      ctx.strokeStyle = cstr(col.mem); ctx.lineWidth = lw(1.6); ctx.stroke();
+      if (!lod) { ctx.beginPath(); for (let i = 0; i < 8; i++) { const a = i * 2.39 + (e.seed || 0), r = 0.12 + 0.5 * ((i * 0.37) % 1); ctx.moveTo(cos(a) * r + 0.1, sin(a) * r); ctx.arc(cos(a) * r, sin(a) * r, 0.1, 0, TAU); } ctx.fillStyle = cstr(col.nuc); ctx.fill(); }
+      ctx.restore();
       break;
     }
     case 'phage': {
@@ -1771,7 +1793,7 @@ export const BOSS_ART = {
 
 export function microbePortrait(id, size) {
   const [c, g] = portraitCanvas(size);
-  const art = BOSS_ART[id];
+  const art = BOSS_ART[id] || ALIAS_ART[id];
   const kind = art ? art.base : id;
   const variant = !!(art && art.col);
   const col = (art && art.col) || COLORS[kind] || COLORS.grazer;

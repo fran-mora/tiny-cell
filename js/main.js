@@ -162,6 +162,7 @@ class App {
       codex: { microbes: { ...st.codex.microbes }, mutations: { ...st.codex.mutations } },
       settings: { ...st.settings }, debug: location.search.includes('debug'), intro,
       onExit: (res) => this.endRun(res),
+      onSettings: (patch) => { Object.assign(S().settings, patch); store.save(); },
     });
     setTimeout(() => this.fade.classList.remove('on'), 60);
   }
@@ -324,7 +325,7 @@ class App {
       return el('div.codex-item', { class: known ? '' : 'unknown', onclick: () => { audio.sfx('click'); if (known) dialog({ title: m.name, text: m.desc, body: el('div.thumb', { style: { width: '120px', height: '120px', margin: '0 auto' } }, Game.portrait(kind, m.id, 120)) }); } }, [el('div.thumb', {}, p || icon('microbe')), known ? m.name : '???']);
     }));
     sheet({ title: 'Codex', body: [
-      el('div.section-title', {}, `Microbes · ${Object.keys(st.codex.microbes).length}/${Game.MICROBE_SPECIES.length}`),
+      el('div.section-title', {}, `Microbes · ${Game.MICROBE_SPECIES.filter((m) => st.codex.microbes[m.id]).length}/${Game.MICROBE_SPECIES.length}`),
       grid(Game.MICROBE_SPECIES, 'microbe'),
       el('div.section-title', {}, `Mutations · ${Object.keys(st.codex.mutations).length}/${Game.MUTATIONS.length}`),
       grid(Game.MUTATIONS, 'mutation'),
