@@ -1,5 +1,10 @@
 // Player-facing release notes, newest first.
 export const CHANGELOG = [
+  { build: 12, title: 'Pause screen fits', notes: [
+    'Fixed: with lots of traits the pause screen pushed Resume off the bottom and could not scroll. The trait list now scrolls on its own and the buttons always stay on screen.',
+    'The pause screen shows your level and trait count instead of the old depth number.',
+    'Trait cards scroll on small phones too.',
+  ] },
   { build: 11, title: 'Erase really erases', notes: [
     'Fixed: Erase all progress did nothing, because the game saved your old progress again while reloading. It now starts you from scratch (your sound settings are kept).',
   ] },

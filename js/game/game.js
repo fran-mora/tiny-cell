@@ -102,7 +102,7 @@ class MicrobeGame {
     this.on(window, 'pointerup', (e) => this.onUp(e));
     this.on(window, 'pointercancel', (e) => this.onUp(e));
     this.on(cv, 'contextmenu', (e) => e.preventDefault());
-    this.on(this.root, 'touchmove', (e) => { if (!e.target.closest('.mb-results')) e.preventDefault(); }, { passive: false });
+    this.on(this.root, 'touchmove', (e) => { if (!e.target.closest('.mb-results, .mb-scroll')) e.preventDefault(); }, { passive: false });
     this.on(this.root, 'gesturestart', (e) => e.preventDefault());
 
     if (this.settings.music !== false) audio.music('microbe');
@@ -1332,7 +1332,7 @@ class MicrobeGame {
       el('h1', {}, headstart ? 'Choose a gene' : 'Evolve!'),
       firstExplain ? el('p.dim.small', {}, this.camp ? 'Your evolution bar is full. Pick a trait: it stays with you for the whole journey, and stacks if you pick it again.' : 'You grew big enough to mutate. Pick one — it changes how your cell looks and plays, and stacks if you pick it again.') : null,
     ]);
-    const cardsBox = el('div.mb-cards');
+    const cardsBox = el('div.mb-cards.mb-scroll');
     const foot = el('div.mb-lvl-foot');
     const render = () => {
       cardsBox.innerHTML = '';
@@ -1421,14 +1421,16 @@ class MicrobeGame {
       body.innerHTML = '';
       body.append(
         el('h2', {}, 'Paused'),
-        el('p.dim.small.center', { style: { margin: '4px 0 0' } }, `Depth ${this.depth} · ${this.D.name}`),
+        el('p.dim.small.center', { style: { margin: '4px 0 0' } }, this.camp ? `Level ${this.L.c} · ${this.L.title}` : `Depth ${this.depth} · ${this.D.name}`),
         el('div.mb-statgrid', {}, [
-          el('div', {}, [el('b', {}, 'Lv ' + p.level), el('span', {}, 'Level')]),
+          el('div', {}, [el('b', {}, (this.camp ? '' : 'Lv ') + p.level), el('span', {}, this.camp ? 'Size' : 'Level')]),
           el('div', {}, [el('b', {}, fmt(this.stats.biomass)), el('span', {}, 'Biomass')]),
           el('div', {}, [el('b', {}, this.fmtTime(this.time)), el('span', {}, 'Time')]),
         ]),
-        this.mutOrder.length ? muts : el('p.faint.small.center', {}, 'No mutations yet'),
-        el('div.stack-8', { style: { marginTop: '16px' } }, [
+        this.camp && this.mutOrder.length ? el('div.mb-sec', { style: { margin: '2px 0 6px' } }, `Traits · ${this.traitCount()} of ${this.traitTotal()}`) : null,
+        // the trait list scrolls on its own so Resume always stays on screen
+        this.mutOrder.length ? el('div.mb-scroll.mb-pause-traits', {}, muts) : el('p.faint.small.center', {}, 'No mutations yet'),
+        el('div.stack-8.mb-pause-btns', {}, [
           el('button.btn.btn-primary.btn-lg.btn-block', { onclick: () => { this.sfx('click'); this.resume(); } }, [icon('play'), 'Resume']),
           el('button.btn.btn-ghost.btn-block', { onclick: () => { this.sfx('click'); confirmView(); } }, this.camp ? 'Leave level' : 'Abandon run'),
         ]),

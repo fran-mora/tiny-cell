@@ -90,7 +90,8 @@ const CSS = `
 .mb-lvl-head .mb-kicker { font-size: 12px; font-weight: 800; letter-spacing: .24em; text-transform: uppercase; color: var(--leaf); }
 .mb-lvl-head h1 { font-size: 30px; font-weight: 900; text-shadow: 0 0 24px rgba(124,240,163,.45); }
 .mb-lvl-head p { margin: 6px auto 0; max-width: 320px; }
-.mb-cards { width: 100%; max-width: 440px; display: flex; flex-direction: column; gap: 10px; }
+.mb-cards { width: 100%; max-width: 440px; display: flex; flex-direction: column; gap: 10px; flex: 0 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; scrollbar-width: none; padding: 4px 2px 6px; }
+.mb-cards::-webkit-scrollbar { display: none; }
 .mb-card { position: relative; display: flex; align-items: center; gap: 12px; padding: 12px 14px 12px 10px; border-radius: 18px; cursor: pointer; text-align: left;
   background: linear-gradient(180deg, rgba(24, 44, 78, .96), rgba(12, 24, 46, .96)); border: 1.5px solid var(--rc, var(--line-hi));
   box-shadow: 0 8px 24px rgba(0,0,0,.4), 0 0 0 1px rgba(255,255,255,.03) inset, 0 0 26px -8px var(--rc); color: var(--text); font-family: inherit; width: 100%;
@@ -117,7 +118,13 @@ const CSS = `
 .mb-lvl-foot { margin-top: 14px; display: flex; gap: 10px; justify-content: center; width: 100%; max-width: 440px; }
 
 /* pause */
-.mb-pause-panel { width: calc(100% - 24px); max-width: 400px; }
+.mb-pause-panel { width: calc(100% - 24px); max-width: 400px; max-height: 100%; display: flex; flex-direction: column; }
+.mb-pause-body { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; }
+.mb-pause-traits { flex: 0 1 auto; min-height: 60px; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y; scrollbar-width: none; margin: 0 -8px; padding: 2px 8px 8px;
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 18px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 18px), transparent); }
+.mb-pause-traits::-webkit-scrollbar { display: none; }
+.mb-pause-traits .mb-mutlist { margin: 0; }
+.mb-pause-btns { flex: none; margin-top: 12px; }
 .mb-pause-panel h2 { font-size: 26px; text-align: center; }
 .mb-statgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 14px 0; }
 .mb-statgrid > div { background: rgba(255,255,255,.05); border: 1px solid var(--line); border-radius: 14px; padding: 8px 6px; text-align: center; }
