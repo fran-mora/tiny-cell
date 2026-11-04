@@ -21,9 +21,6 @@ class App {
     window.__tw_haptics = st.settings.haptics;
     audio.setSfx(st.settings.sfx); audio.setMusic(st.settings.music);
     this.app = document.getElementById('app');
-    this.fitScreen();
-    for (const ev of ['resize', 'orientationchange', 'pageshow']) window.addEventListener(ev, () => this.fitScreen());
-    setTimeout(() => this.fitScreen(), 120); setTimeout(() => this.fitScreen(), 700); // iOS settles its viewport late
     this.fade = el('div.fade-cover'); this.app.appendChild(this.fade);
     this.buildHub();
     this.startHubAnim();
@@ -40,18 +37,6 @@ class App {
     if (store.migratedFromV1) { store.save(); setTimeout(() => toast('Tiny Cell is now a <b>50-level evolution journey</b>. Your codex and records came with you.', { icon: 'star', ms: 6500 }), 900); }
     window.__tc = this;
     this.registerSW();
-  }
-
-  // Some iOS versions give a home-screen web app a layout one status bar shorter than the screen, which
-  // leaves a black band along the bottom. When that happens, size the app to the real screen instead.
-  fitScreen() {
-    const app = this.app; if (!app) return;
-    app.style.bottom = ''; app.style.height = '';
-    if (navigator.standalone !== true) return; // iOS home-screen apps only
-    const land = window.innerWidth > window.innerHeight;
-    const sh = land ? Math.min(screen.width, screen.height) : Math.max(screen.width, screen.height);
-    const gap = sh - app.getBoundingClientRect().height;
-    if (gap > 1 && gap < 140) { app.style.bottom = 'auto'; app.style.height = sh + 'px'; }
   }
 
   // ---------------------------------------------------------------- hub

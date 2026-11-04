@@ -1,7 +1,7 @@
 // Player-facing release notes, newest first.
 export const CHANGELOG = [
-  { build: 15, title: 'Full screen on iPhone', notes: [
-    'Fixed: on some iPhones the home-screen app left a black band along the bottom of the screen. The game now fills the whole screen.',
+  { build: 16, title: 'No more black band on iPhone', notes: [
+    'Fixed: on iOS 26 the home-screen app left a black band along the bottom of the screen (and Build 15 made it cut off the bottom of the home screen). The app now sits below a solid status bar and reaches the bottom edge. Remove the app from your Home Screen and add it again from Safari for this to take effect.',
   ] },
   { build: 14, title: 'A bigger world, real bosses and an endless ocean', notes: [
     'The journey is now 50 levels across 10 habitats, with a new body every 10 levels: single cell, colony, flatworm, primordial fish and jawed fish.',
