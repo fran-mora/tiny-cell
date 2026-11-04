@@ -1,5 +1,8 @@
 // Player-facing release notes, newest first.
 export const CHANGELOG = [
+  { build: 15, title: 'Full screen on iPhone', notes: [
+    'Fixed: on some iPhones the home-screen app left a black band along the bottom of the screen. The game now fills the whole screen.',
+  ] },
   { build: 14, title: 'A bigger world, real bosses and an endless ocean', notes: [
     'The journey is now 50 levels across 10 habitats, with a new body every 10 levels: single cell, colony, flatworm, primordial fish and jawed fish.',
     'The world changes scale as you grow. Each body size has its own creatures, based on real ones: rotifers, water bears, hydras and sun-animalcules; copepods, arrow worms, comb jellies and seed shrimp; krill, jellyfish, pistol shrimp, anemones and squid; sardines, barracudas, moray eels, cookie-cutter sharks and anglerfish. The animals from your old size shrink into easy prey, and anything two sizes smaller is too small to see.',
