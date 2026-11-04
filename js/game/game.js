@@ -11,6 +11,7 @@ import { injectStyle, releaseStyle } from './style.js';
 import { Cinematics } from './cinematics.js';
 import { Threats, THREAT_INFO } from './threats.js';
 import { Bosses, BOSS_KIT } from './bosses.js';
+import { Abilities, ABILITIES, ABILITY_BY_ID } from './abilities.js';
 import { SP, tierScale } from './ecology.js';
 
 const TAU = Math.PI * 2;
@@ -89,7 +90,7 @@ class MicrobeGame {
     this.p = {
       x: 0, y: 0, vx: 0, vy: 0, r: D.playerRadius(1), ang: -PI / 2, seed: 0.42,
       level: 1, xp: 0, hp: 100, maxHp: 100, muts: {}, iframes: 0, flashT: 0, dent: 0, dentA: 0, stretch: 0,
-      cyst: 0, cystUsed: false, dashT: 0, dashCd: 0, novaCd: 0, toxinT: 3, latched: 0, wiggle: 0, lastVA: 0, speedN: 0, wob: 0,
+      cyst: 0, cystUsed: false, dashT: 0, dashCd: 0, novaCd: 0, photoCd: 0, shoalCd: 0, suckCd: 0, suckT: 0, toxinT: 3, latched: 0, wiggle: 0, lastVA: 0, speedN: 0, wob: 0,
     };
     this.gained = [];
     if (this.camp) {
@@ -153,7 +154,7 @@ class MicrobeGame {
     const m = this.p.muts;
     return this.camp ? min(C.TUNE.engulfCap, 0.85 + 0.04 * (m.pseudopod | 0) + 0.02 * (m.jaws | 0)) : 0.85 + 0.07 * (m.pseudopod | 0) + 0.06 * (m.jaws | 0);
   }
-  canEat(e) { return !e.boss && e.kind !== 'colossus' && e.kind !== 'queen' && e.kind !== 'siphonophore' && !(SP[e.kind] && SP[e.kind].inedible) && !(e.kind === 'diatom' && e.armor > 0) && e.r < this.p.r * this.engulf; }
+  canEat(e) { return !e.boss && !e.ally && e.kind !== 'colossus' && e.kind !== 'queen' && e.kind !== 'siphonophore' && !(SP[e.kind] && SP[e.kind].inedible) && !(e.kind === 'diatom' && e.armor > 0) && e.r < this.p.r * this.engulf; }
 
   recalc() {
     const p = this.p, m = p.muts, g = this.genome;
@@ -240,8 +241,10 @@ class MicrobeGame {
     if (this.destroyed) return;
     const k = e.key.toLowerCase();
     if (down && (k === 'p' || k === 'escape')) { e.preventDefault(); if (this.modal === 'pause') this.resume(); else if (!this.modal) this.pause(true); return; }
-    if (down && k === ' ') { e.preventDefault(); if (!this.modal) { if (this.p.muts.dash) this.useDash(); else if (this.p.muts.nova) this.useNova(); } return; }
-    if (down && (k === 'e' || k === 'shift')) { if (!this.modal && this.p.muts.nova) this.useNova(); return; }
+    if (down && k === ' ') { e.preventDefault(); if (!this.modal) { const A = ABILITIES.find((a) => this.p.muts[a.id]); if (A) this[A.use](); } return; }
+    if (down && k === 'shift') { if (!this.modal && this.p.muts.nova) this.useNova(); return; }
+    const A = down && ABILITIES.find((a) => a.key === k && a.key !== ' ');
+    if (A) { if (!this.modal && this.p.muts[A.id]) this[A.use](); return; }
     if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) { e.preventDefault(); this.keys[k] = down; }
   }
   onDown(e) {
@@ -473,6 +476,7 @@ class MicrobeGame {
     this.updatePlayer(dt);
     this.updateMotes(dt);
     this.updateEnts(dt);
+    this.updateActives(dt);
     this.updateHazards(dt);
     this.updateShards(dt);
     this.updateParts(dt);
@@ -502,6 +506,7 @@ class MicrobeGame {
     const p = this.p, m = p.muts;
     p.iframes = max(0, p.iframes - dt); p.flashT = max(0, p.flashT - dt); p.cyst = max(0, p.cyst - dt);
     p.dashCd = max(0, p.dashCd - dt); p.novaCd = max(0, p.novaCd - dt);
+    p.photoCd = max(0, p.photoCd - dt); p.shoalCd = max(0, p.shoalCd - dt); p.suckCd = max(0, p.suckCd - dt);
     p.dent *= exp(-dt * 6);
     if (this.dead) { p.vx *= 0.9; p.vy *= 0.9; return; }
     if (this.cineLock()) { this.cineMove(dt); return; }
@@ -670,7 +675,8 @@ class MicrobeGame {
       e.t += dt; e.flash = max(0, e.flash - dt * 4); e.dent *= exp(-dt * 5); e.hitCd = max(0, e.hitCd - dt); e.timer -= dt;
       if (e.stun) e.stun = max(0, e.stun - dt);
       if (e.hpShowT) e.hpShowT = max(0, e.hpShowT - dt);
-      const dx = p.x - e.x, dy = p.y - e.y, d2 = dx * dx + dy * dy, d = sqrt(d2) + 0.0001;
+      let dx = p.x - e.x, dy = p.y - e.y, d = sqrt(dx * dx + dy * dy) + 0.0001;
+      const d2 = dx * dx + dy * dy;
       if (d2 > far2 && !e.boss && !e.ally) { e.alive = false; if (e.latched) p.latched--; continue; }
       // discovery
       if (!this.seen[e.kind] && abs(dx) < halfW + e.r && abs(dy) < halfH + e.r && D.SPECIES_BY_ID[e.kind]) this.discover(e.kind);
@@ -683,7 +689,12 @@ class MicrobeGame {
       const wander = () => { e.wander += (random() - 0.5) * dt * 2.4; tx = cos(e.wander); ty = sin(e.wander); };
       const flee = (k = 1) => { tx = -dx / d; ty = -dy / d; sp *= k; };
       const chase = (k = 1) => { tx = dx / d; ty = dy / d; sp *= k; };
-      if (e.ctl) { tx = e.ctl.tx; ty = e.ctl.ty; sp = e.ctl.sp; steer = e.ctl.steer ?? 2.2; } // steered by a boss fight
+      // a predator may go for one of your decoy fish instead of you (Shoal Call)
+      const pdx = dx, pdy = dy, pd = d;
+      let lure = null;
+      if (this.decoys && !e.ally && HOSTILE[e.kind] && !isLatcher(e) && !(e.blind > 0)) { lure = this.lureFor(e, d); if (lure) { dx = lure.x - e.x; dy = lure.y - e.y; d = hypot(dx, dy) + 0.0001; } }
+      if (e.blind > 0) { e.blind -= dt; wander(); sp *= 0.3; steer = 1.2; } // dazzled by a flash: it has lost track of you
+      else if (e.ctl) { tx = e.ctl.tx; ty = e.ctl.ty; sp = e.ctl.sp; steer = e.ctl.steer ?? 2.2; } // steered by a boss fight or an ability
       else switch ((SP[e.kind] && SP[e.kind].ai) || e.kind) {
         case 'drifter': if (d < 150 + p.r * 2 && !this.dead) flee(2.0); else { wander(); sp *= 0.5; } break;
         case 'ciliate': if (d < 200 + p.r * 2 && edible) flee(2.0); else { wander(); if (e.timer < 0) { e.timer = 1 + random() * 2; e.wander += (random() - 0.5) * 2; } } break;
@@ -937,6 +948,10 @@ class MicrobeGame {
       if (s > 3) e.ang += angDiff(e.ang, atan2(e.vy, e.vx)) * min(1, dt * 5);
       e.stretch = min(0.15, s / 600);
       if (e.segs) this.updateSegs(e);
+      if (lure) {
+        if (hypot(lure.x - e.x, lure.y - e.y) < e.r + lure.r * 0.8) { lure.alive = false; this.burst(lure.x, lure.y, [255, 220, 160], 10, 140); e.blind = 0.8; }
+        dx = pdx; dy = pdy; d = pd;
+      }
       // interaction with player
       if (!this.dead && !e.ally) this.interact(e, d, dx, dy, dt, edible);
       // ally clone eating small prey
@@ -1289,19 +1304,18 @@ class MicrobeGame {
     if (!knockOnly && this.boss && hypot(this.boss.x - x, this.boss.y - y) < R + this.boss.r) this.bossDamage(dmg * 0.8);
   }
   buildAbilities() {
-    const want = [];
-    if (this.p.muts.dash) want.push('dash');
-    if (this.p.muts.nova) want.push('nova');
-    for (const id of want) {
-      if (this.abBtns[id]) continue;
-      const ring = el('div.mb-ring');
-      const b = el('button.mb-ab.mb-tap', { class: (want.length > 1 && id === 'nova' ? 'small ' : '') + id, 'aria-label': (mutDef(id) || { name: id }).name }, [ring, portrait('mutation', id, 56)]);
-      if (id === 'nova') b.style.setProperty('--ring-c', '#c79cff');
-      b.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); id === 'dash' ? this.useDash() : this.useNova(); });
+    // one button per active ability, in a fixed order: the first is big, the rest small
+    const want = ABILITIES.filter((a) => this.p.muts[a.id]).map((a) => a.id);
+    if (want.join() === Object.keys(this.abBtns).join()) return;
+    this.abBox.innerHTML = ''; this.abBtns = {};
+    want.forEach((id, i) => {
+      const A = ABILITY_BY_ID[id], ring = el('div.mb-ring');
+      const b = el('button.mb-ab.mb-tap', { class: (i ? (want.length >= 4 ? 'small tiny ' : 'small ') : '') + 'ab-' + id, 'aria-label': (mutDef(id) || { name: id }).name }, [ring, portrait('mutation', id, 56)]);
+      b.style.setProperty('--ring-c', A.col);
+      b.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); this[A.use](); });
       this.abBox.appendChild(b);
       this.abBtns[id] = { b, ring, last: -1 };
-    }
-    if (this.abBtns.nova && this.abBtns.dash) this.abBtns.nova.b.classList.add('small');
+    });
     if (this.firstRun && !this.hints.shown.ability) this.later(300, () => this.hint('ability', 'Tap the new button (or Space) to use your ability', 'bolt', 3500));
   }
   abFlash(id) { const a = this.abBtns[id]; if (!a) return; a.b.classList.remove('flash'); void a.b.offsetWidth; a.b.classList.add('flash'); }
@@ -1309,7 +1323,7 @@ class MicrobeGame {
     const p = this.p;
     for (const id in this.abBtns) {
       const a = this.abBtns[id];
-      const cd = id === 'dash' ? p.dashCd : p.novaCd, max_ = id === 'dash' ? 6 - 0.8 * (p.muts.dash - 1) : 15 - 2 * (p.muts.nova - 1);
+      const A = ABILITY_BY_ID[id], cd = p[A.cdKey] || 0, max_ = A.cd(p.muts[id] | 0 || 1);
       const k = cd <= 0 ? 1 : 1 - cd / max_;
       const q = Math.round(k * 50) / 50;
       if (q !== a.last) { a.last = q; a.ring.style.setProperty('--p', q); a.b.classList.toggle('ready', k >= 1); a.b.classList.toggle('cool', k < 1); }
@@ -1575,7 +1589,7 @@ class MicrobeGame {
     this.later(2900, () => b.remove());
   }
   hint(id, text, ic, ms = 4000, hand = false, cls = '') {
-    if (!this.firstRun && !id.startsWith('boss')) return;
+    if (!this.firstRun && !/^(boss|ab_)/.test(id)) return;
     if (this.hints.shown[id]) return;
     this.hints.shown[id] = true;
     if (this.hintEl) this.hintEl.remove();
@@ -1684,7 +1698,7 @@ class MicrobeGame {
     delete p.muts[id];
     this.mutOrder = this.mutOrder.filter((x) => x !== id);
     if (id === 'fission') for (const e of this.ents) if (e.kind === 'clone') e.alive = false;
-    if (id === 'dash' || id === 'nova') this.buildAbilities();
+    if (ABILITY_BY_ID[id]) this.buildAbilities();
     this.recalc();
   }
   applyBoon(id) {
@@ -1717,7 +1731,7 @@ class MicrobeGame {
     this.recalc();
     if (id === 'membrane') this.heal(25);
     if (id === 'fission') this.spawnClone();
-    if (id === 'dash' || id === 'nova') this.buildAbilities();
+    if (ABILITY_BY_ID[id]) this.buildAbilities();
     this.burst(p.x, p.y, [140, 255, 220], 16, 160);
   }
 
@@ -2112,6 +2126,7 @@ class MicrobeGame {
       ctx.fillStyle = s.c ? rgbStr(s.c, 0.95) : this.boss && this.boss.phase >= 2 ? 'rgba(255,170,210,0.95)' : 'rgba(200,215,255,0.95)'; ctx.fill();
       ctx.restore();
     }
+    this.drawActives(ctx, z);
     // player
     this.cineBack(ctx);
     const pv = this.cinePlayer();
@@ -2338,6 +2353,11 @@ class MicrobeGame {
       if (sx < -sr || sy < -sr || sx > W + sr || sy > H + sr) continue;
       ctx.globalAlpha = a; ctx.drawImage(glowSprite(col), sx - sr, sy - sr, sr * 2, sr * 2);
     }
+    // seed-shrimp alarms and your own photophore flash light up the dark
+    if (this.glows) for (const g of this.glows) {
+      const k = g.life / g.max, sr = g.r * (g.flash ? 1.6 : 1.1) * z, sx = wx(g.x), sy = wy(g.y);
+      ctx.globalAlpha = min(1, k * 1.5) * (g.flash ? 0.9 : 0.6); ctx.drawImage(glowSprite([140, 200, 255]), sx - sr, sy - sr, sr * 2, sr * 2);
+    }
     ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
   }
   drawSiph(ctx, e, sc) {
@@ -2457,4 +2477,4 @@ class MicrobeGame {
     };
   }
 }
-Object.assign(MicrobeGame.prototype, Cinematics, Threats, Bosses);
+Object.assign(MicrobeGame.prototype, Cinematics, Threats, Bosses, Abilities);

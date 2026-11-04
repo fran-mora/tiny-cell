@@ -891,6 +891,8 @@ BOSS_KIT.cuttlefish = {
     // the real one gives itself away: its eyes catch the light
     if (b.camo > 0.5) for (const s of [1, -1]) { const a = b.ang + s * 0.55; glow(ctx, b.x + cos(a) * b.r * 0.55, b.y + sin(a) * b.r * 0.55, b.r * 0.22, [255, 250, 200], 0.35 + 0.25 * sin(T * 3)); }
   },
+  // a photophore flash shows it up for a moment, wherever it is hiding
+  flash(g, b, k) { if (k.state === 'stalk' || k.state === 'jet') { k.state = 'open'; k.st = 1.4; b.camo = 0; g.texts.push({ x: b.x, y: b.y - b.r, s: 'Revealed!', life: 1, c: '#bfe6ff' }); } },
   screen(g, ctx, W, H) {
     const k = g.boss.k; if (!(k.blind > 0)) return;
     ctx.globalAlpha = min(1, k.blind) * 0.62; ctx.fillStyle = '#08061a'; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1;

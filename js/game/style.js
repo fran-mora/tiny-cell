@@ -42,6 +42,7 @@ const CSS = `
 .mb-ab { pointer-events: auto; position: relative; width: 78px; height: 78px; border-radius: 50%; border: 0; padding: 0; cursor: pointer;
   background: rgba(8, 22, 40, .55); display: grid; place-items: center; touch-action: none; transition: transform .08s ease; }
 .mb-ab.small { width: 64px; height: 64px; }
+.mb-ab.tiny { width: 54px; height: 54px; }
 .mb-ab:active { transform: scale(.92); }
 .mb-ab .mb-ring { position: absolute; inset: 0; border-radius: 50%;
   background: conic-gradient(var(--ring-c, #8cf5d0) calc(var(--p, 1) * 360deg), rgba(255,255,255,.1) 0);
@@ -49,7 +50,10 @@ const CSS = `
 .mb-ab canvas { width: 70%; height: 70%; position: relative; pointer-events: none; }
 .mb-ab.cool canvas { opacity: .45; filter: saturate(.4); }
 .mb-ab.ready { box-shadow: 0 0 22px rgba(140, 245, 208, .45); }
-.mb-ab.ready.nova { box-shadow: 0 0 22px rgba(199, 156, 255, .55); }
+.mb-ab.ready.ab-nova { box-shadow: 0 0 22px rgba(199, 156, 255, .55); }
+.mb-ab.ready.ab-photo { box-shadow: 0 0 22px rgba(150, 210, 255, .55); }
+.mb-ab.ready.ab-shoal { box-shadow: 0 0 22px rgba(255, 210, 140, .5); }
+.mb-ab.ready.ab-suction { box-shadow: 0 0 22px rgba(160, 255, 210, .5); }
 .mb-ab.flash { animation: mbAbFlash .4s ease; }
 @keyframes mbAbFlash { 0% { transform: scale(1); } 40% { transform: scale(1.14); } 100% { transform: scale(1); } }
 .mb-ab .mb-key { position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); font-size: 10px; font-weight: 800; color: var(--text-dim);

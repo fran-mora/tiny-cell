@@ -41,6 +41,12 @@ export const NEW_MUTATIONS = [
     desc: 'Real eyes. Spot food from far away and aim bites at weak spots.', lv: (l) => `+${30 * l}% magnet, +${15 * l}% bite damage` },
   { id: 'shell', stage: 4, name: 'Head Shield', rarity: 'rare', maxLevel: 3, tags: ['defense'],
     desc: 'A bony shield over your head, like the first armoured fish.', lv: (l) => `+${40 * l} max HP, -${5 * l}% damage taken` },
+  { id: 'photo', stage: 4, name: 'Photophore Flash', rarity: 'rare', maxLevel: 3, tags: ['active', 'defense'], active: true,
+    desc: 'ACTIVE: your light organs fire a blinding flash. Nearby animals are dazzled and lose track of you, hidden hunters show up, and deep-sea eyes are blinded.', lv: (l) => `${f1(2 + 0.5 * l)}s dazzle, ${14 - 2 * (l - 1)}s cooldown` },
+  { id: 'shoal', stage: 4, name: 'Shoal Call', rarity: 'epic', maxLevel: 3, tags: ['active', 'defense'], active: true,
+    desc: 'ACTIVE: a burst of scent gathers a little school of fish around you. Predators chase them instead of you.', lv: (l) => `${3 + 2 * l} decoy fish for ${4 + l}s, ${18 - 2 * (l - 1)}s cooldown` },
+  { id: 'suction', stage: 5, name: 'Suction Feeding', rarity: 'rare', maxLevel: 3, tags: ['active', 'growth'], active: true,
+    desc: 'ACTIVE: open your mouth so fast it vacuums in all the small food in front of you.', lv: (l) => `a wider, longer gulp (${f1(10 - 1.5 * (l - 1))}s cooldown)` },
   { id: 'tentacles', stage: 5, name: 'Barbels', rarity: 'epic', maxLevel: 3, tags: ['offense', 'growth'],
     desc: 'Whisker-like feelers that taste food from afar and lash anything that touches you.', lv: (l) => `${8 * l} dmg/s sting, +${30 * l}% magnet` },
   { id: 'hide', stage: 5, name: 'Bony Scales', rarity: 'rare', maxLevel: 3, tags: ['defense'],
@@ -59,8 +65,8 @@ export const TRAIT_FROM = {
   osmo: 6, symbionts: 7, nova: 8, fission: 9,
   guard: 11, polyps: 11, signal: 13,
   muscle: 21, jaws: 22, nerve: 22, cnido: 24,
-  fins: 31, shell: 31, eyes: 32,
-  tentacles: 41, hide: 41, gills: 42,
+  fins: 31, shell: 31, eyes: 32, photo: 32, shoal: 34,
+  tentacles: 41, hide: 41, gills: 42, suction: 41,
 };
 // How well a trait suits a level: [offer weight, reason shown on the card].
 export function traitFit(id, L) {
@@ -78,6 +84,9 @@ export function traitFit(id, L) {
     case 'toxin': case 'nova': return (pop.mine | 0) >= 3 ? [1.6, 'spore puffs to pop'] : hunters >= 9 ? [1.4, 'crowds of predators'] : [1];
     case 'cnido': case 'tentacles': return hunters >= 9 ? [1.4, 'crowds of predators'] : [1];
     case 'biolum': return L.dark ? [2.2, 'total darkness'] : [1];
+    case 'photo': return L.boss === 'abyssal' || (L.h === 9 && L.j >= 3) ? [2.4, 'it blinds the Anglerfish'] : L.dark ? [2, 'total darkness'] : pop.arrowworm || L.boss === 'cuttlefish' ? [1.5, 'hidden hunters'] : [1];
+    case 'shoal': return hunters >= 9 ? [1.5, 'packs of predators'] : [1];
+    case 'suction': return (pop.krill | 0) + (pop.sardine | 0) + (pop.larvalfish | 0) >= 14 ? [1.5, 'shoals of prey'] : [1];
     case 'flagellum': case 'cilia': case 'fins': case 'muscle': return (hz.current | 0) >= 3 ? [1.4, 'strong currents'] : [1];
     case 'pseudopod': return (pop.diatom | 0) + (pop.ciliate | 0) + (pop.copepod | 0) >= 8 ? [1.4, 'plenty of prey'] : [1];
     default: return [1];

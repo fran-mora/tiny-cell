@@ -1,5 +1,11 @@
 // Player-facing release notes, newest first.
 export const CHANGELOG = [
+  { build: 17, title: 'Three new powers for fish', notes: [
+    'Photophore Flash (from level 32, once you are a fish): your light organs fire a blinding flash. Nearby animals are dazzled and lose track of you, latched-on biters let go, camouflaged hunters and the Giant Cuttlefish show up, and it blinds the Anglerfish if you flash near her face.',
+    'Shoal Call (from level 34): a burst of scent gathers a little school of fish around you, and predators chase them instead of you.',
+    'Suction Feeding (from level 41, as a jawed fish): open your mouth so fast it vacuums in all the small food in front of you.',
+    'Each has its own button under Dash and Nova. On a keyboard: Q flash, R shoal, F suction.',
+  ] },
   { build: 16, title: 'No more black band on iPhone', notes: [
     'Fixed: on iOS 26 the home-screen app left a black band along the bottom of the screen (and Build 15 made it cut off the bottom of the home screen). The app now sits below a solid status bar and reaches the bottom edge. Remove the app from your Home Screen and add it again from Safari for this to take effect.',
   ] },

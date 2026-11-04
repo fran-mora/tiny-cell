@@ -2254,7 +2254,9 @@ function drawAnimal(ctx, p, m, t, s, ph, stage, body, mem, A0) {
 // ctx is pre-translated to the player, rotated so heading is +x and scaled so 1 unit = player radius.
 export function drawPlayer(ctx, p, T, s) {
   const t = T;
-  const m = p.muts || NOMUT;
+  const m0 = p.muts || NOMUT;
+  // the Photophore Flash trait brings light organs with it: draw them like bioluminescence
+  const m = m0.photo && (m0.biolum | 0) < m0.photo ? { ...m0, biolum: m0.photo } : m0;
   const col = COLORS.player;
   const body = p.bodyCol || col.body;
   const mem = p.memCol || col.mem;
@@ -2497,8 +2499,43 @@ export function stagePortrait(stage, size = 96) {
   return c;
 }
 
+// the fish bodies' active abilities: the body plus what the ability does
+function abilityPortrait(id, size) {
+  const [c, g] = portraitCanvas(size);
+  const st = id === 'suction' ? 5 : 4;
+  const glowC = id === 'photo' ? [140, 210, 255] : id === 'shoal' ? [255, 215, 150] : [160, 255, 215];
+  if (id === 'shoal') {
+    framedBody(g, size, st, {}, [0.2, 0.1, -0.42], glowC);
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * TAU + 0.4, d = 2.15;
+      g.save(); g.translate(cos(a) * d, sin(a) * d); g.rotate(a + PI / 2); g.scale(0.55, 0.55);
+      drawSpecies(g, { kind: 'larvalfish', seed: i * 1.7, t: 0, ang: a + PI / 2, stretch: 0.05 }, FAKE_T, size * 0.11);
+      g.restore();
+    }
+    return c;
+  }
+  framedBody(g, size, st, id === 'photo' ? { biolum: 3 } : { jaws: 2 }, STAGE_FRAME[st], glowC);
+  g.lineCap = 'round';
+  if (id === 'photo') {
+    g.globalCompositeOperation = 'lighter';
+    g.globalAlpha = 0.8; g.drawImage(glowSprite([170, 225, 255], 1), -1.2, -1.2, 2.4, 2.4);
+    for (let i = 0; i < 3; i++) { g.beginPath(); g.arc(0, 0, 1.05 + i * 0.22, 0, TAU); g.strokeStyle = `rgba(190,230,255,${0.8 - i * 0.22})`; g.lineWidth = 0.07 - i * 0.015; g.stroke(); }
+    g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
+  } else {
+    // water rushing into the open mouth, with food in it
+    g.beginPath();
+    for (let i = 0; i < 7; i++) { const a = (i - 3) * 0.16, r0 = 2.3 - (i % 2) * 0.3; g.moveTo(1.25 + cos(a) * r0, sin(a) * r0); g.lineTo(1.25 + cos(a) * (r0 - 0.55), sin(a) * (r0 - 0.55)); }
+    g.strokeStyle = 'rgba(210,255,240,0.85)'; g.lineWidth = 0.07; g.stroke();
+    g.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 4; i++) { const a = (i - 1.5) * 0.25, r0 = 1.6 + (i % 2) * 0.35; g.drawImage(glowSprite([255, 232, 140], 1), 1.25 + cos(a) * r0 - 0.15, sin(a) * r0 - 0.15, 0.3, 0.3); }
+    g.globalCompositeOperation = 'source-over';
+  }
+  return c;
+}
+
 // draws a "mini player" with a single mutation emphasised
 export function mutationPortrait(id, size) {
+  if (id === 'photo' || id === 'shoal' || id === 'suction') return abilityPortrait(id, size);
   if (MUT_STAGE[id]) {
     const [c, g] = portraitCanvas(size);
     const stage = MUT_STAGE[id];
