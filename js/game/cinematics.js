@@ -492,7 +492,8 @@ export const Cinematics = {
         el('div.mb-kicker', {}, 'You evolved'),
         el('b', {}, S.name),
         S.size ? el('div.small', { style: { color: '#ffd678', fontWeight: 800, margin: '0 0 2px' } }, `You are about ${S.size} long now`) : null,
-        el('p.dim.small', {}, S.blurb.replace(/^[^.]*\.\s*/, '')),
+        C.STAGE_POWER[to] ? el('div.small', { style: { color: '#9fdcff', fontWeight: 800, margin: '0 0 2px' } }, `New power: ${C.POWER_NAMES[C.STAGE_POWER[to]]}`) : null,
+        el('p.dim.small', {}, S.blurb.replace(/^[^.]*\.\s*/, '').replace(/New power: [^.]*\.\s*/, '')),
       ]),
     ]);
   },

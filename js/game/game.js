@@ -29,6 +29,7 @@ const HOSTILE = Object.fromEntries(Object.keys(SP).filter((k) => SP[k].hostile &
 const isLatcher = (e) => !!(SP[e.kind] && SP[e.kind].latch);
 const isTiny = (e) => e.kind === 'phage' || e.kind === 'chytrid'; // viruses and spores: shredded on contact
 const KIND_XP = Object.fromEntries(Object.entries(SP).map(([k, v]) => [k, v.xp]));
+const TURNED = new Set(); // old predators you have met as prey this session
 const angDiff = (a, b) => { const d = b - a; if (!Number.isFinite(d)) return 0; return ((d + PI) % TAU + TAU) % TAU - PI; };
 
 // Repeatable rewards offered once every mutation is maxed (or to fill a short hand).
@@ -99,6 +100,7 @@ class MicrobeGame {
       this.mutOrder = (this.camp.mutOrder || Object.keys(this.p.muts)).filter((id) => this.p.muts[id]);
       this.evo = { level: this.camp.evo?.level | 0 || 1, xp: this.camp.evo?.xp || 0 };
       this.firstRun = this.camp.level === 1 && !(this.camp.attempts | 0) && !this.mutOrder.length;
+      if (this.camp.newPower) this.later(2600, () => this.hint('ab_new', `New power: ${C.POWER_NAMES[this.camp.newPower] || 'ability'}! Tap its new button`, 'bolt', 4500));
     }
     this.recalc(); this.p.hp = this.p.maxHp;
 
@@ -380,6 +382,7 @@ class MicrobeGame {
     if (kind === 'mine') { e.hp = e.maxHp = 12 * (this.L ? this.L.hpMult : 1); }
     if (kind === 'volvox') { e.hp = e.maxHp = 9999; e.kids = 5 + R.int(0, 2); }
     if (szK) e.szK = szK;
+    if (ts < 1) e.shrunk = true;
     Object.assign(e, o.props || {});
     this.ents.push(e);
     return e;
@@ -681,6 +684,11 @@ class MicrobeGame {
       // discovery
       if (!this.seen[e.kind] && abs(dx) < halfW + e.r && abs(dy) < halfH + e.r && D.SPECIES_BY_ID[e.kind]) this.discover(e.kind);
       if (e.boss) { ents[wi++] = e; continue; }
+      if (e.shrunk && HOSTILE[e.kind] && e.edibleCache && !TURNED.has(e.kind) && abs(dx) < halfW && abs(dy) < halfH) {
+        TURNED.add(e.kind);
+        this.toast('The tables have turned', `Old predator, new prey: <b>${SP[e.kind].name}</b>`, e.kind, 'microbe', 'gold');
+        this.sfx('event', { vol: 0.5 });
+      }
       // predators feed too: they slowly grow to keep pace with you instead of becoming prey
       if (e.szK) { const want = ((1 - C.TUNE.track) * this.expR() + C.TUNE.track * p.r) * min(e.szK, 1.05); if (e.r < want) e.r = min(want, e.r * (1 + C.TUNE.huntGrow * dt)); }
       const edible = this.canEat(e); e.edibleCache = edible;
@@ -1618,7 +1626,8 @@ class MicrobeGame {
     const p = this.p, R = this.rng;
     const all = this.camp ? [...D.MUTATIONS, ...C.NEW_MUTATIONS.filter((m) => m.stage <= (p.stage | 0 || 1))] : D.MUTATIONS;
     // the journey introduces traits gradually, and favours the ones that suit this habitat
-    const pool = all.filter((m) => (p.muts[m.id] | 0) < m.maxLevel && (!this.camp || (C.TRAIT_FROM[m.id] || 1) <= this.L.c || p.muts[m.id]));
+    // active powers come with your bodies (C.STAGE_POWER); a pick can only level up one you already have
+    const pool = all.filter((m) => (p.muts[m.id] | 0) < m.maxLevel && (!this.camp || (m.active ? p.muts[m.id] : (C.TRAIT_FROM[m.id] || 1) <= this.L.c || p.muts[m.id])));
     const fit = (x) => (this.camp ? C.traitFit(x.id, this.L)[0] : 1);
     const out = [];
     while (out.length < n && pool.length) {
@@ -1714,7 +1723,7 @@ class MicrobeGame {
   // Open Ocean rematches always teach you something: a trait you have never had, else a level of one you have
   rematchReward() {
     const p = this.p, all = [...D.MUTATIONS, ...C.NEW_MUTATIONS.filter((m) => m.stage <= (p.stage | 0 || 1))];
-    let pool = all.filter((m) => !p.muts[m.id]);
+    let pool = all.filter((m) => !p.muts[m.id] && !m.active);
     if (!pool.length) pool = all.filter((m) => (p.muts[m.id] | 0) < m.maxLevel);
     if (!pool.length) return;
     const m = this.rng.weighted(pool, (x) => 1 / D.RARITY[x.rarity].weight); // rarer traits are likelier here

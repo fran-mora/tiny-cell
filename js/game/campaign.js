@@ -5,13 +5,20 @@ import { SPECIES } from './ecology.js';
 export const STAGES = [
   null,
   { n: 1, name: 'Single Cell', size: '0.05 mm', blurb: 'A lone cell, drifting and hungry.' },
-  { n: 2, name: 'Colony', size: '0.5 mm', blurb: 'You and your daughter cells stick together and the world shrinks around you. New traits: guard cells, feeding polyps, signalling. Rerolls unlocked.' },
-  { n: 3, name: 'Flatworm', size: '5 mm', blurb: 'Your first animal body: a head, eyespots, muscles and a gut. Single cells are specks now. New traits: muscle, jaws, nerve cords, stinging cells. Four choices per evolution.' },
-  { n: 4, name: 'Primordial Fish', size: '5 cm', blurb: 'A backbone, a fin fold and gill pores: one of the first fish. New traits: fins, eyes, a bony head shield.' },
-  { n: 5, name: 'Jawed Fish', size: '50 cm', blurb: 'Jaws, paired fins and a real tail: a sea predator. New traits: barbels, bony scales, gills.' },
+  { n: 2, name: 'Colony', size: '0.5 mm', blurb: 'You and your daughter cells stick together and the world shrinks around you. New power: Enzyme Burst, a dash. New traits: guard cells, feeding polyps, signalling. Rerolls unlocked.' },
+  { n: 3, name: 'Flatworm', size: '5 mm', blurb: 'Your first animal body: a head, eyespots, muscles and a gut. Single cells are specks now. New power: Toxin Nova. New traits: muscle, jaws, nerve cords, stinging cells. Four choices per evolution.' },
+  { n: 4, name: 'Primordial Fish', size: '5 cm', blurb: 'A backbone, a fin fold and gill pores: one of the first fish. New power: Photophore Flash. New traits: fins, eyes, a bony head shield.' },
+  { n: 5, name: 'Jawed Fish', size: '50 cm', blurb: 'Jaws, paired fins and a real tail: a sea predator. New power: Suction Feeding. New traits: barbels, bony scales, gills.' },
 ];
 // which boss (by habitat index 1..8) evolves you to which stage
 export const EVOLVE_AFTER = { 2: 2, 4: 3, 6: 4, 8: 5 };
+// every new body brings one active power (a button), and finishing the journey brings the last one.
+// They are never offered as picks; once you have one, picks can level it up.
+export const STAGE_POWER = { 2: 'dash', 3: 'nova', 4: 'photo', 5: 'suction' };
+export const FINAL_POWER = 'shoal';
+export const POWER_NAMES = { dash: 'Enzyme Burst', nova: 'Toxin Nova', photo: 'Photophore Flash', suction: 'Suction Feeding', shoal: 'Shoal Call' };
+// the powers a save should have: one per body reached, plus the last one once the journey is done
+export const powersFor = (stage, complete) => [...Object.entries(STAGE_POWER).filter(([s]) => stage >= +s).map(([, id]) => id), ...(complete ? [FINAL_POWER] : [])];
 export const stageForCleared = (habitatsCleared) => {
   let s = 1;
   for (const [h, st] of Object.entries(EVOLVE_AFTER)) if (habitatsCleared >= +h) s = Math.max(s, st);
@@ -139,10 +146,10 @@ export const HABITATS = [
     pop: { copepod: 8, arrowworm: 2, krill: 12, larvalfish: 12, jellyfish: 5, pistolshrimp: 6, anemone: 5, siphonophore: 2, squid: 5 }, hazards: { current: 2 }, phage: 0, food: 1.05 },
   { n: 9, tier: 5, threat: 1.15, name: 'Lantern Deep', tag: 'Pitch dark. Every light is a lure', boss: 'abyssal', sun: 0, dark: true,
     pal: { bg: [10, 14, 40], edge: [1, 2, 8], caustic: [90, 140, 255], shaft: [80, 120, 255], plankton: [140, 200, 255], mote: [150, 230, 255], accent: [120, 200, 255] },
-    pop: { krill: 10, larvalfish: 6, jellyfish: 3, sardine: 10, squid: 3, barracuda: 2, cookiecutter: 3, angler: 3 }, hazards: { vent: 1 }, phage: 16, swarm: 'cookiecutter', food: 1.0 },
+    pop: { krill: 10, larvalfish: 6, jellyfish: 3, pistolshrimp: 3, anemone: 2, sardine: 10, squid: 3, barracuda: 2, cookiecutter: 3, angler: 3 }, hazards: { vent: 1 }, phage: 16, swarm: 'cookiecutter', food: 1.0 },
   { n: 10, tier: 5, name: 'Origin Trench', tag: 'The deepest water. Where it all began', boss: 'progenitor', sun: 0,
     pal: { bg: [36, 26, 16], edge: [6, 4, 2], caustic: [255, 210, 130], shaft: [255, 200, 120], plankton: [255, 220, 160], mote: [200, 255, 230], accent: [255, 200, 110] },
-    pop: { krill: 10, larvalfish: 6, pistolshrimp: 2, jellyfish: 2, sardine: 12, squid: 3, barracuda: 4, moray: 2, cookiecutter: 2, angler: 2, siphonophore: 2 }, hazards: { vortex: 2, vent: 2, toxic: 1 }, phage: 0, food: 1.0 },
+    pop: { krill: 10, larvalfish: 6, pistolshrimp: 4, anemone: 2, jellyfish: 2, sardine: 12, squid: 3, barracuda: 4, moray: 2, cookiecutter: 2, angler: 2, siphonophore: 2 }, hazards: { vortex: 2, vent: 2, toxic: 1 }, phage: 0, food: 1.0 },
 ];
 
 export const LEVELS_PER_HABITAT = 5;

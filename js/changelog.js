@@ -1,9 +1,15 @@
 // Player-facing release notes, newest first.
 export const CHANGELOG = [
+  { build: 18, title: 'A power for every body', notes: [
+    'Every new body now brings its own active power: Enzyme Burst (dash) as a Colony, Toxin Nova as a Flatworm, Photophore Flash as a Primordial Fish, Suction Feeding as a Jawed Fish, and Shoal Call when you finish the journey. Powers are no longer random picks; once you have one, picks can level it up.',
+    'If your save is already past those bodies, you get their powers straight away.',
+    'The first time you meet an old predator small enough to eat, the game tells you: the tables have turned.',
+    'Pistol shrimp and anemones from the reef now turn up in the deep habitats too, as prey for the jawed fish.',
+  ] },
   { build: 17, title: 'Three new powers for fish', notes: [
-    'Photophore Flash (from level 32, once you are a fish): your light organs fire a blinding flash. Nearby animals are dazzled and lose track of you, latched-on biters let go, camouflaged hunters and the Giant Cuttlefish show up, and it blinds the Anglerfish if you flash near her face.',
-    'Shoal Call (from level 34): a burst of scent gathers a little school of fish around you, and predators chase them instead of you.',
-    'Suction Feeding (from level 41, as a jawed fish): open your mouth so fast it vacuums in all the small food in front of you.',
+    'Photophore Flash (once you are a fish): your light organs fire a blinding flash. Nearby animals are dazzled and lose track of you, latched-on biters let go, camouflaged hunters and the Giant Cuttlefish show up, and it blinds the Anglerfish if you flash near her face.',
+    'Shoal Call: a burst of scent gathers a little school of fish around you, and predators chase them instead of you.',
+    'Suction Feeding (as a jawed fish): open your mouth so fast it vacuums in all the small food in front of you.',
     'Each has its own button under Dash and Nova. On a keyboard: Q flash, R shoal, F suction.',
   ] },
   { build: 16, title: 'No more black band on iPhone', notes: [

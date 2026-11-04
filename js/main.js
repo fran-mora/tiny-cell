@@ -11,6 +11,16 @@ const C = () => store.state.campaign;
 // the level you play next: the journey's, or once it is complete an Open Ocean expedition (51, 52, ...)
 const playLevel = () => { const c = C(); return c.complete ? Game.TOTAL_LEVELS + Math.max(1, (c.ocean && c.ocean.level) | 0) : c.level; };
 const habitatOf = (lv) => Game.levelConfig(lv).h;
+// every body you reach (and finishing the journey) brings an active power; returns the first new one
+const grantPowers = (c) => {
+  let first = null;
+  for (const id of Game.powersFor(c.stage, c.complete)) {
+    if (c.muts[id]) continue;
+    c.muts[id] = 1; if (!c.mutOrder.includes(id)) c.mutOrder.push(id);
+    S().codex.mutations[id] = true; first = first || id;
+  }
+  return first;
+};
 
 const S = () => store.state;
 
@@ -161,12 +171,13 @@ class App {
     audio.music('microbe');
     this.run = Game.startMicrobeRun({
       host: this.host,
-      campaign: { level: lv, stage: c.stage, evo: { ...c.evo }, muts: { ...c.muts }, mutOrder: [...c.mutOrder], attempts: c.attempts[lv] | 0 },
+      campaign: { level: lv, stage: c.stage, evo: { ...c.evo }, muts: { ...c.muts }, mutOrder: [...c.mutOrder], attempts: c.attempts[lv] | 0, newPower: st.flags.newPower || null },
       codex: { microbes: { ...st.codex.microbes }, mutations: { ...st.codex.mutations } },
       settings: { ...st.settings }, debug: location.search.includes('debug'), intro,
       onExit: (res) => this.endRun(res),
       onSettings: (patch) => { Object.assign(S().settings, patch); store.save(); },
     });
+    delete st.flags.newPower; // the level shows the hint once
     setTimeout(() => this.fade.classList.remove('on'), 60);
   }
 
@@ -193,6 +204,8 @@ class App {
         if (res.level > Game.TOTAL_LEVELS) { const e = res.level - Game.TOTAL_LEVELS; c.ocean.best = Math.max(c.ocean.best | 0, e); c.ocean.level = Math.max(c.ocean.level | 0, e + 1); }
         else if (res.level === Game.TOTAL_LEVELS) { c.complete = true; c.level = Game.TOTAL_LEVELS; }
         else c.level = Math.max(c.level, res.level + 1);
+        const power = grantPowers(c);
+        if (power) st.flags.newPower = power;
       } else if (!res.abandoned) st.totals.deaths++;
       st.history.unshift({ d: Date.now(), level: res.level, cleared: !!res.cleared, gained: new Set(res.gained || []).size, time: res.timeSec });
       st.history = st.history.slice(0, 30);
@@ -248,7 +261,7 @@ class App {
         el('div.era-kicker', {}, 'Journey complete'),
         el('div.era-big', {}, 'From a single cell'),
         el('p.dim', { style: { margin: '0 0 10px' } }, `You crossed ${Game.HABITATS.length - 1} habitats, beat ${Game.HABITATS.length - 1} bosses and evolved from a single cell into a jawed fish.`),
-        el('p', { style: { margin: '0 0 12px', fontWeight: 700 } }, 'The Open Ocean is open: endless expeditions, boss rematches that teach you new traits, and every trait you are still missing.'),
+        el('p', { style: { margin: '0 0 12px', fontWeight: 700 } }, 'The Open Ocean is open: endless expeditions, boss rematches that teach you new traits, and every trait you are still missing. New power: Shoal Call, a school of decoy fish.'),
         el('div.stat-grid', {}, [
           el('div.stat', {}, [el('div.v', {}, fmt(st.totals.attempts)), el('div.k', {}, 'Attempts')]),
           el('div.stat', {}, [el('div.v', {}, duration(st.totals.playTimeSec)), el('div.k', {}, 'Time underwater')]),
@@ -314,7 +327,8 @@ class App {
     // traits you have never had, and where they turn up
     const missing = Game.MUTATIONS.filter((m) => !c.muts[m.id]).map((m) => {
       const from = Game.TRAIT_FROM[m.id] || 1;
-      const where = c.stage < m.stage ? `Unlocks with the ${Game.STAGES[m.stage].name} body` : !c.complete && from > c.level ? `Offered from level ${from}` : c.complete ? 'Can turn up any time. Open Ocean rematches teach new traits' : 'Can turn up at your next evolutions';
+      const pst = Object.entries(Game.STAGE_POWER).find(([, id]) => id === m.id);
+      const where = m.active ? (pst ? `Power: comes with the ${Game.STAGES[+pst[0]].name} body` : 'Power: yours when you finish the journey') : c.stage < m.stage ? `Unlocks with the ${Game.STAGES[m.stage].name} body` : !c.complete && from > c.level ? `Offered from level ${from}` : c.complete ? 'Can turn up any time. Open Ocean rematches teach new traits' : 'Can turn up at your next evolutions';
       let p = null; try { p = Game.portrait('mutation', m.id, 96); p.style.width = p.style.height = '100%'; p.style.filter = 'grayscale(1) brightness(0.55)'; } catch (e) {}
       return el('div.card.res-card', { style: { opacity: 0.85 } }, [
         el('div.thumb', {}, p || icon('lock')),

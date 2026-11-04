@@ -83,6 +83,10 @@ function migrate(s) {
     c.layout = 50; c.bosses = {};
   }
   if (!c.ocean || typeof c.ocean !== 'object') c.ocean = { level: 1, best: 0 };
+  // powers come with bodies now (Build 18): saves that already have the bodies get their powers
+  const POWERS = { 2: 'dash', 3: 'nova', 4: 'photo', 5: 'suction' };
+  for (const [st, id] of Object.entries(POWERS)) if ((c.stage | 0) >= +st && !c.muts[id]) { c.muts[id] = 1; if (!c.mutOrder.includes(id)) c.mutOrder.push(id); }
+  if (c.complete && !c.muts.shoal) { c.muts.shoal = 1; if (!c.mutOrder.includes('shoal')) c.mutOrder.push('shoal'); }
   if (!s.codex.microbes) s.codex.microbes = {};
   if (!s.codex.mutations) s.codex.mutations = {};
   return s;
