@@ -3,7 +3,7 @@ const KEY = 'tinycell.save.v1';
 const BAK = 'tinycell.save.v1.bak';
 
 export function freshCampaign() {
-  return { level: 1, best: 0, stage: 1, evo: { level: 1, xp: 0 }, muts: {}, mutOrder: [], attempts: {}, bosses: {}, complete: false };
+  return { level: 1, best: 0, stage: 1, evo: { level: 1, xp: 0 }, muts: {}, mutOrder: [], attempts: {}, bosses: {}, complete: false, layout: 50, ocean: { level: 1, best: 0 } };
 }
 
 export function defaultState() {
@@ -75,6 +75,14 @@ function migrate(s) {
   for (const k of Object.keys(d.settings)) if (s.settings[k] === undefined) s.settings[k] = d.settings[k];
   const c = s.campaign, dc = freshCampaign();
   for (const k of Object.keys(dc)) if (c[k] === undefined) c[k] = dc[k];
+  if (c.layout !== 50) {
+    // the journey grew from 48 levels in 8 habitats to 50 levels in 10, with a new body stage every 10 levels
+    const map = (lv) => Math.max(1, Math.min(50, Math.round(((lv | 0) - 1) * 49 / 47) + 1));
+    if (c.complete) { c.level = 50; c.best = 50; c.stage = 5; }
+    else { c.best = c.best ? map(c.best) : 0; c.level = Math.max(1, map(c.level)); const hc = Math.floor(c.best / 5); c.stage = hc >= 8 ? 5 : hc >= 6 ? 4 : hc >= 4 ? 3 : hc >= 2 ? 2 : 1; }
+    c.layout = 50; c.bosses = {};
+  }
+  if (!c.ocean || typeof c.ocean !== 'object') c.ocean = { level: 1, best: 0 };
   if (!s.codex.microbes) s.codex.microbes = {};
   if (!s.codex.mutations) s.codex.mutations = {};
   return s;

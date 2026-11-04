@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tiny Cell creatures</title>
+<style>
+  html, body { margin: 0; background: #050a16; color: #eaf3ff; font: 13px/1.35 system-ui, sans-serif; }
+  main { width: 1000px; margin: 0 auto; padding: 10px 0 30px; }
+  h2 { font-size: 15px; margin: 18px 0 6px; } h2 small { color: #9fb3cf; font-weight: 400; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+  figure { margin: 0; padding: 6px; background: #0b1424; border: 1px solid rgba(160,200,255,.14); border-radius: 12px; text-align: center; }
+  figure canvas { display: block; margin: 0 auto 4px; border-radius: 8px; background: radial-gradient(ellipse at 50% 40%, var(--bg1, #0e3a46) 0%, var(--bg2, #06141e) 80%); }
+  figcaption { color: #9fb3cf; font-size: 11px; max-width: 240px; }
+</style>
+</head>
+<body>
+<main>
+  <div id="root"></div>
+</main>
+<script type="module" src="./creatures.js"></script>
+</body>
+</html>

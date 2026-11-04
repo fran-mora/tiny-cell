@@ -10,8 +10,23 @@ const TAU = PI * 2;
 export const THREAT_INFO = {
   lurker: { name: 'Lurkers', tip: 'Camouflaged hunters. They flash, then lunge in a straight line: dodge sideways.' },
   spitter: { name: 'Spitters', tip: 'Glass cells that keep their distance and fire shard volleys. They glow just before they shoot.' },
-  mine: { name: 'Spore mines', tip: 'Drifting puffballs that swell and burst when you get close. Toxins pop them from a distance.' },
-  mucus: { name: 'Mucus mats', tip: 'Sticky algae slime. It slows you right down, so route around it. Osmoregulation helps.' },
+  mine: { name: 'Spore puffs', tip: 'Fungal puffballs that swell and burst when you get close. Toxins pop them from a distance.' },
+  hydra: { name: 'Hydra', tip: 'Anchored polyps with stinging tentacles. They cannot chase you: just do not swim within reach.' },
+  heliozoan: { name: 'Sun-animalcules', tip: 'Their sticky spines trap you and slowly digest you. Keep clear of the spines.' },
+  tardigrade: { name: 'Tardigrades', tip: 'Water bears are slow but armoured: your attacks do half damage. Outswim them.' },
+  chytrid: { name: 'Chytrid spores', tip: 'Fungal spores that swarm and latch on. Wiggle or dash to shake them off.' },
+  arrowworm: { name: 'Arrow worms', tip: 'Glassy ambush predators. They flash, then dart in a straight line: dodge sideways.' },
+  combjelly: { name: 'Comb jellies', tip: 'Slow, shimmering and sticky: get caught and they digest you. Bigger ones are best avoided.' },
+  ostracod: { name: 'Seed shrimp', tip: 'Tasty, but eating one sets off a blue glow that draws every predator nearby to you.' },
+  jellyfish: { name: 'Jellyfish', tip: 'The bell is harmless. The long tentacles trailing behind it sting: approach from the front.' },
+  pistolshrimp: { name: 'Pistol shrimp', tip: 'Its claw snaps a bubble shock wave at you. It cocks the claw first: move sideways.' },
+  anemone: { name: 'Sea anemones', tip: 'Glued to the reef, waving stinging tentacles. Give them room.' },
+  squid: { name: 'Squid', tip: 'Small ones vanish behind ink. Big ones shoot out two long tentacles from a distance.' },
+  barracuda: { name: 'Barracuda', tip: 'They cruise, then sprint at you in a straight line. Turn away at the last moment.' },
+  moray: { name: 'Moray eels', tip: 'They hide in rocky dens and lunge at anything that swims too close.' },
+  cookiecutter: { name: 'Cookie-cutter sharks', tip: 'Small glowing sharks that latch on and bite. Wiggle or dash to throw them off.' },
+  angler: { name: 'Anglerfish', tip: 'In the dark, a light is often a lure. Get close and the jaws snap shut.' },
+  mucus: { name: 'Biofilm', tip: 'Sticky bacterial slime. It slows you right down, so route around it. Osmoregulation helps.' },
   vortex: { name: 'Whirlpools', tip: 'They drag you towards a crushing core. Swim across them, not into them.' },
 };
 
@@ -44,6 +59,12 @@ export const Threats = {
 
   spitterFire(e, dx, dy, d) {
     const a0 = atan2(dy, dx), sp = 215 * min(1.35, Math.sqrt(this.L ? this.L.spdMult : 1));
+    if (e.kind === 'pistolshrimp' || e.kind === 'spitter') {
+      // the claw snaps so fast it fires a cavitation bubble
+      this.shards.push({ x: e.x + cos(a0) * e.r, y: e.y + sin(a0) * e.r, vx: cos(a0) * sp * 1.45, vy: sin(a0) * sp * 1.45, life: 2.2, a: a0, why: 'Pistol shrimp snap', bubble: true });
+      e.snapK = 1; e.flash = 0.6; this.sfx('hit', { pitch: 3 }); this.shake = min(8, this.shake + 2);
+      return;
+    }
     for (const off of [-0.2, 0, 0.2]) {
       const a = a0 + off;
       this.shards.push({ x: e.x + cos(a) * e.r, y: e.y + sin(a) * e.r, vx: cos(a) * sp, vy: sin(a) * sp, life: 3.2, a, why: 'Spitter shards', c: [170, 230, 255] });
@@ -91,7 +112,7 @@ export const Threats = {
         ctx.globalAlpha = 0.4 + 0.5 * k * (0.5 + 0.5 * sin(T * 30));
         ctx.drawImage(glowSprite([190, 110, 255]), e.x - s, e.y - s, s * 2, s * 2);
         ctx.restore();
-      } else if (e.kind === 'spitter' && e.aim > 0) {
+      } else if ((e.kind === 'spitter' || e.kind === 'pistolshrimp') && e.aim > 0) {
         ctx.save(); ctx.globalCompositeOperation = 'lighter';
         const s = e.r * (1.3 + e.aim * 1.2);
         ctx.globalAlpha = 0.25 + 0.6 * e.aim;

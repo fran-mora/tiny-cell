@@ -13,7 +13,7 @@ files = list(INCLUDE_FILES)
 for d in INCLUDE_DIRS:
     for dp, _, fns in os.walk(os.path.join(ROOT, d)):
         for fn in sorted(fns):
-            if fn.startswith('.') or fn in SKIP or fn.endswith('LICENSE'):
+            if fn.startswith('.') or fn in SKIP or fn.endswith('LICENSE') or fn.endswith('.md'):
                 continue
             files.append(os.path.relpath(os.path.join(dp, fn), ROOT).replace(os.sep, '/'))
 files = sorted(set(files))

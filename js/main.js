@@ -8,7 +8,9 @@ import * as Game from './game/index.js';
 import { drawPlayer, glowSprite } from './game/art.js';
 
 const C = () => store.state.campaign;
-const habitatOf = (c) => Math.ceil(c / Game.LEVELS_PER_HABITAT);
+// the level you play next: the journey's, or once it is complete an Open Ocean expedition (51, 52, ...)
+const playLevel = () => { const c = C(); return c.complete ? Game.TOTAL_LEVELS + Math.max(1, (c.ocean && c.ocean.level) | 0) : c.level; };
+const habitatOf = (lv) => Game.levelConfig(lv).h;
 
 const S = () => store.state;
 
@@ -32,7 +34,7 @@ class App {
     window.addEventListener('pagehide', () => { audio.suspend(); store.save(); });
     document.addEventListener('freeze', () => audio.suspend());
     window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !this.run) closeTopModal(); });
-    if (store.migratedFromV1) { store.save(); setTimeout(() => toast('Tiny Cell is now a <b>48-level evolution journey</b>. Your codex and records came with you.', { icon: 'star', ms: 6500 }), 900); }
+    if (store.migratedFromV1) { store.save(); setTimeout(() => toast('Tiny Cell is now a <b>50-level evolution journey</b>. Your codex and records came with you.', { icon: 'star', ms: 6500 }), 900); }
     window.__tc = this;
     this.registerSW();
   }
@@ -69,19 +71,19 @@ class App {
 
   refreshHub() {
     const st = S(), c = C();
-    const L = Game.levelConfig(c.level), stage = Game.STAGES[c.stage];
+    const lv = playLevel(), L = Game.levelConfig(lv), stage = Game.STAGES[c.stage];
     const used = (c.mutOrder || []).filter((id) => c.muts[id] > 0).length, total = Game.MUTATIONS.length;
     this.dnaChip.lastChild.textContent = `Evo ${c.evo.level}`;
     this.ageEl.replaceChildren(
-      el('div.hub-age-name', {}, c.complete ? 'Journey complete' : `Level ${c.level} of ${Game.TOTAL_LEVELS} \u00b7 ${L.name}`),
-      el('div.small.dim', {}, `${stage.name} \u00b7 ${used} of ${total} traits collected`),
+      el('div.hub-age-name', {}, L.ocean ? `Open Ocean \u00b7 expedition ${L.ocean}` : `Level ${c.level} of ${Game.TOTAL_LEVELS} \u00b7 ${L.name}`),
+      el('div.small.dim', {}, `${stage.name} \u00b7 ${used} of ${total} traits collected${L.ocean && c.ocean.best ? ` \u00b7 best ${c.ocean.best}` : ''}`),
     );
-    const label = c.complete ? 'Replay the final boss' : L.isBoss ? `Fight the ${Game.BOSSES[L.boss].name}` : `Play level ${c.level}`;
+    const label = L.ocean ? (L.isBoss ? `Rematch: ${Game.BOSSES[L.boss].name}` : `Dive into the Open Ocean`) : L.isBoss ? `Fight the ${Game.BOSSES[L.boss].name}` : `Play level ${c.level}`;
     this.diveBtn.innerHTML = icon(L.isBoss ? 'target' : 'microbe') + `<span>${label}</span>`;
     this.diveBtn.classList.toggle('boss', L.isBoss);
     const last = st.history[0];
-    const tries = c.attempts[c.level] | 0;
-    this.lastRunEl.textContent = last ? (last.cleared ? `Cleared level ${last.level} \u00b7 +${last.gained} new trait${last.gained === 1 ? '' : 's'}` : `Level ${c.level}: ${tries} attempt${tries === 1 ? '' : 's'} so far \u00b7 your traits stay with you`) : 'Drag anywhere to swim. Eat what is smaller, flee what is bigger.';
+    const tries = c.attempts[lv] | 0, name = (n) => (n > Game.TOTAL_LEVELS ? `expedition ${n - Game.TOTAL_LEVELS}` : `level ${n}`);
+    this.lastRunEl.textContent = last ? (last.cleared ? `Cleared ${name(last.level)} \u00b7 +${last.gained} new trait${last.gained === 1 ? '' : 's'}` : `${name(lv).replace(/^./, (x) => x.toUpperCase())}: ${tries} attempt${tries === 1 ? '' : 's'} so far \u00b7 your traits stay with you`) : 'Drag anywhere to swim. Eat what is smaller, flee what is bigger.';
   }
 
   startHubAnim() {
@@ -102,7 +104,7 @@ class App {
       const W = c.clientWidth, H = c.clientHeight;
       if (c.width !== Math.round(W * dpr) || c.height !== Math.round(H * dpr)) { c.width = Math.round(W * dpr); c.height = Math.round(H * dpr); }
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      const pal = Game.HABITATS[habitatOf(C().level)].pal.bg;
+      const pal = Game.HABITATS[habitatOf(playLevel())].pal.bg;
       const tint = [pal[0] * 0.8, pal[1] * 0.8, pal[2] * 0.8].map(Math.round);
       const g = ctx.createRadialGradient(W / 2, H * 0.42, 10, W / 2, H * 0.5, Math.max(W, H) * 0.8);
       g.addColorStop(0, `rgb(${tint[0] + 18},${tint[1] + 30},${tint[2] + 30})`); g.addColorStop(1, '#020812');
@@ -149,6 +151,7 @@ class App {
   startLevel(intro = 'dive', cover = null) {
     const st = S(), c = C();
     if (c.complete) c.level = Game.TOTAL_LEVELS;
+    const lv = playLevel();
     this.hub.style.display = 'none';
     this.host?.remove();
     this.host = el('div.run-host');
@@ -158,7 +161,7 @@ class App {
     audio.music('microbe');
     this.run = Game.startMicrobeRun({
       host: this.host,
-      campaign: { level: c.level, stage: c.stage, evo: { ...c.evo }, muts: { ...c.muts }, mutOrder: [...c.mutOrder], attempts: c.attempts[c.level] | 0 },
+      campaign: { level: lv, stage: c.stage, evo: { ...c.evo }, muts: { ...c.muts }, mutOrder: [...c.mutOrder], attempts: c.attempts[lv] | 0 },
       codex: { microbes: { ...st.codex.microbes }, mutations: { ...st.codex.mutations } },
       settings: { ...st.settings }, debug: location.search.includes('debug'), intro,
       onExit: (res) => this.endRun(res),
@@ -187,14 +190,16 @@ class App {
         const before = c.stage;
         c.stage = Math.max(c.stage, Game.stageForCleared(Math.floor(c.best / Game.LEVELS_PER_HABITAT)));
         if (c.stage > before) evolved = c.stage;
-        if (res.level >= Game.TOTAL_LEVELS) c.complete = true; else c.level = Math.max(c.level, res.level + 1);
+        if (res.level > Game.TOTAL_LEVELS) { const e = res.level - Game.TOTAL_LEVELS; c.ocean.best = Math.max(c.ocean.best | 0, e); c.ocean.level = Math.max(c.ocean.level | 0, e + 1); }
+        else if (res.level === Game.TOTAL_LEVELS) { c.complete = true; c.level = Game.TOTAL_LEVELS; }
+        else c.level = Math.max(c.level, res.level + 1);
       } else if (!res.abandoned) st.totals.deaths++;
       st.history.unshift({ d: Date.now(), level: res.level, cleared: !!res.cleared, gained: new Set(res.gained || []).size, time: res.timeSec });
       st.history = st.history.slice(0, 30);
     }
     store.save();
     const choice = res?.choice || 'home';
-    const goOn = (choice === 'next' || choice === 'retry') && !(choice === 'next' && c.complete);
+    const goOn = (choice === 'next' || choice === 'retry') && !(choice === 'next' && res?.level === Game.TOTAL_LEVELS);
     if (goOn && res?.seamless && (!evolved || res.evolveShown)) {
       // the level already played its own outro: swap straight into the next one, no black screen
       try { this.run && this.run.destroy(); } catch (e) { console.warn(e); }
@@ -213,7 +218,7 @@ class App {
       this.startHubAnim();
       setTimeout(() => this.fade.classList.remove('on'), 60);
       if (evolved && !res?.evolveShown) setTimeout(() => this.evolveDialog(evolved, goOn), 500);
-      else if (c.complete && res?.cleared && res.level >= Game.TOTAL_LEVELS) setTimeout(() => this.endingDialog(), 500);
+      else if (c.complete && res?.cleared && res.level === Game.TOTAL_LEVELS) setTimeout(() => this.endingDialog(), 500);
     }, 420);
   }
 
@@ -242,13 +247,14 @@ class App {
       body: el('div.center', {}, [
         el('div.era-kicker', {}, 'Journey complete'),
         el('div.era-big', {}, 'From a single cell'),
-        el('p.dim', { style: { margin: '0 0 10px' } }, 'You crossed eight habitats, beat eight bosses and evolved into a true creature of the deep.'),
+        el('p.dim', { style: { margin: '0 0 10px' } }, `You crossed ${Game.HABITATS.length - 1} habitats, beat ${Game.HABITATS.length - 1} bosses and evolved from a single cell into a jawed fish.`),
+        el('p', { style: { margin: '0 0 12px', fontWeight: 700 } }, 'The Open Ocean is open: endless expeditions, boss rematches that teach you new traits, and every trait you are still missing.'),
         el('div.stat-grid', {}, [
           el('div.stat', {}, [el('div.v', {}, fmt(st.totals.attempts)), el('div.k', {}, 'Attempts')]),
           el('div.stat', {}, [el('div.v', {}, duration(st.totals.playTimeSec)), el('div.k', {}, 'Time underwater')]),
         ]),
       ]),
-      buttons: [{ label: 'Wonderful', cls: 'btn-primary btn-lg' }],
+      buttons: [{ label: 'To the Open Ocean', cls: 'btn-primary btn-lg' }],
     });
   }
 
@@ -278,7 +284,16 @@ class App {
         ]),
       ]));
     }
-    sheet({ title: 'Journey', body: [el('p.dim', { style: { margin: '0 0 12px', fontSize: '14px' } }, `48 levels across 8 habitats. You are on level ${c.complete ? 48 : c.level}. Die and you retry the same level, keeping every trait.`), el('div.list', {}, items)] });
+    let oPic = null; if (c.complete) { try { oPic = Game.portrait('stage', 5, 88); oPic.style.width = oPic.style.height = '100%'; } catch (e) {} }
+    items.push(el('div.card.jr-card', { class: c.complete ? 'cur' : 'locked' }, [
+      el('div.thumb', {}, oPic || icon('lock', 'lg')),
+      el('div.grow', {}, [
+        el('div.jr-name', {}, ['\u221e \u00b7 ', c.complete ? 'Open Ocean' : '???']),
+        el('div.small.dim', {}, c.complete ? `Endless expeditions \u00b7 best ${c.ocean.best | 0} \u00b7 next ${c.ocean.level | 0}` : 'Finish the journey to open it'),
+        c.complete ? el('div.small', { style: { color: 'var(--dna)', marginTop: '4px' } }, 'Every 5th expedition is a boss rematch that teaches you a trait') : null,
+      ]),
+    ]));
+    sheet({ title: 'Journey', body: [el('p.dim', { style: { margin: '0 0 12px', fontSize: '14px' } }, `${Game.TOTAL_LEVELS} levels across ${Game.HABITATS.length - 1} habitats, evolving every ${2 * Game.LEVELS_PER_HABITAT} levels, then the endless Open Ocean. You are on ${c.complete ? `expedition ${c.ocean.level | 0}` : `level ${c.level}`}. Die and you retry the same level, keeping every trait.`), el('div.list', {}, items)] });
   }
 
   openTraits() {
@@ -296,6 +311,16 @@ class App {
         el('div.info', {}, [el('div.nm', {}, [d ? d.name : id, el('span.pips', {}, Array.from({ length: d ? d.maxLevel : l }, (_, k) => el('i', { class: k < l ? 'on' : '' })))]), el('div.ds', {}, d ? d.desc : ''), d && d.lv ? el('div.ds', { style: { color: 'var(--dna)' } }, d.lv(l)) : null]),
       ]);
     });
+    // traits you have never had, and where they turn up
+    const missing = Game.MUTATIONS.filter((m) => !c.muts[m.id]).map((m) => {
+      const from = Game.TRAIT_FROM[m.id] || 1;
+      const where = c.stage < m.stage ? `Unlocks with the ${Game.STAGES[m.stage].name} body` : !c.complete && from > c.level ? `Offered from level ${from}` : c.complete ? 'Can turn up any time. Open Ocean rematches teach new traits' : 'Can turn up at your next evolutions';
+      let p = null; try { p = Game.portrait('mutation', m.id, 96); p.style.width = p.style.height = '100%'; p.style.filter = 'grayscale(1) brightness(0.55)'; } catch (e) {}
+      return el('div.card.res-card', { style: { opacity: 0.85 } }, [
+        el('div.thumb', {}, p || icon('lock')),
+        el('div.info', {}, [el('div.nm', {}, m.name), el('div.ds', {}, m.desc), el('div.ds', { style: { color: 'var(--text-faint)' } }, where)]),
+      ]);
+    });
     const tiers = [2, 3, 4, 5].map((stg) => {
       const list = Game.MUTATIONS.filter((m) => m.stage === stg);
       const open = c.stage >= stg;
@@ -311,6 +336,8 @@ class App {
         ]),
       ]),
       owned.length ? el('div.list', {}, rows) : el('div.empty', {}, 'No traits yet. Eat to fill your evolution bar and pick your first trait.'),
+      missing.length ? el('div.section-title', {}, `Still to discover \u00b7 ${missing.length}`) : null,
+      missing.length ? el('div.list', {}, missing) : null,
       el('div.section-title', {}, 'Trait families'),
       ...tiers,
     ] });
@@ -325,7 +352,7 @@ class App {
       return el('div.codex-item', { class: known ? '' : 'unknown', onclick: () => { audio.sfx('click'); if (known) dialog({ title: m.name, text: m.desc, body: el('div.thumb', { style: { width: '120px', height: '120px', margin: '0 auto' } }, Game.portrait(kind, m.id, 120)) }); } }, [el('div.thumb', {}, p || icon('microbe')), known ? m.name : '???']);
     }));
     sheet({ title: 'Codex', body: [
-      el('div.section-title', {}, `Microbes · ${Game.MICROBE_SPECIES.filter((m) => st.codex.microbes[m.id]).length}/${Game.MICROBE_SPECIES.length}`),
+      el('div.section-title', {}, `Creatures · ${Game.MICROBE_SPECIES.filter((m) => st.codex.microbes[m.id]).length}/${Game.MICROBE_SPECIES.length}`),
       grid(Game.MICROBE_SPECIES, 'microbe'),
       el('div.section-title', {}, `Mutations · ${Object.keys(st.codex.mutations).length}/${Game.MUTATIONS.length}`),
       grid(Game.MUTATIONS, 'mutation'),
@@ -338,12 +365,13 @@ class App {
     const stat = (v, k) => el('div.stat', {}, [el('div.v', {}, v), el('div.k', {}, k)]);
     const hist = st.history.slice(0, 15).map((h) => el('div.row', { style: { padding: '8px 2px', borderBottom: '1px solid var(--line)', fontSize: '13.5px' } }, [
       el('span', { style: { color: h.cleared ? 'var(--good)' : 'var(--text-dim)', display: 'inline-flex' }, html: icon(h.cleared ? 'check' : 'microbe', 'sm') }),
-      el('div.grow', {}, `Level ${h.level} \u00b7 ${h.cleared ? 'cleared' : 'dissolved'}${h.time ? ' \u00b7 ' + duration(h.time) : ''}`),
+      el('div.grow', {}, `${h.level > Game.TOTAL_LEVELS ? `Expedition ${h.level - Game.TOTAL_LEVELS}` : `Level ${h.level}`} \u00b7 ${h.cleared ? 'cleared' : 'dissolved'}${h.time ? ' \u00b7 ' + duration(h.time) : ''}`),
       h.gained ? el('span.dna-c', { style: { fontWeight: 800 } }, `+${h.gained} trait${h.gained === 1 ? '' : 's'}`) : null,
     ]));
     sheet({ title: 'Records', body: [
       el('div.stat-grid', {}, [
-        stat(`${c.complete ? 48 : c.best}/48`, 'Levels cleared'), stat(Game.STAGES[c.stage].name, 'Body'),
+        stat(`${Math.min(Game.TOTAL_LEVELS, c.complete ? Game.TOTAL_LEVELS : c.best)}/${Game.TOTAL_LEVELS}`, 'Levels cleared'), stat(Game.STAGES[c.stage].name, 'Body'),
+        ...(c.complete ? [stat(`${c.ocean.best | 0}`, 'Best expedition')] : []),
         stat(`Lv ${c.evo.level}`, 'Evolution'), stat(fmt(T.attempts), 'Attempts'),
         stat(fmt(T.deaths), 'Times dissolved'), stat(fmt(T.bossKills), 'Bosses defeated'),
         stat(fmt(T.kills), 'Cells eaten'), stat(duration(T.playTimeSec), 'Time underwater'),

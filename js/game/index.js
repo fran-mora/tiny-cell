@@ -4,7 +4,7 @@ import { MICROBE_SPECIES as SPECIES, MUTATIONS as MUTS, GENOME_UPGRADES as GENOM
 import { portrait as drawPortrait } from './art.js';
 import { startGame } from './game.js';
 import * as C from './campaign.js';
-export { STAGES, HABITATS, BOSSES, levelConfig, TOTAL_LEVELS, LEVELS_PER_HABITAT, EVOLVE_AFTER, stageForCleared, evoNeed } from './campaign.js';
+export { STAGES, HABITATS, BOSSES, levelConfig, TOTAL_LEVELS, LEVELS_PER_HABITAT, EVOLVE_AFTER, stageForCleared, evoNeed, TRAIT_FROM, OCEAN_HABS } from './campaign.js';
 
 // Codex entries for every enemy / prey / boss: { id, name, desc, firstEra }
 export const MICROBE_SPECIES = SPECIES.map(({ id, name, desc, firstEra }) => ({ id, name, desc, firstEra }));

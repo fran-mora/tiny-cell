@@ -1,5 +1,15 @@
 // Player-facing release notes, newest first.
 export const CHANGELOG = [
+  { build: 14, title: 'A bigger world, real bosses and an endless ocean', notes: [
+    'The journey is now 50 levels across 10 habitats, with a new body every 10 levels: single cell, colony, flatworm, primordial fish and jawed fish.',
+    'The world changes scale as you grow. Each body size has its own creatures, based on real ones: rotifers, water bears, hydras and sun-animalcules; copepods, arrow worms, comb jellies and seed shrimp; krill, jellyfish, pistol shrimp, anemones and squid; sardines, barracudas, moray eels, cookie-cutter sharks and anglerfish. The animals from your old size shrink into easy prey, and anything two sizes smaller is too small to see.',
+    'Your body shows its evolution: a flatworm with a branching gut and cross-eyed eyespots, a jawless fish with gill pores and a glowing notochord, and a jawed fish with real fins and a forked tail. Every trait now shows on every body, from a lamprey sucker or toothed jaws to gill covers, bony scales and barbels.',
+    'Ten new boss fights, each beaten its own way: lure the Giant Amoeba into sunbeams, bite the Giant Virus while it infects a cell, eat the Volvox Titan’s daughters, make the Rotifer Tyrant choke on a spore puff, dodge Beroe’s mouth and tear its comb rows, catch the Pompeii Worm between its chimneys, find the real Giant Cuttlefish among its ink decoys, make the Mantis Shrimp punch at nothing, blind the Anglerfish with a glowing seed shrimp, and take the Progenitor colony apart polyp by polyp.',
+    'Two new habitats: the Coral Shelf and the pitch-dark Lantern Deep.',
+    'The Open Ocean: after the final boss, endless expeditions that keep getting harder. Every fifth one is a boss rematch that always teaches you a trait.',
+    'The Traits screen now lists the traits you have not found yet and where they turn up, and every evolution offers at least one trait you have never had.',
+    'Your save carries over, but so much has changed that starting fresh (Menu, then Erase all progress) is the best way to see it all.',
+  ] },
   { build: 13, title: 'New threats, fairer bites', notes: [
     'Fixed: in its final form the Progenitor sped up every frame and flew off the map, so the last level could not be finished. Bosses can no longer leave the arena.',
     'Five new threats, one more per habitat from the Violet Abyss: Lurkers (camouflaged, they flash and lunge), Mucus mats (sticky slime that slows you), Spore mines (burst when you get close, pop them with toxins), Spitters (fire shard volleys) and Whirlpools (drag you to a crushing core). Each gets an introduction the first time you meet it.',

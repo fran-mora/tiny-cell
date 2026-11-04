@@ -57,6 +57,7 @@ export const Cinematics = {
     const L = this.L, kind = this.introKind;
     const show = () => {
       if (L.j === 1 && kind !== 'retry') this.habitatCard();
+      else if (L.ocean) this.banner(`Expedition ${L.ocean}`, L.isBoss ? L.title : L.name, L.isBoss ? 'danger' : '');
       else this.banner(`Level ${L.c}`, L.isBoss ? `${L.name} · Boss` : L.title, L.isBoss ? 'danger' : '');
     };
     if (kind === 'retry') this.later(1050, show);
@@ -66,11 +67,11 @@ export const Cinematics = {
     const L = this.L, H = C.HABITATS[L.h], a = H.pal.accent;
     if (this.bannerEl) this.bannerEl.remove();
     const card = this.bannerEl = el('div.mb-habitat', {}, [
-      el('div.mb-kicker', {}, `Habitat ${L.h} of ${C.HABITATS.length - 1}`),
-      el('h1', {}, L.name),
+      el('div.mb-kicker', {}, L.ocean ? `Open Ocean \u00b7 leg ${L.leg}` : `Habitat ${L.h} of ${C.HABITATS.length - 1}`),
+      el('h1', {}, L.ocean ? H.name : L.name),
       el('div.mb-hab-line'),
-      el('p', {}, H.tag || ''),
-      el('p.mb-hab-lv', {}, `Level ${L.c}`),
+      el('p', {}, L.ocean ? 'Endless water. How far can you go?' : H.tag || ''),
+      el('p.mb-hab-lv', {}, L.ocean ? `Expedition ${L.ocean}` : `Level ${L.c}`),
     ]);
     card.style.setProperty('--acc', rgbStr(a));
     card.style.setProperty('--accg', `rgba(${a[0]},${a[1]},${a[2]},.5)`);
@@ -142,6 +143,8 @@ export const Cinematics = {
     const M = this.meta, p = this.p, col = this.pcol();
     M.swapped = true;
     p.stage = M.to;
+    // you are ten times bigger now: everything around you shrinks to your new scale
+    for (const e of this.ents) if (e.alive && !e.boss && !e.ally) { e.shrinkFrom = e.r; e.shrinkTo = e.r * 0.32; e.shrinkT = 0; }
     this.bigFlash = 1;
     this.rings = this.rings || [];
     this.rings.push({ x: p.x, y: p.y, r: 0, R: p.r * 8, life: 0.6, c: GOLD_HI });
@@ -258,6 +261,7 @@ export const Cinematics = {
     }
     // metamorphosis
     const M = this.meta;
+    for (const e of this.ents) if (e.shrinkTo) { e.shrinkT = min(1, e.shrinkT + rd / 1.4); e.r = e.shrinkFrom + (e.shrinkTo - e.shrinkFrom) * out3(e.shrinkT); if (e.shrinkT >= 1) e.shrinkTo = 0; }
     if (M) {
       M.t += rd;
       if (M.t < 1.1) this.shake = max(this.shake, 4 * in2(M.t / 1.1));
@@ -487,6 +491,7 @@ export const Cinematics = {
       el('div', {}, [
         el('div.mb-kicker', {}, 'You evolved'),
         el('b', {}, S.name),
+        S.size ? el('div.small', { style: { color: '#ffd678', fontWeight: 800, margin: '0 0 2px' } }, `You are about ${S.size} long now`) : null,
         el('p.dim.small', {}, S.blurb.replace(/^[^.]*\.\s*/, '')),
       ]),
     ]);

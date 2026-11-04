@@ -1,3 +1,4 @@
+import { SPECIES } from './ecology.js';
 // Microbe mode — static game data: bestiary, mutations, genome upgrades, depths, palettes, formulas.
 
 export const MICROBE_SPECIES = [
@@ -21,28 +22,22 @@ export const MICROBE_SPECIES = [
     desc: 'A tiny animal whose spinning crown sucks in food (and careless cells).' },
   { id: 'volvox', name: 'Volvox', firstEra: 5, role: 'neutral',
     desc: 'A great green colony of cells. Bump it and it bursts into edible daughter colonies.' },
-  { id: 'lurker', name: 'Lurker', firstEra: 1, role: 'predator',
-    desc: 'A camouflaged hunter of the deep. Nearly invisible until it flashes and lunges in a straight line. Dodge sideways.' },
-  { id: 'spitter', name: 'Spitter', firstEra: 1, role: 'predator',
-    desc: 'A glassy rotifer that keeps its distance and fires volleys of silica shards. It glows just before it shoots.' },
-  { id: 'mine', name: 'Spore Mine', firstEra: 1, role: 'hazard',
-    desc: 'A drifting puffball that swells and bursts when anything comes close. Toxins and spikes pop it from a safe distance.' },
-  { id: 'colossus', name: 'Colossal Amoeba', firstEra: 1, role: 'boss',
-    desc: 'Guardian of the Midnight Gyre. Bite its glowing weak spots and never touch its body.' },
-  { id: 'queen', name: 'Phage Queen', firstEra: 1, role: 'boss',
-    desc: 'A crystalline virus the size of a reef. She guards the Vent of Origins.' },
-  { id: 'greatciliate', name: 'Great Ciliate', firstEra: 1, role: 'boss',
-    desc: 'A golden blur of beating hairs that rules the Kelp Twilight. It charges in straight lines and calls its kin.' },
-  { id: 'tyrant', name: 'Rotifer Tyrant', firstEra: 1, role: 'boss',
-    desc: 'Its spinning crown drags everything towards its mouth. Swim hard against the pull.' },
-  { id: 'titan', name: 'Volvox Titan', firstEra: 1, role: 'boss',
-    desc: 'A rolling world of green cells that sheds glassy shards as it turns.' },
-  { id: 'prime', name: 'Colossus Prime', firstEra: 1, role: 'boss',
-    desc: 'A vent-forged colossus: faster, angrier and surrounded by hunters.' },
-  { id: 'leviathan', name: 'Diatom Leviathan', firstEra: 1, role: 'boss',
-    desc: 'Living glass the size of a reef, firing storms of silica shards.' },
-  { id: 'progenitor', name: 'The Progenitor', firstEra: 1, role: 'boss',
-    desc: 'The ancestor of all life, guarding the bottom of the Origin Trench. Three forms.' },
+  { id: 'mine', name: 'Spore Puff', firstEra: 1, role: 'hazard',
+    desc: 'A fungal sporangium that swells and bursts when anything comes close. Toxins pop it from a safe distance.' },
+  // every creature of the bigger scales (colony, first animals, reef, open sea)
+  ...Object.entries(SPECIES).filter(([id, v]) => v.tier >= 2 && id !== 'lurker' && id !== 'spitter' && !['rotifer', 'volvox', 'siphonophore'].includes(id))
+    .map(([id, v]) => ({ id, name: v.name, firstEra: 1, role: v.role, desc: v.desc })),
+  // bosses
+  { id: 'giantamoeba', name: 'Giant Amoeba', firstEra: 1, role: 'boss', desc: 'A giant amoeba as wide as a pinhead. Like all amoebas it shrinks from bright light. How to beat it: stand behind a sunbeam so its surge carries it into the light, then bite it while it burns.' },
+  { id: 'virus', name: 'Giant Virus', firstEra: 1, role: 'boss', desc: 'A giant virus, bigger than many bacteria. It docks onto cells and turns them into factories for its swarms. How to beat it: bite its capsid while it injects, and eat infected cells before they burst.' },
+  { id: 'titan', name: 'Volvox Titan', firstEra: 1, role: 'boss', desc: 'A rolling sphere of thousands of cells, too tough to bite, carrying its daughter colonies inside. How to beat it: eat the daughters it releases before they grow and roll home.' },
+  { id: 'tyrant', name: 'Rotifer Tyrant', firstEra: 1, role: 'boss', desc: 'Its spinning crown of cilia drags everything towards its grinding jaws. How to beat it: when it inhales, hide behind a spore puff so it chokes on the spores.' },
+  { id: 'beroe', name: 'Beroe', firstEra: 1, role: 'boss', desc: 'A comb jelly that hunts other comb jellies and swallows them whole with its enormous mouth. How to beat it: dodge its lunges and bite the comb rows along its sides.' },
+  { id: 'pompeii', name: 'Pompeii Worm', firstEra: 1, role: 'boss', desc: 'One of the most heat-tolerant animals on Earth, living in tubes on scalding vent chimneys. How to beat it: come at its chimney from the side and bite its head when it peeks out.' },
+  { id: 'cuttlefish', name: 'Giant Cuttlefish', firstEra: 1, role: 'boss', desc: 'A master of camouflage that flashes patterns across its skin and leaves ink decoys behind. How to beat it: dodge its tentacle strike, bite it, and find the real one by its eyes.' },
+  { id: 'mantis', name: 'Peacock Mantis Shrimp', firstEra: 1, role: 'boss', desc: 'Its club strikes as fast as a bullet, boiling the water with the shock. How to beat it: make its punch miss, then bite while it re-cocks its clubs.' },
+  { id: 'abyssal', name: 'Abyssal Anglerfish', firstEra: 1, role: 'boss', desc: 'Queen of the dark: a glowing lure, a huge mouth and needle teeth. How to beat it: eat a glowing seed shrimp in front of her eyes to blind her, then bite.' },
+  { id: 'progenitor', name: 'The Progenitor', firstEra: 1, role: 'boss', desc: 'A siphonophore colony forty metres long: thousands of specialised animals acting as one. How to beat it: destroy the feeding polyps, then the swimming bells, then the core.' },
 ];
 export const SPECIES_BY_ID = Object.fromEntries(MICROBE_SPECIES.map((s) => [s.id, s]));
 
