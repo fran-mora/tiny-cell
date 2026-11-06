@@ -313,30 +313,31 @@ class App {
     audio.sfx('click');
     const c = C(), S2 = Game.STAGES[c.stage];
     const owned = (c.mutOrder || []).filter((id) => c.muts[id] > 0);
-    const defs = Object.fromEntries(Game.MUTATIONS.map((m) => [m.id, m]));
+    // traits as they look on your current body (a fish's polyps are pyloric caeca, and so on)
+    const defs = Object.fromEntries(Game.MUTATIONS.map((m) => [m.id, Game.traitForm(m, c.stage)]));
     let pic = null; try { pic = Game.portrait('stage', c.stage, 160); pic.style.width = pic.style.height = '100%'; } catch (e) {}
     const evoNeed = Game.evoNeed(c.evo.level);
     const rows = owned.map((id) => {
       const d = defs[id]; const l = c.muts[id];
-      let p = null; try { p = Game.portrait('mutation', id, 96); p.style.width = p.style.height = '100%'; } catch (e) {}
+      let p = null; try { p = Game.portrait('mutation', id, 96, c.stage); p.style.width = p.style.height = '100%'; } catch (e) {}
       return el('div.card.res-card', {}, [
         el('div.thumb', {}, p || icon('dna')),
         el('div.info', {}, [el('div.nm', {}, [d ? d.name : id, el('span.pips', {}, Array.from({ length: d ? d.maxLevel : l }, (_, k) => el('i', { class: k < l ? 'on' : '' })))]), el('div.ds', {}, d ? d.desc : ''), d && d.lv ? el('div.ds', { style: { color: 'var(--dna)' } }, d.lv(l)) : null]),
       ]);
     });
     // traits you have never had, and where they turn up
-    const missing = Game.MUTATIONS.filter((m) => !c.muts[m.id]).map((m) => {
+    const missing = Game.MUTATIONS.filter((m) => !c.muts[m.id]).map((m) => defs[m.id]).map((m) => {
       const from = Game.TRAIT_FROM[m.id] || 1;
       const pst = Object.entries(Game.STAGE_POWER).find(([, id]) => id === m.id);
       const where = m.active ? (pst ? `Power: comes with the ${Game.STAGES[+pst[0]].name} body` : 'Power: yours when you finish the journey') : c.stage < m.stage ? `Unlocks with the ${Game.STAGES[m.stage].name} body` : !c.complete && from > c.level ? `Offered from level ${from}` : c.complete ? 'Can turn up any time. Open Ocean rematches teach new traits' : 'Can turn up at your next evolutions';
-      let p = null; try { p = Game.portrait('mutation', m.id, 96); p.style.width = p.style.height = '100%'; p.style.filter = 'grayscale(1) brightness(0.55)'; } catch (e) {}
+      let p = null; try { p = Game.portrait('mutation', m.id, 96, c.stage); p.style.width = p.style.height = '100%'; p.style.filter = 'grayscale(1) brightness(0.55)'; } catch (e) {}
       return el('div.card.res-card', { style: { opacity: 0.85 } }, [
         el('div.thumb', {}, p || icon('lock')),
         el('div.info', {}, [el('div.nm', {}, m.name), el('div.ds', {}, m.desc), el('div.ds', { style: { color: 'var(--text-faint)' } }, where)]),
       ]);
     });
     const tiers = [2, 3, 4, 5].map((stg) => {
-      const list = Game.MUTATIONS.filter((m) => m.stage === stg);
+      const list = Game.MUTATIONS.filter((m) => m.stage === stg).map((m) => defs[m.id]);
       const open = c.stage >= stg;
       return el('div.small', { style: { margin: '4px 2px', color: open ? 'var(--text-dim)' : 'var(--text-faint)' } }, [el('b', { style: { color: open ? 'var(--good)' : 'var(--text-faint)' } }, `${Game.STAGES[stg].name}: `), list.map((m) => m.name).join(', '), open ? '' : ' (locked)']);
     });
@@ -362,14 +363,16 @@ class App {
     const st = S();
     const grid = (items, kind) => el('div.codex-grid', {}, items.map((m) => {
       const known = kind === 'microbe' ? !!st.codex.microbes[m.id] : !!st.codex.mutations[m.id];
-      let p = null; try { p = Game.portrait(kind, m.id, 112); p.style.width = p.style.height = '100%'; } catch (e) {}
-      return el('div.codex-item', { class: known ? '' : 'unknown', onclick: () => { audio.sfx('click'); if (known) dialog({ title: m.name, text: m.desc, body: el('div.thumb', { style: { width: '120px', height: '120px', margin: '0 auto' } }, Game.portrait(kind, m.id, 120)) }); } }, [el('div.thumb', {}, p || icon('microbe')), known ? m.name : '???']);
+      const stg = kind === 'mutation' ? C().stage : undefined; // traits are shown as they look on your body now
+      let p = null; try { p = Game.portrait(kind, m.id, 112, stg); p.style.width = p.style.height = '100%'; } catch (e) {}
+      const text = m.was ? `${m.desc} (On earlier bodies: ${m.was}.)` : m.desc;
+      return el('div.codex-item', { class: known ? '' : 'unknown', onclick: () => { audio.sfx('click'); if (known) dialog({ title: m.name, text, body: el('div.thumb', { style: { width: '120px', height: '120px', margin: '0 auto' } }, Game.portrait(kind, m.id, 120, stg)) }); } }, [el('div.thumb', {}, p || icon('microbe')), known ? m.name : '???']);
     }));
     sheet({ title: 'Codex', body: [
       el('div.section-title', {}, `Creatures · ${Game.MICROBE_SPECIES.filter((m) => st.codex.microbes[m.id]).length}/${Game.MICROBE_SPECIES.length}`),
       grid(Game.MICROBE_SPECIES, 'microbe'),
       el('div.section-title', {}, `Mutations · ${Object.keys(st.codex.mutations).length}/${Game.MUTATIONS.length}`),
-      grid(Game.MUTATIONS, 'mutation'),
+      grid(Game.MUTATIONS.map((m) => Game.traitForm(m, C().stage)), 'mutation'),
     ] });
   }
 

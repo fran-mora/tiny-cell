@@ -4,7 +4,7 @@ import { MICROBE_SPECIES as SPECIES, MUTATIONS as MUTS, GENOME_UPGRADES as GENOM
 import { portrait as drawPortrait } from './art.js';
 import { startGame } from './game.js';
 import * as C from './campaign.js';
-export { STAGES, HABITATS, BOSSES, levelConfig, TOTAL_LEVELS, LEVELS_PER_HABITAT, EVOLVE_AFTER, stageForCleared, evoNeed, TRAIT_FROM, OCEAN_HABS, STAGE_POWER, FINAL_POWER, POWER_NAMES, powersFor } from './campaign.js';
+export { STAGES, HABITATS, BOSSES, levelConfig, TOTAL_LEVELS, LEVELS_PER_HABITAT, EVOLVE_AFTER, stageForCleared, evoNeed, TRAIT_FROM, OCEAN_HABS, STAGE_POWER, FINAL_POWER, POWER_NAMES, powersFor, traitForm } from './campaign.js';
 
 // Codex entries for every enemy / prey / boss: { id, name, desc, firstEra }
 export const MICROBE_SPECIES = SPECIES.map(({ id, name, desc, firstEra }) => ({ id, name, desc, firstEra }));
@@ -16,8 +16,9 @@ export const MUTATIONS = [...MUTS, ...C.NEW_MUTATIONS].map(({ id, name, desc, ma
 export const GENOME_UPGRADES = GENOME.map(({ id, name, desc, maxLevel, cost, effect }) => ({ id, name, desc, maxLevel, cost, effect }));
 
 // kind: 'microbe' | 'mutation' | 'genome' -> HTMLCanvasElement (transparent background, CSS size = size px)
-export function portrait(kind, id, size = 96) {
-  return drawPortrait(kind, id, size);
+// stage: the body a trait is shown on (fish bodies show the fish form of early traits)
+export function portrait(kind, id, size = 96, stage) {
+  return drawPortrait(kind, id, size, stage);
 }
 
 // opts: { host, era, genome, codex, settings, firstRun, dnaMult, onExit }

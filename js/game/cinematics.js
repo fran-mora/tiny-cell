@@ -486,6 +486,9 @@ export const Cinematics = {
     const S = C.STAGES[to];
     let pic = null;
     try { pic = portrait('stage', to, 120); pic.style.width = pic.style.height = '64px'; } catch (e) { pic = null; }
+    // traits you already have that look different on the new body (polyps → pyloric caeca, …)
+    const m = this.p.muts, changed = Object.keys(m).filter((id) => m[id] > 0 && this.mutName(id, to - 1) !== this.mutName(id, to));
+    const forms = changed.length ? `${to === 4 ? 'Your old traits take fish form' : 'Your traits change with your body'}: ${changed.slice(0, 5).map((id) => `${this.mutName(id, to - 1)} → ${this.mutName(id, to)}`).join(', ')}${changed.length > 5 ? `, and ${changed.length - 5} more (see Traits)` : ''}.` : '';
     return el('div.panel.mb-evobox', {}, [
       pic,
       el('div', {}, [
@@ -494,6 +497,7 @@ export const Cinematics = {
         S.size ? el('div.small', { style: { color: '#ffd678', fontWeight: 800, margin: '0 0 2px' } }, `You are about ${S.size} long now`) : null,
         C.STAGE_POWER[to] ? el('div.small', { style: { color: '#9fdcff', fontWeight: 800, margin: '0 0 2px' } }, `New power: ${C.POWER_NAMES[C.STAGE_POWER[to]]}`) : null,
         el('p.dim.small', {}, S.blurb.replace(/^[^.]*\.\s*/, '').replace(/New power: [^.]*\.\s*/, '')),
+        forms ? el('p.small', { style: { color: '#a8ffd8', margin: '4px 0 0' } }, forms) : null,
       ]),
     ]);
   },

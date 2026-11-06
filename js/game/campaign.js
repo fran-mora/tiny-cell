@@ -63,6 +63,47 @@ export const NEW_MUTATIONS = [
 ];
 export const NEW_MUT_BY_ID = Object.fromEntries(NEW_MUTATIONS.map((m) => [m.id, m]));
 
+// ---------- traits take the form your body uses ----------
+// A trait keeps its effect for the whole journey, but a fish has no polyps, cilia or chloroplasts. From the
+// Primordial Fish on, each early trait shows up as what real fish use for the same job (with art to match).
+// id → [[from stage, name, description, level text?], …] (the last entry your stage has reached wins)
+export const TRAIT_FORMS = {
+  flagellum: [[4, 'Tail Fin', 'A bigger, stronger tail fin. +12% top speed per level.']],
+  cilia: [[4, 'Lateral Line', 'A row of pressure sensors down each side feels food and danger before you see them. +25% acceleration and +15% pickup reach per level.']],
+  membrane: [[4, 'Tough Skin', 'Thicker, tougher skin. +25 max HP per level, healed on pick.']],
+  spikes: [[4, 'Fin Spines', 'Sharp spines on your back and fins. Anything that touches you gets hurt, and phages are shredded.']],
+  toxin: [[4, 'Boxfish Toxin', 'Like a boxfish, you leak poison into the water: every few seconds a toxic cloud hurts everything around you.']],
+  chloro: [[4, 'Sun Basking', 'Like an ocean sunfish, you soak up the sun’s warmth. Light heals you and UV shafts can no longer burn you.']],
+  mito: [[4, 'Red Muscle', 'Dark, oxygen-rich muscle along your flanks that never tires and slowly heals you.']],
+  vacuole: [[4, 'Swim Bladder', 'A gas-filled float holds you up for free, so every meal goes further.']],
+  pseudopod: [[4, 'Lobe Fins', 'Fleshy, muscular fins that pin prey down. Swallow animals nearly your own size.', (l) => `swallow prey up to ${85 + 4 * l}% your size`]],
+  biolum: [[4, 'Photophores', 'Light organs along your sides glow to lure food from afar.']],
+  symbionts: [[4, 'Pilot Fish', 'Little striped pilot fish swim around you, biting enemies and blocking shards.', (l) => `${l} pilot fish`]],
+  fission: [[4, 'Offspring', 'A young fish of yours swims along and gathers food for you.', (l) => `${l} young fish`]],
+  mimicry: [[4, 'Camouflage', 'Blotchy colours break up your outline. Predators notice you later and give up sooner.']],
+  dash: [[4, 'Fast Start', 'ACTIVE: the escape reflex of fish. A giant nerve fires, your body snaps into a C and you shoot off, briefly invulnerable. Rams through cells and shakes off phages.']],
+  nova: [[4, 'Electric Shock', 'ACTIVE: the electric organ in your tail discharges, like an electric ray’s, and blasts everything nearby.']],
+  cyst: [[4, 'Mucus Cocoon', 'Once per depth, survive a lethal hit by sealing yourself in a hard mucus cocoon, like a lungfish in a drought.']],
+  osmo: [[4, 'Salt Pumps', 'Special cells in your gills pump out salt and poisons. Resist hazards and currents.']],
+  lysosome: [[4, 'Stomach Acid', 'A strong, acid stomach. Meals heal you and boss bites hit harder.']],
+  guard: [[4, 'Bony Scutes', 'Rows of bony plates along your flanks absorb part of every hit.']],
+  polyps: [[4, 'Pyloric Caeca', 'Finger-like pouches off your stomach soak up more from every meal, and meals heal you.']],
+  signal: [[4, 'Scent Signals', 'Fish talk in smells: your scent draws food towards you and confuses predators.']],
+  nerve: [[4, 'Spinal Cord', 'A spinal cord and a bigger brain. React faster: longer invulnerability after a hit and wider reach.']],
+  cnido: [[4, 'Stinging Slime', 'Your skin oozes a stinging slime, like a soapfish’s. Everything touching you gets hurt, bosses included.']],
+  jaws: [[4, 'Sucker Mouth', 'A round sucker ringed with horny teeth, like a lamprey’s. Bite bosses harder and swallow bigger prey.'],
+    [5, 'Jaws', 'Real hinged jaws lined with teeth. Bite bosses harder and swallow bigger prey.']],
+};
+// def (a mutation definition) as it appears on a body of this stage: { ...def, name, desc, lv, was }
+export function traitForm(def, stage) {
+  const forms = def && TRAIT_FORMS[def.id];
+  if (!forms) return def;
+  let f = null;
+  for (const e of forms) if ((stage | 0) >= e[0]) f = e;
+  if (!f) return def;
+  return { ...def, name: f[1], desc: f[2], lv: f[3] || def.lv, was: def.name };
+}
+
 // ---------- when traits appear, and where they shine ----------
 // First level each trait can be offered (body-stage gates still apply on top). Basics first;
 // answers to new threats arrive just before those threats do.

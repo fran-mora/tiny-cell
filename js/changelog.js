@@ -1,5 +1,13 @@
 // Player-facing release notes, newest first.
 export const CHANGELOG = [
+  { build: 19, title: 'Fish look like fish', notes: [
+    'Traits from your cell days now turn into what real fish use for the same job once you become a fish. They keep exactly the same effect; only the look and the name change.',
+    'Feeding Polyps become Pyloric Caeca: finger-like pouches off your stomach, seen through your side, instead of polyps stuck to your body.',
+    'Stinging Cells become Stinging Slime, a glossy mucus that beads and trails off your skin (like a soapfish’s). Chloroplasts become Sun Basking, a golden sheen down your back.',
+    'Symbionts become Pilot Fish, little striped fish that escort you. Binary Fission becomes Offspring: a young fish of yours follows you around (as a flatworm, a little flatworm).',
+    'Enzyme Burst becomes Fast Start, the fish escape reflex, with a burst of bubbles and swirls from your tail. Toxin Nova becomes Electric Shock, with lightning crackling through the blast. Cyst becomes a Mucus Cocoon.',
+    'Many others get fish names too: Tail Fin, Lateral Line, Tough Skin, Fin Spines, Boxfish Toxin, Red Muscle, Swim Bladder, Lobe Fins, Photophores, Camouflage, Salt Pumps, Stomach Acid, Bony Scutes, Scent Signals and Spinal Cord. The jawless fish has a Sucker Mouth until real Jaws arrive.',
+  ] },
   { build: 18, title: 'A power for every body', notes: [
     'Every new body now brings its own active power: Enzyme Burst (dash) as a Colony, Toxin Nova as a Flatworm, Photophore Flash as a Primordial Fish, Suction Feeding as a Jawed Fish, and Shoal Call when you finish the journey. Powers are no longer random picks; once you have one, picks can level it up.',
     'If your save is already past those bodies, you get their powers straight away.',

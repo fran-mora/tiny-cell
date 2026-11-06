@@ -4,7 +4,7 @@ import { audio, haptic } from '../audio.js';
 import { RNG, clamp, lerp } from '../rng.js';
 import * as D from './data.js';
 import * as C from './campaign.js';
-import { drawSpecies, drawPlayer, glowSprite, makeCausticTile, makeShaft, portrait, mixRGB, rgbStr, WHITE, CREATURE_ART, BOSS_ART } from './art.js';
+import { drawSpecies, drawPlayer, drawPilotFish, drawKin, glowSprite, makeCausticTile, makeShaft, portrait, mixRGB, rgbStr, WHITE, CREATURE_ART, BOSS_ART } from './art.js';
 // boss portraits for the codex and journey: which body each boss is drawn with
 Object.assign(BOSS_ART, { giantamoeba: { base: 'colossus', col: null }, virus: { base: 'queen', col: null }, abyssal: { base: 'angler', col: null }, progenitor: { base: 'siphboss', col: null } });
 import { injectStyle, releaseStyle } from './style.js';
@@ -35,7 +35,7 @@ const angDiff = (a, b) => { const d = b - a; if (!Number.isFinite(d)) return 0; 
 // Repeatable rewards offered once every mutation is maxed (or to fill a short hand).
 const mutDef = (id) => D.MUT_BY_ID[id] || C.NEW_MUT_BY_ID[id];
 const BOONS = [
-  { id: 'renew', boon: true, icon: 'mito', name: 'Renewal', rarity: 'common', desc: 'Your cell rebuilds itself. Fully heals and toughens your membrane.', eff: 'Full heal, +10 max HP' },
+  { id: 'renew', boon: true, icon: 'mito', name: 'Renewal', rarity: 'common', desc: 'Your body rebuilds itself. Fully heals you and makes you tougher.', eff: 'Full heal, +10 max HP' },
   { id: 'cache', boon: true, icon: 'vacuole', name: 'Genetic Cache', rarity: 'rare', desc: 'Bank your surplus genes for later.', eff: '+4 DNA this run' },
   { id: 'vigor', boon: true, icon: 'flagellum', name: 'Vigor', rarity: 'common', desc: 'A surge of metabolism.', eff: '+6% speed and biomass' },
 ];
@@ -1214,7 +1214,7 @@ class MicrobeGame {
     const ns = m.symbionts | 0;
     if (ns) {
       this.symb = this.symb || [];
-      const R = p.r * 2.1;
+      const R = p.r * 2.1, sr = (p.stage | 0) >= 4 ? max(7, p.r * 0.22) : 7; // pilot fish (on a fish) are a little bigger than bacteria
       for (let i = 0; i < ns; i++) {
         const a = this.T * 2.2 + (i / ns) * TAU;
         const sx = p.x + cos(a) * R, sy = p.y + sin(a) * R;
@@ -1222,10 +1222,10 @@ class MicrobeGame {
         for (const e of this.ents) {
           if (!e.alive || e.ally) continue;
           const dx = e.x - sx, dy = e.y - sy;
-          if (dx * dx + dy * dy < (e.r + 7) ** 2) { if (isTiny(e) || e.latched) { if (e.latched) { e.latched = false; p.latched--; } if (!isTiny(e)) { this.damage(e, 20, p); continue; } this.kill(e, false); } else this.damage(e, 22 * dt, null, true); }
+          if (dx * dx + dy * dy < (e.r + sr) ** 2) { if (isTiny(e) || e.latched) { if (e.latched) { e.latched = false; p.latched--; } if (!isTiny(e)) { this.damage(e, 20, p); continue; } this.kill(e, false); } else this.damage(e, 22 * dt, null, true); }
         }
-        if (this.boss) { const b = this.boss; if (hypot(b.x - sx, b.y - sy) < b.r + 7) this.bossDamage(12 * dt, true); }
-        for (const s of this.shards) if (s.life > 0 && hypot(s.x - sx, s.y - sy) < 12) { s.life = 0; this.sparkle(s.x, s.y, [200, 220, 255], 4); }
+        if (this.boss) { const b = this.boss; if (hypot(b.x - sx, b.y - sy) < b.r + sr) this.bossDamage(12 * dt, true); }
+        for (const s of this.shards) if (s.life > 0 && hypot(s.x - sx, s.y - sy) < sr + 5) { s.life = 0; this.sparkle(s.x, s.y, [200, 220, 255], 4); }
       }
     }
   }
@@ -1291,6 +1291,7 @@ class MicrobeGame {
     const p = this.p; if (!p.muts.nova || p.novaCd > 0 || this.dead || this.modal) return;
     p.novaCd = 15 - 2 * (p.muts.nova - 1);
     this.shockwave(p.x, p.y, p.r * 7.5, 35 + 20 * p.muts.nova, false);
+    if ((p.stage | 0) >= 4) { const r = this.rings[this.rings.length - 1]; r.c = [185, 175, 255]; r.bolt = this.T; } // a fish's electric organ discharging
     this.sfx('toxin'); this.sfx('boss', { vol: 0.35 }); this.buzz([20, 30, 40]);
     this.abFlash('nova');
   }
@@ -1318,7 +1319,7 @@ class MicrobeGame {
     this.abBox.innerHTML = ''; this.abBtns = {};
     want.forEach((id, i) => {
       const A = ABILITY_BY_ID[id], ring = el('div.mb-ring');
-      const b = el('button.mb-ab.mb-tap', { class: (i ? (want.length >= 4 ? 'small tiny ' : 'small ') : '') + 'ab-' + id, 'aria-label': (mutDef(id) || { name: id }).name }, [ring, portrait('mutation', id, 56)]);
+      const b = el('button.mb-ab.mb-tap', { class: (i ? (want.length >= 4 ? 'small tiny ' : 'small ') : '') + 'ab-' + id, 'aria-label': this.mutName(id) }, [ring, portrait('mutation', id, 56, this.p.stage)]);
       b.style.setProperty('--ring-c', A.col);
       b.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); this[A.use](); });
       this.abBox.appendChild(b);
@@ -1584,7 +1585,7 @@ class MicrobeGame {
     this.sfx('coin');
   }
   toast(kicker, text, pid, pkind, cls = '') {
-    const t = el('div.toast', { class: cls }, [pid ? portrait(pkind, pid, 40) : null, el('div.mb-tt', {}, [el('small', {}, kicker), el('span', { html: text })])]);
+    const t = el('div.toast', { class: cls }, [pid ? portrait(pkind, pid, 40, this.p && this.p.stage) : null, el('div.mb-tt', {}, [el('small', {}, kicker), el('span', { html: text })])]);
     this.toasts.appendChild(t);
     while (this.toasts.children.length > 3) this.toasts.firstChild.remove();
     this.later(2600, () => { t.classList.add('out'); this.later(320, () => t.remove()); });
@@ -1621,6 +1622,10 @@ class MicrobeGame {
   // ---------- overlays ----------
   // no body limit: every trait you pick stays, so the goal is to collect them all
   traitCount() { return this.mutOrder.filter((id) => this.p.muts[id] > 0).length; }
+  // a trait's name as it looks on a body of this stage (polyps become pyloric caeca on a fish, etc.)
+  mutName(id, stage = this.p.stage) { const d = C.traitForm(mutDef(id), stage); return d ? d.name : id; }
+  // the defeat headline, in words that fit your body
+  lostLine() { const st = this.p.stage | 0; return st <= 1 ? 'Your cell dissolved' : st === 2 ? 'Your colony fell apart' : 'You didn\u2019t make it'; }
   traitTotal() { return D.MUTATIONS.length + C.NEW_MUTATIONS.length; }
   pickOffers(n) {
     const p = this.p, R = this.rng;
@@ -1663,8 +1668,8 @@ class MicrobeGame {
     const render = () => {
       cardsBox.innerHTML = '';
       const offers = this.pickOffers(n);
-      offers.forEach((m, i) => {
-        const boon = !!m.boon;
+      offers.forEach((m0, i) => {
+        const boon = !!m0.boon, m = boon ? m0 : C.traitForm(m0, p.stage);
         const lv = boon ? (this.boons[m.id] | 0) : (p.muts[m.id] | 0);
         const rc = D.RARITY[m.rarity];
         const pips = boon ? (lv ? el('div.mb-ceff', { style: { opacity: 0.7 } }, `Taken ${lv}\u00d7`) : null) : el('div.mb-clv', {}, Array.from({ length: m.maxLevel }, (_, k) => el('i', { class: k < lv ? 'on' : k === lv ? 'new' : '' })));
@@ -1672,7 +1677,7 @@ class MicrobeGame {
         const [fw, why] = !boon && this.camp ? C.traitFit(m.id, this.L) : [1];
         const card = el('button.mb-card', { style: { '--rc': rc.color, animationDelay: i * 0.07 + 's' } }, [
           isNew ? el('span.mb-new', {}, 'NEW') : null,
-          el('div.mb-port', {}, portrait('mutation', m.icon || m.id, 72)),
+          el('div.mb-port', {}, portrait('mutation', m.icon || m.id, 72, p.stage)),
           el('div.mb-cbody', {}, [
             el('div.mb-cname', {}, [m.name, el('span.tag', { style: { color: rc.color, background: rc.color + '22' } }, rc.label)]),
             el('div.mb-cdesc', {}, m.desc),
@@ -1729,7 +1734,7 @@ class MicrobeGame {
     const m = this.rng.weighted(pool, (x) => 1 / D.RARITY[x.rarity].weight); // rarer traits are likelier here
     this.applyMutation(m.id);
     this.sfx('evolve'); this.flash = 0.4;
-    this.toast('Rematch reward', `${p.muts[m.id] > 1 ? 'Stronger' : 'New trait'}: <b>${m.name}</b>`, m.id, 'mutation', 'gold');
+    this.toast('Rematch reward', `${p.muts[m.id] > 1 ? 'Stronger' : 'New trait'}: <b>${this.mutName(m.id)}</b>`, m.id, 'mutation', 'gold');
   }
   applyMutation(id) {
     const p = this.p;
@@ -1752,7 +1757,7 @@ class MicrobeGame {
     if (!show) return;
     const ov = this.pauseOv = el('div.mb-overlay');
     const p = this.p;
-    const muts = el('div.mb-mutlist', {}, this.mutOrder.map((id) => el('span.mb-mut', {}, [portrait('mutation', id, 26), (mutDef(id) || { name: id }).name, el('sup', {}, '' + p.muts[id])])));
+    const muts = el('div.mb-mutlist', {}, this.mutOrder.map((id) => el('span.mb-mut', {}, [portrait('mutation', id, 26, p.stage), this.mutName(id), el('sup', {}, '' + p.muts[id])])));
     const body = el('div.mb-pause-body');
     const main = () => {
       body.innerHTML = '';
@@ -1862,7 +1867,7 @@ class MicrobeGame {
     const discEls = res.discovered.microbes.length ? [el('div.mb-sec', {}, 'New species'), el('div.mb-disc', {}, res.discovered.microbes.map((id) => el('div', {}, [portrait('microbe', id, 52), D.SPECIES_BY_ID[id].name])))] : [];
     const panel = el('div.mb-results', {}, [
       el('div.mb-res-head', { class: win ? 'win' : 'lose' }, [
-        el('div.mb-kicker', {}, win ? 'Victory' : res.abandoned ? 'Run abandoned' : 'Your cell dissolved'),
+        el('div.mb-kicker', {}, win ? 'Victory' : res.abandoned ? 'Run abandoned' : this.lostLine()),
         el('h1', {}, win ? 'Vent of Origins' : res.abandoned ? 'Back to the surface' : `Depth ${res.depth}`),
         el('p.dim.small', {}, win ? 'You reached the source of all life.' : `Reached ${D.DEPTHS[res.depth - 1].name}`),
       ]),
@@ -1876,7 +1881,7 @@ class MicrobeGame {
       ]),
       el('div.panel.mb-dnabox', {}, [...rowEls, el('div.mb-dnatotal', {}, [el('span.dim', { style: { fontWeight: 800 } }, 'DNA earned'), big])]),
       this.mutOrder.length ? el('div.mb-sec', {}, 'Mutations') : null,
-      this.mutOrder.length ? el('div.mb-mutlist', {}, this.mutOrder.map((id) => el('span.mb-mut', {}, [portrait('mutation', id, 26), (mutDef(id) || { name: id }).name, el('sup', {}, '' + p.muts[id])]))) : null,
+      this.mutOrder.length ? el('div.mb-mutlist', {}, this.mutOrder.map((id) => el('span.mb-mut', {}, [portrait('mutation', id, 26, p.stage), this.mutName(id), el('sup', {}, '' + p.muts[id])]))) : null,
       ...discEls,
       el('div.mb-res-foot', {}, btn),
     ]);
@@ -1934,7 +1939,7 @@ class MicrobeGame {
     const evolveTo = cleared ? this.evolvedTo | 0 : 0;
     const ov = el('div.mb-overlay.mb-res-ov');
     const gained = [...new Set(this.gained)];
-    const kicker = cleared ? (last ? 'Journey complete' : L.isBoss ? 'Boss defeated' : 'Level complete') : this.abandoned ? 'Left the level' : 'Your cell dissolved';
+    const kicker = cleared ? (last ? 'Journey complete' : L.isBoss ? 'Boss defeated' : 'Level complete') : this.abandoned ? 'Left the level' : this.lostLine();
     const title = cleared && last ? 'You are the Progenitor now' : L.title;
     const nextL = !last ? C.levelConfig(L.c + 1) : null;
     const sub = cleared ? (last ? 'From a single cell to a creature of the deep. Now the Open Ocean awaits.' : nextL.ocean ? (nextL.isBoss ? `Next: a rematch with the ${C.BOSSES[nextL.boss].name}` : `On to expedition ${nextL.ocean}`) : nextL.j === 1 ? `Next: ${nextL.name}` : `On to level ${L.c + 1}`) : 'You keep every mutation you earned. Try again!';
@@ -1961,7 +1966,7 @@ class MicrobeGame {
         el('div.bar.xp', { style: { marginTop: '8px' } }, el('i', { style: { width: evoK + '%' } })),
       ]),
       gained.length ? el('div.mb-sec', {}, 'New this attempt') : null,
-      gained.length ? el('div.mb-mutlist', {}, gained.filter((id) => p.muts[id]).map((id) => el('span.mb-mut', {}, [portrait('mutation', id, 26), (mutDef(id) || { name: id }).name, el('sup', {}, '' + p.muts[id])]))) : null,
+      gained.length ? el('div.mb-mutlist', {}, gained.filter((id) => p.muts[id]).map((id) => el('span.mb-mut', {}, [portrait('mutation', id, 26, p.stage), this.mutName(id), el('sup', {}, '' + p.muts[id])]))) : null,
       el('div.mb-res-foot.stack-8', {}, [mainBtn, homeBtn]),
     ]);
     const why = panel.querySelector('.mb-why span'); if (why) why.textContent = this.deathWhy;
@@ -2099,7 +2104,8 @@ class MicrobeGame {
       ctx.scale(e.r, e.r);
       if (e.spawnFade < 1) { e.spawnFade = min(1, e.spawnFade + dt * 3); ctx.globalAlpha = e.spawnFade; }
       if (SP[e.kind] && SP[e.kind].camo) ctx.globalAlpha *= e.vis ?? 0.14; // camouflage
-      drawSpecies(ctx, e, T, e.r * sc, { queenPhase: false });
+      if (e.kind === 'clone' && (p.stage | 0) >= 3) drawKin(ctx, e, p.stage | 0, p.muts, T, e.r * sc); // your young, not a cell
+      else drawSpecies(ctx, e, T, e.r * sc, { queenPhase: false });
       if (e.flash > 0) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = e.flash * 0.6; ctx.drawImage(glowSprite(WHITE), -1.2, -1.2, 2.4, 2.4); ctx.globalCompositeOperation = 'source-over'; }
       ctx.restore();
       ctx.globalAlpha = 1;
@@ -2152,11 +2158,13 @@ class MicrobeGame {
     if (p.muts.symbionts && this.symb) {
       for (let i = 0; i < p.muts.symbionts; i++) {
         const s = this.symb[i]; if (!s) continue;
-        ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.6;
-        ctx.drawImage(glowSprite([255, 230, 140]), s[0] - 14, s[1] - 14, 28, 28);
+        const fishy = (p.stage | 0) >= 4, hl = fishy ? max(5.5, p.r * 0.26) : 6, gr = fishy ? hl * 1.6 : 14;
+        ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = fishy ? 0.3 : 0.6;
+        ctx.drawImage(glowSprite([255, 230, 140]), s[0] - gr, s[1] - gr, gr * 2, gr * 2);
         ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
-        ctx.save(); ctx.translate(s[0], s[1]); ctx.rotate(T * 2.2 + (i / p.muts.symbionts) * TAU + PI / 2); ctx.scale(6, 6);
-        drawSpecies(ctx, { kind: 'drifter', seed: i, t: 0, ang: 0 }, T, 6 * sc);
+        ctx.save(); ctx.translate(s[0], s[1]); ctx.rotate(T * 2.2 + (i / p.muts.symbionts) * TAU + PI / 2); ctx.scale(hl, hl);
+        // on a fish the symbionts are pilot fish escorting you; before that, friendly bacteria
+        if (fishy) drawPilotFish(ctx, T, hl * sc, i); else drawSpecies(ctx, { kind: 'drifter', seed: i, t: 0, ang: 0 }, T, 6 * sc);
         ctx.restore();
       }
     }
@@ -2172,6 +2180,15 @@ class MicrobeGame {
     if (this.rings) for (const r of this.rings) {
       ctx.globalAlpha = r.life / 0.6; ctx.beginPath(); ctx.arc(r.x, r.y, r.r, 0, TAU);
       ctx.strokeStyle = rgbStr(r.c); ctx.lineWidth = 6 / z + r.life * 20; ctx.stroke();
+      if (r.bolt != null) {
+        // electric shock: jagged bolts crackling out to the ring, redrawn a few times a second
+        const fl = floor(T * 24); ctx.beginPath();
+        for (let b = 0; b < 9; b++) {
+          let a = b * 0.698 + r.bolt * 3, d = r.r * 0.12; ctx.moveTo(r.x + cos(a) * d, r.y + sin(a) * d);
+          for (let j = 1; j <= 5; j++) { const h = sin(fl * 12.9898 + b * 78.233 + j * 37.719) * 43758.5453; a += ((h - floor(h)) - 0.5) * 0.5; d = r.r * (0.12 + 0.176 * j); ctx.lineTo(r.x + cos(a) * d, r.y + sin(a) * d); }
+        }
+        ctx.strokeStyle = 'rgba(235,230,255,0.9)'; ctx.lineWidth = 2.5 / z; ctx.lineJoin = 'round'; ctx.stroke();
+      }
     }
     ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
     // screen space overlays
