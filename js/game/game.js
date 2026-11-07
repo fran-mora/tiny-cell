@@ -293,7 +293,7 @@ class MicrobeGame {
     if (this.camp) this.levelBanner();
     else this.banner(`Depth ${n}`, this.D.name, n === 5 ? 'danger' : '');
     // re-spawn clones near player
-    for (let i = 0; i < (this.p.muts.fission | 0); i++) this.spawnClone();
+    for (let i = 0; i < (this.p.muts.fission | 0); i++) this.spawnClone(i);
   }
   renderPips() {
     this.pips.innerHTML = '';
@@ -387,9 +387,9 @@ class MicrobeGame {
     this.ents.push(e);
     return e;
   }
-  spawnClone() {
-    const p = this.p;
-    const c = this.spawn('clone', p.x + 30, p.y + 30, { r: p.r * 0.55, force: true });
+  spawnClone(i = (this.kinList || []).length) {
+    const p = this.p, a = p.ang + PI + (i - 0.5) * 1.2, R = p.r * 2.2 + 10; // each one starts in its own spot behind you
+    const c = this.spawn('clone', p.x + cos(a) * R, p.y + sin(a) * R, { r: p.r * 0.55, force: true });
     if (c) { c.spd = 150; c.ally = true; c.hp = c.maxHp = 9999; }
   }
   viewR() { return hypot(this.W, this.H) / 2 / (this.zoomV || 1); }
@@ -939,9 +939,14 @@ class MicrobeGame {
           const pd = d;
           if (pd > 260) { tx = dx / d; ty = dy / d; sp = 220; }
           else {
-            if (!e.tm || e.timer < 0 || !this.motes.includes(e.tm)) { e.timer = 0.8; e.tm = this.nearestMote(e.x, e.y, 240); }
+            if (!e.tm || e.timer < 0 || !this.motes.includes(e.tm)) { e.timer = 0.8; e.tm = this.freeMote(e, 240); }
             if (e.tm) { const mx = e.tm.x - e.x, my = e.tm.y - e.y, md = hypot(mx, my) + 0.01; tx = mx / md; ty = my / md; if (md < e.r * 1.2) { this.removeMote(e.tm); e.tm = null; this.gainXP(0.6 * this.df(), false); this.sparkle(e.x, e.y, this.palCur.mote, 2); } }
-            else { tx = dx / d; ty = dy / d; sp = pd > 90 ? 120 : 10; }
+            else {
+              // nothing to gather: each young swims to its own spot behind you, so they don't bunch up
+              const n = e.nkin || 1, a = p.ang + PI + ((e.slot || 0) - (n - 1) / 2) * 1.2, hr = p.r * 2.2 + e.r;
+              const hx = p.x + cos(a) * hr - e.x, hy = p.y + sin(a) * hr - e.y, hd = hypot(hx, hy) + 0.01;
+              tx = hx / hd; ty = hy / hd; sp = min(150, hd * 3);
+            }
           }
           e.r = p.r * 0.55;
           break;
@@ -968,6 +973,7 @@ class MicrobeGame {
     }
     ents.length = wi;
     this.separate();
+    this.kinSpacing();
     // offensive auras: clouds, symbionts
     this.updateAuras(dt);
   }
@@ -1003,6 +1009,38 @@ class MicrobeGame {
     let best = null, bd = R * R;
     for (const m of this.motes) { const dx = m.x - x, dy = m.y - y, d2 = dx * dx + dy * dy; if (d2 < bd) { bd = d2; best = m; } }
     return best;
+  }
+  // nearest mote that another of your young isn't already heading for
+  freeMote(c, R) {
+    let best = null, bd = R * R;
+    for (const m of this.motes) {
+      const dx = m.x - c.x, dy = m.y - c.y, d2 = dx * dx + dy * dy;
+      if (d2 >= bd) continue;
+      let taken = false;
+      for (const o of this.ents) if (o !== c && o.kind === 'clone' && o.alive && o.tm && hypot(o.tm.x - m.x, o.tm.y - m.y) < c.r * 2.5) { taken = true; break; }
+      if (!taken) { bd = d2; best = m; }
+    }
+    return best;
+  }
+  // your young (Binary Fission / Offspring) keep a little space from each other and from you, so they never
+  // draw on top of one another
+  kinSpacing() {
+    const p = this.p, K = this.kinList || (this.kinList = []);
+    K.length = 0;
+    for (const e of this.ents) if (e.alive && e.kind === 'clone') K.push(e);
+    for (let i = 0; i < K.length; i++) {
+      const a = K[i]; a.slot = i; a.nkin = K.length;
+      for (let j = i + 1; j < K.length; j++) {
+        const b = K[j], dx = b.x - a.x, dy = b.y - a.y, rr = (a.r + b.r) * 1.3, d2 = dx * dx + dy * dy;
+        if (d2 >= rr * rr) continue;
+        const d = sqrt(d2), nx = d > 0.01 ? dx / d : cos(i + j), ny = d > 0.01 ? dy / d : sin(i + j), ov = (rr - d) * 0.5;
+        a.x -= nx * ov; a.y -= ny * ov; b.x += nx * ov; b.y += ny * ov;
+        const rv = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny; // closing speed
+        if (rv < 0) { a.vx += nx * rv * 0.5; a.vy += ny * rv * 0.5; b.vx -= nx * rv * 0.5; b.vy -= ny * rv * 0.5; }
+      }
+      const dx = a.x - p.x, dy = a.y - p.y, rr = p.r * 1.15 + a.r, d2 = dx * dx + dy * dy;
+      if (d2 < rr * rr) { const d = sqrt(d2), nx = d > 0.01 ? dx / d : cos(p.ang + PI), ny = d > 0.01 ? dy / d : sin(p.ang + PI); a.x = p.x + nx * rr; a.y = p.y + ny * rr; }
+    }
   }
   removeMote(m) { const i = this.motes.indexOf(m); if (i >= 0) { this.motes[i] = this.motes[this.motes.length - 1]; this.motes.pop(); } }
   updateSegs(e) {

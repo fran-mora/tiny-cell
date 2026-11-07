@@ -1,5 +1,8 @@
 // Player-facing release notes, newest first.
 export const CHANGELOG = [
+  { build: 20, title: 'Your young keep their distance', notes: [
+    'Fixed: with two or more young following you (Binary Fission / Offspring), they swam on top of each other. Now each one keeps its own spot behind you, they go after different bits of food, and they never overlap each other or you.',
+  ] },
   { build: 19, title: 'Fish look like fish', notes: [
     'Traits from your cell days now turn into what real fish use for the same job once you become a fish. They keep exactly the same effect; only the look and the name change.',
     'Feeding Polyps become Pyloric Caeca: finger-like pouches off your stomach, seen through your side, instead of polyps stuck to your body.',
