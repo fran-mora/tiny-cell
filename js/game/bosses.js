@@ -1713,7 +1713,9 @@ BOSS_KIT.lionsmane = {
     // the bell pulses and drifts slowly after you
     b.pulse = 0.5 + 0.5 * sin(T * 2.1);
     const dx = p.x - b.x, dy = p.y - b.y, d = hypot(dx, dy) + 0.01;
-    const want = k.stunT > 0 ? 0 : ps * (0.28 + 0.22 * max(0, sin(T * 2.1)));
+    // far off it drifts after you; close in, it pulses away so its mane trails towards you
+    const thrust = 0.5 + 0.5 * max(0, sin(T * 2.1)), close = d < b.r * 4.5;
+    const want = k.stunT > 0 ? 0 : close ? -ps * (0.22 + 0.28 * thrust) * (ph2 ? 1.15 : 1) : ps * (0.28 + 0.22 * thrust);
     b.vx += ((dx / d) * want - b.vx) * min(1, dt * 1.2); b.vy += ((dy / d) * want - b.vy) * min(1, dt * 1.2);
     b.x += b.vx * dt; b.y += b.vy * dt; b.ang = atan2(b.vy, b.vx) || b.ang;
     if (hypot(b.x - p.x, b.y - p.y) > 1800) { b.x = p.x + dx / d * -700; b.y = p.y + dy / d * -700; }
@@ -1754,10 +1756,10 @@ BOSS_KIT.lionsmane = {
     // the bell
     if (d < b.r * 0.9 + p.r * 0.8) {
       if (b.biteCd <= 0) {
-        b.biteCd = k.stunT > 0 ? 0.45 : 0.75; b.hurtK = 1;
-        g.bossHit(k.stunT > 0 ? 0.075 : 0.05, (p.x + b.x) / 2, (p.y + b.y) / 2);
+        b.biteCd = k.stunT > 0 ? 0.55 : 0.8; b.hurtK = 1;
+        g.bossHit(k.stunT > 0 ? 0.06 : 0.035, (p.x + b.x) / 2, (p.y + b.y) / 2);
         if (!b.alive) return;
-        if (k.stunT <= 0) { b.vx -= dx / d * 260; b.vy -= dy / d * 260; } // it pulses away
+        if (k.stunT <= 0) { b.vx -= dx / d * 320; b.vy -= dy / d * 320; } // it pulses away
       }
       const pen = b.r * 0.9 + p.r * 0.8 - d; p.x += dx / d * pen * 0.5; p.y += dy / d * pen * 0.5;
     }
@@ -1766,7 +1768,7 @@ BOSS_KIT.lionsmane = {
   breachAny(g, b, k, R) {
     const p = g.p; let cut = 0;
     for (const S of k.st) for (let j = 1; j <= S.len; j++) { const q = S.pts[j]; if (hypot(q.x - p.x, q.y - p.y) < R) { S.len = j - 1; S.regrow = 0; cut++; break; } }
-    if (hypot(b.x - p.x, b.y - p.y) < R + b.r) { k.stunT = 3; b.hurtK = 1; g.bossHit(0.05, b.x, b.y, { raw: true, knock: false, text: 'Stunned!', tc: '#ffd0b0', c: [255, 200, 160] }); g.hint('boss_mane2', 'Stunned! Bite the bell', 'target', 2200); }
+    if (hypot(b.x - p.x, b.y - p.y) < R + b.r) { k.stunT = 2.4; b.hurtK = 1; g.bossHit(0.05, b.x, b.y, { raw: true, knock: false, text: 'Stunned!', tc: '#ffd0b0', c: [255, 200, 160] }); g.hint('boss_mane2', 'Stunned! Bite the bell', 'target', 2200); }
     else if (cut) g.texts.push({ x: p.x, y: p.y - p.r * 2, s: 'Strands torn!', life: 1, c: '#ffd0b0' });
   },
   under(g, ctx, z, inView, sc) {
@@ -1897,11 +1899,540 @@ BOSS_KIT.sealions = {
   },
 };
 
+// ===================================================================================== Tiger Shark
+// Tiger sharks eat almost anything: turtles, sea snakes, birds, even number plates. This one lunges at you jaws
+// wide. Toxic boxfish drift around the fight: put one between you and its jaws and it swallows that instead,
+// gets sick and wallows, open to bites. You can nose the boxfish along to where you want them.
+const TS_BOX = 4;
+function drawBoxfish(ctx, q, T) {
+  ctx.save(); ctx.translate(q.x, q.y); ctx.rotate(q.ang); ctx.scale(q.r, q.r); ctx.globalAlpha = q.born;
+  const fl = sin(T * 9 + q.seed) * 0.25;
+  if (q.puff > 0.05) glow(ctx, 0, 0, 2.2, [200, 255, 140], 0.25 * q.puff); // the toxin it leaks when bothered
+  ctx.globalAlpha = q.born;
+  // tail fin
+  ctx.beginPath(); ctx.moveTo(-0.85, 0); ctx.lineTo(-1.35, -0.32 + fl); ctx.lineTo(-1.35, 0.32 + fl); ctx.closePath();
+  ctx.fillStyle = 'rgb(235,190,50)'; ctx.fill();
+  // boxy body
+  ctx.beginPath(); ctx.moveTo(-0.9, -0.55); ctx.lineTo(0.55, -0.62); ctx.quadraticCurveTo(1.0, -0.55, 1.0, 0); ctx.quadraticCurveTo(1.0, 0.55, 0.55, 0.62); ctx.lineTo(-0.9, 0.55); ctx.closePath();
+  ctx.fillStyle = 'rgb(250,215,60)'; ctx.fill(); ctx.strokeStyle = 'rgba(150,110,20,0.9)'; ctx.lineWidth = 0.08; ctx.stroke();
+  // black spots
+  ctx.fillStyle = 'rgb(30,30,30)'; ctx.beginPath();
+  for (const [x, y, r] of [[-0.5, -0.25, 0.1], [-0.1, 0.3, 0.11], [0.25, -0.3, 0.09], [-0.55, 0.28, 0.08], [0.1, -0.02, 0.08], [-0.25, -0.02, 0.07], [0.5, 0.25, 0.07]]) { ctx.moveTo(x + r, y); ctx.arc(x, y, r, 0, TAU); }
+  ctx.fill();
+  // eyes and pursed mouth
+  for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(0.62, s * 0.38, 0.13, 0, TAU); ctx.fillStyle = '#fff'; ctx.fill(); ctx.beginPath(); ctx.arc(0.66, s * 0.38, 0.07, 0, TAU); ctx.fillStyle = '#111'; ctx.fill(); }
+  ctx.beginPath(); ctx.arc(1.02, 0, 0.09, 0, TAU); ctx.fillStyle = 'rgb(200,120,60)'; ctx.fill();
+  // little pectoral fins fluttering
+  ctx.fillStyle = 'rgba(240,200,80,0.8)';
+  for (const s of [-1, 1]) { ctx.beginPath(); ctx.ellipse(0.2, s * 0.7, 0.22, 0.09, s * (0.5 + fl), 0, TAU); ctx.fill(); }
+  ctx.restore(); ctx.globalAlpha = 1;
+}
+BOSS_KIT.tigershark = {
+  r: (p) => 52 + p.r * 0.95,
+  chip: 0.06, phaseAt: [0.5], phaseText: ['Hungrier: faster lunges'],
+  hint: ['target', 'It swallows anything. Get a toxic boxfish between you and its jaws, then bite it while it is sick'],
+  spawn(g, b, k) {
+    k.state = 'circle'; k.st = 0; k.lungeT = 3; k.orb = atan2(b.y - g.p.y, b.x - g.p.x); k.box = []; k.bumpT = 0; k.boxT = []; k.n = 0;
+    b.gapeK = 0; b.sickK = 0; b.biteK = 0;
+    for (let i = 0; i < TS_BOX; i++) this.addBox(g, b, k, i);
+  },
+  addBox(g, b, k, i = 0) {
+    const p = g.p, a = atan2(b.y - p.y, b.x - p.x) + (i - 1.5) * 0.9 + (random() - 0.5) * 0.5, R = 160 + random() * 160 + p.r;
+    k.box.push({ x: p.x + cos(a) * R, y: p.y + sin(a) * R, vx: 0, vy: 0, r: max(12, b.r * 0.26), ang: random() * TAU, seed: random() * 10, puff: 0, born: 0 });
+  },
+  tick(g, b, k, dt) {
+    const p = g.p, ps = g.pTop(), ph2 = b.phase >= 2, T = g.T;
+    const dx = p.x - b.x, dy = p.y - b.y, d = hypot(dx, dy) + 0.01;
+    k.bumpT = max(0, k.bumpT - dt);
+    // eaten boxfish are replaced after a while
+    for (let i = k.boxT.length - 1; i >= 0; i--) { k.boxT[i] -= dt; if (k.boxT[i] <= 0) { k.boxT.splice(i, 1); this.addBox(g, b, k, (random() * 4) | 0); } }
+    // boxfish: drift slowly, get nosed along by you, stay near the fight
+    for (const q of k.box) {
+      q.born = min(1, q.born + dt * 2);
+      q.vx *= exp(-dt * 1.4); q.vy *= exp(-dt * 1.4);
+      q.vx += cos(T * 0.6 + q.seed) * 10 * dt; q.vy += sin(T * 0.5 + q.seed * 1.3) * 10 * dt;
+      const ux = q.x - p.x, uy = q.y - p.y, ud = hypot(ux, uy) + 0.01, touch = q.r + p.r * 0.8;
+      if (ud < touch && !g.dead) {
+        q.x = p.x + ux / ud * touch; q.y = p.y + uy / ud * touch;
+        const vn = (p.vx * ux + p.vy * uy) / ud; if (vn > 0) { q.vx = ux / ud * vn * 1.05; q.vy = uy / ud * vn * 1.05; }
+        q.puff = min(1, q.puff + dt * 3);
+      } else q.puff = max(0, q.puff - dt * 0.7);
+      if (ud > 620) { q.vx -= ux / ud * 160 * dt; q.vy -= uy / ud * 160 * dt; }
+      const bx = q.x - b.x, by = q.y - b.y, bd = hypot(bx, by) + 0.01; // they don't sit inside the shark
+      if (k.state !== 'lunge' && bd < b.r * 0.9 + q.r) { q.x = b.x + bx / bd * (b.r * 0.9 + q.r); q.y = b.y + by / bd * (b.r * 0.9 + q.r); }
+      q.x += q.vx * dt; q.y += q.vy * dt;
+      const va = hypot(q.vx, q.vy); if (va > 20) q.ang = turn(q.ang, atan2(q.vy, q.vx), dt * 3); else q.ang += sin(T * 0.8 + q.seed) * dt * 0.4;
+    }
+    let tx = 0, ty = 0, sp = 0, sk = 2, gape = 0, sick = 0;
+    switch (k.state) {
+      case 'circle': { // it circles, closing in, then turns on you
+        k.orb += dt * 0.6 * (k.orbD || 1); k.lungeT -= dt;
+        const R = k.lungeT > 0 ? b.r * 3.8 : b.r * 3;
+        const gx = p.x + cos(k.orb) * R - b.x, gy = p.y + sin(k.orb) * R - b.y, gd = hypot(gx, gy) + 0.01;
+        tx = gx / gd; ty = gy / gd; sp = min(ps * 1.05, gd * 2.4);
+        b.ang = turn(b.ang, k.lungeT > 0 ? atan2(b.vy, b.vx) : atan2(dy, dx), dt * 3);
+        if (k.lungeT <= 0 && d < b.r * 5.5 && !g.dead) { k.state = 'aim'; k.st = ph2 ? 0.6 : 0.8; g.sfx('tick'); }
+        break;
+      }
+      case 'aim': // jaws open, it lines up on you
+        k.st -= dt; b.tele = 1; gape = 0.55; b.vx *= exp(-dt * 4); b.vy *= exp(-dt * 4);
+        if (k.st > 0.2) b.ang = turn(b.ang, atan2(dy + p.vy * 0.15, dx + p.vx * 0.15), dt * 4);
+        if (k.st <= 0) { k.state = 'lunge'; k.st = min(0.85, max(0.4, (d + b.r * 1.6) / (ps * 2.7))); k.hit = false; k.ca = b.ang; g.sfx('dash', { vol: 0.6 }); }
+        break;
+      case 'lunge': { // a straight rush with the mouth wide: whatever is in front gets swallowed
+        k.st -= dt; gape = 1; tx = cos(k.ca); ty = sin(k.ca); sp = ps * 2.7; sk = 8; b.ang = k.ca;
+        const mx = b.x + cos(b.ang) * b.r * 0.85, my = b.y + sin(b.ang) * b.r * 0.85;
+        const gulp = k.box.find((q) => hypot(q.x - mx, q.y - my) < q.r + b.r * 0.5);
+        if (gulp) {
+          k.box.splice(k.box.indexOf(gulp), 1); k.boxT.push(2.5);
+          k.state = 'sick'; k.st = ph2 ? 3.8 : 4.5; k.wb = 0; b.vx *= 0.3; b.vy *= 0.3;
+          g.sfx('gulp'); g.sfx('toxin', { vol: 0.7 }); g.burst(mx, my, [200, 255, 140], 18, 220); g.shake = min(14, g.shake + 6);
+          g.texts.push({ x: b.x, y: b.y - b.r * 1.3, s: 'It swallowed a boxfish!', life: 1.4, c: '#d8ff9a' });
+          g.hint('boss_tiger2', 'Poisoned! Bite it while it is sick', 'target', 2600);
+          break;
+        }
+        if (!k.hit && !g.dead && hypot(p.x - mx, p.y - my) < p.r * 0.9 + b.r * 0.45) {
+          k.hit = true; b.biteK = 1;
+          if (g.hurt(34, b, { why: 'Tiger shark bite', iframes: 0.7 })) { p.vx = cos(b.ang) * 600; p.vy = sin(b.ang) * 600; }
+        }
+        if (k.st <= 0) { k.state = 'turn'; k.st = 0.8; }
+        break;
+      }
+      case 'turn': // it comes about for another pass
+        k.st -= dt; b.vx *= exp(-dt * 3); b.vy *= exp(-dt * 3); b.ang = turn(b.ang, atan2(dy, dx), dt * 1.8);
+        if (k.st <= 0) { k.state = 'circle'; k.lungeT = ph2 ? 1.8 : 2.6; k.orb = atan2(b.y - p.y, b.x - p.x); k.orbD = random() < 0.5 ? -1 : 1; }
+        break;
+      case 'sick': // poisoned: pale, sluggish, wallowing
+        k.st -= dt; sick = 1; b.vx *= exp(-dt * 2); b.vy *= exp(-dt * 2); b.ang += sin(T * 1.7) * dt * 0.5;
+        if (k.st <= 0) { k.state = 'circle'; k.lungeT = ph2 ? 1.6 : 2.2; k.orb = atan2(b.y - p.y, b.x - p.x); }
+        break;
+    }
+    if (k.state === 'circle' || k.state === 'lunge') steer(b, tx, ty, sp, sk, dt);
+    const ap = (v, to, rate) => v + (to - v) * min(1, dt * rate);
+    b.gapeK = ap(b.gapeK, gape, 9); b.sickK = ap(b.sickK, sick, sick ? 3 : 1.5); b.biteK = max(0, b.biteK - dt * 3);
+    if (g.dead) return;
+    if (d < b.r * 0.9 + p.r * 0.8) {
+      if (k.state === 'sick') { if (winBite(b, k, 4, 0.5)) { b.biteK = 0.6; g.bossHit(0.07, (p.x + b.x) / 2, (p.y + b.y) / 2); } }
+      else if (k.state !== 'lunge') {
+        const pen = b.r * 0.9 + p.r * 0.8 - d; p.x += dx / d * pen; p.y += dy / d * pen;
+        const front = abs(ad(b.ang, atan2(dy, dx))) < 0.6;
+        if (front) { if (g.hurt(16, b, { why: 'Tiger shark', iframes: 0.6 })) { b.biteK = 1; p.vx = dx / d * 380; p.vy = dy / d * 380; } }
+        else if (k.bumpT <= 0) { k.bumpT = 1.4; g.texts.push({ x: p.x, y: p.y - p.r * 1.5, s: 'Too tough!', life: 0.9, c: '#cfd8e8' }); }
+      }
+    }
+  },
+  slash(g, b, k) { if (k.state === 'sick') g.bossHit(0.09, b.x, b.y, { text: 'Slashed!', tc: '#bfe6ff', c: [200, 235, 255] }); else g.bossDamage(30); },
+  under(g, ctx, z, inView) { const T = g.T; for (const q of g.boss.k.box) if (inView(q.x, q.y, q.r * 3)) drawBoxfish(ctx, q, T); },
+  over(g, ctx, z) {
+    const b = g.boss, k = b.k, T = g.T;
+    if (k.state === 'aim') {
+      ctx.beginPath(); ctx.moveTo(b.x, b.y); ctx.lineTo(b.x + cos(b.ang) * 760, b.y + sin(b.ang) * 760);
+      ctx.strokeStyle = `rgba(255,150,110,${0.18 + 0.18 * sin(T * 26)})`; ctx.lineWidth = b.r * 0.8; ctx.lineCap = 'round'; ctx.stroke();
+    }
+    if (k.state === 'sick') glow(ctx, b.x, b.y, b.r * 1.4, [170, 255, 170], 0.22 + 0.12 * sin(T * 9));
+  },
+};
+
+// ===================================================================================== Giant Squid
+// Giant squid live in the dark and have the biggest eyes of any animal, the size of dinner plates, probably to spot
+// the glow that a big predator stirs up in the plankton as it swims. It shoots out its two long feeding tentacles to
+// grab you and pull you to its beak. Bite a tentacle off while it holds you (or slip past one and bite it while it
+// is stretched out); with both gone it inks and is open to bites. Electrosense shows exactly where it is.
+BOSS_KIT.giantsquid = {
+  r: (p) => 50 + p.r * 0.9,
+  chip: 0.06, phaseAt: [0.5], phaseText: ['It grabs faster'],
+  hint: ['eye', 'Watch for its glowing eyes. When a tentacle grabs you, bite it off. With both tentacles gone, bite its body'],
+  spawn(g, b, k) {
+    k.state = 'stalk'; k.st = 0; k.grabT = 3.2; k.orb = atan2(b.y - g.p.y, b.x - g.p.x); k.held = -1; k.chew = [0, 0]; k.revT = 0; k.bumpT = 0;
+    b.cut = [0, 0]; b.grabK = 0; b.eyeK = 0; b.inkK = 0;
+  },
+  clubs(b, T) { // where the two tentacle clubs are right now (from the art when it can tell us)
+    const ca = cos(b.ang), sa = sin(b.ang), out = [], art = CREATURE_ART.giantsquid;
+    for (let i = 0; i < 2; i++) {
+      const s = i ? 1 : -1;
+      let lx = 1 + 3 * b.grabK * (1 - b.cut[i]), ly = s * 0.16;
+      if (art && art.tentaclePos) { const q = art.tentaclePos(b, T, i); if (Number.isFinite(q.x) && Number.isFinite(q.y)) { lx = q.x; ly = q.y; } }
+      out.push({ x: b.x + (ca * lx - sa * ly) * b.r, y: b.y + (sa * lx + ca * ly) * b.r, bx: b.x + ca * b.r * 0.9, by: b.y + sa * b.r * 0.9 });
+    }
+    return out;
+  },
+  cutOff(g, b, k, i, text = 'Tentacle bitten off!') {
+    if (b.cut[i] >= 1) return;
+    b.cut[i] = 1; k.chew[i] = 0; if (k.held === i) k.held = -1;
+    const c = this.clubs(b, g.T)[i];
+    g.sparkle(c.x, c.y, [255, 150, 130], 12); g.sfx('gulp'); g.shake = min(12, g.shake + 5);
+    g.bossHit(0.1, c.x, c.y, { raw: true, text, tc: '#ffc8b8', c: [255, 170, 150] });
+    if (!b.alive) return;
+    if (b.cut[0] >= 1 && b.cut[1] >= 1) {
+      k.state = 'wounded'; k.st = 3.6; k.wb = 0; b.inkK = 1;
+      (g.inks = g.inks || []).push({ x: b.x - cos(b.ang) * b.r, y: b.y - sin(b.ang) * b.r, r: b.r * 1.4, grow: b.r * 3.2, life: 3.2, max: 3.2, seed: random() * 10 });
+      g.hint('boss_squid2', 'Both tentacles gone! Bite its body', 'target', 2400);
+    } else if (k.state === 'hold') { k.state = 'reach'; k.st = 0.7; }
+  },
+  tick(g, b, k, dt) {
+    const p = g.p, ps = g.pTop(), ph2 = b.phase >= 2;
+    const dx = p.x - b.x, dy = p.y - b.y, d = hypot(dx, dy) + 0.01;
+    k.revT = max(0, k.revT - dt); k.bumpT = max(0, k.bumpT - dt); b.inkK = max(0, b.inkK - dt * 0.4);
+    let tx = 0, ty = 0, sp = 0, sk = 2, eye = 0.12;
+    switch (k.state) {
+      case 'stalk': { // circling in the dark; the tentacles grow back
+        k.grabT -= dt; for (let i = 0; i < 2; i++) b.cut[i] = max(0, b.cut[i] - dt * 0.35);
+        b.grabK = max(0, b.grabK - dt * 2);
+        k.orb += dt * 0.5;
+        const R = k.grabT > 0 ? 400 : b.r * 3.1;
+        const gx = p.x + cos(k.orb) * R - b.x, gy = p.y + sin(k.orb) * R - b.y, gd = hypot(gx, gy) + 0.01;
+        tx = gx / gd; ty = gy / gd; sp = min(ps * 1.05, gd * 2.2);
+        b.ang = turn(b.ang, k.grabT > 0 ? atan2(b.vy, b.vx) : atan2(dy, dx), dt * 2.5);
+        if (k.grabT <= 0 && d < b.r * 4.3 && b.cut[0] < 0.3 && b.cut[1] < 0.3 && !g.dead) { k.state = 'eye'; k.st = ph2 ? 0.55 : 0.75; g.sfx('tick'); }
+        break;
+      }
+      case 'eye': // its huge eyes light on you: the grab is coming
+        k.st -= dt; eye = 1; b.tele = 1; b.vx *= exp(-dt * 4); b.vy *= exp(-dt * 4);
+        b.ang = turn(b.ang, atan2(dy + p.vy * 0.2, dx + p.vx * 0.2), dt * 3.5);
+        if (k.st <= 0) { k.state = 'grab'; k.st = 0.55; g.sfx('dash', { vol: 0.5 }); }
+        break;
+      case 'grab': { // both feeding tentacles shoot out
+        k.st -= dt; eye = 1; b.grabK = min(1, b.grabK + dt * 4.5); b.vx *= exp(-dt * 3); b.vy *= exp(-dt * 3);
+        if (!g.dead && p.breachT <= 0) {
+          const cl = this.clubs(b, g.T);
+          for (let i = 0; i < 2; i++) if (b.cut[i] < 1 && hypot(cl[i].x - p.x, cl[i].y - p.y) < p.r * 0.9 + b.r * 0.3) {
+            if (p.puffK > 0.5) { g.texts.push({ x: p.x, y: p.y - p.r * 1.6, s: 'It can’t hold you!', life: 1, c: '#ffe0c0' }); continue; }
+            k.held = i; k.state = 'hold'; k.st = 0; g.sfx('hit', { pitch: 0.8 });
+            g.hint('boss_squid1', 'Grabbed! Bite the tentacle off, or dash free', 'target', 2400);
+            break;
+          }
+        }
+        if (k.state === 'grab' && k.st <= 0) { k.state = 'reach'; k.st = ph2 ? 1.1 : 1.4; }
+        break;
+      }
+      case 'reach': // missed: the tentacles lie stretched out for a moment, easy to bite through
+        k.st -= dt; eye = 0.4; b.grabK = max(0, b.grabK - dt * 0.55); b.vx *= exp(-dt * 3); b.vy *= exp(-dt * 3);
+        if (k.st <= 0) { k.state = 'stalk'; k.grabT = ph2 ? 2.4 : 3.2; k.orb = atan2(b.y - p.y, b.x - p.x); }
+        break;
+      case 'hold': { // it reels you in towards its beak
+        eye = 1; b.ang = turn(b.ang, atan2(dy, dx), dt * 6); b.vx *= exp(-dt * 4); b.vy *= exp(-dt * 4);
+        const art = CREATURE_ART.giantsquid;
+        if (art && art.tentaclePos) { // stretch the holding tentacle exactly to you
+          let lo = 0, hi = 1; for (let it = 0; it < 7; it++) { b.grabK = (lo + hi) / 2; if (art.tentaclePos(b, g.T, k.held).x * b.r < d) lo = b.grabK; else hi = b.grabK; }
+        } else b.grabK = clamp01((d - b.r) / (3 * b.r));
+        p.vx -= dx / d * 520 * dt; p.vy -= dy / d * 520 * dt; p.vx *= exp(-dt * 3); p.vy *= exp(-dt * 3);
+        g.hurt(10 * dt, b, { dot: true, why: 'Giant squid tentacle' });
+        if (p.dashT > 0 || p.puffK > 0.5 || p.breachT > 0) { k.held = -1; k.state = 'reach'; k.st = 0.9; g.texts.push({ x: p.x, y: p.y - p.r * 1.6, s: 'Free!', life: 0.9, c: '#e0f0ff' }); break; }
+        if (d < b.r * 1.05 + p.r * 0.5) { // it got you to its beak
+          if (g.hurt(26, b, { why: 'Giant squid beak', iframes: 0.8 })) { p.vx = dx / d * 520; p.vy = dy / d * 520; }
+          k.held = -1; k.state = 'reach'; k.st = 0.9;
+        }
+        break;
+      }
+      case 'wounded': // no tentacles: it inks and tries to back away
+        k.st -= dt; eye = 0.6; tx = -dx / d; ty = -dy / d; sp = ps * 0.35; b.grabK = max(0, b.grabK - dt * 2);
+        b.ang = turn(b.ang, atan2(dy, dx), dt * 1.5);
+        if (k.st <= 0) { k.state = 'stalk'; k.grabT = ph2 ? 2.8 : 3.6; k.orb = atan2(b.y - p.y, b.x - p.x); b.cut = [0.95, 0.95]; }
+        break;
+    }
+    if (k.state === 'stalk' || k.state === 'wounded') steer(b, tx, ty, sp, sk, dt);
+    b.eyeK += (eye - b.eyeK) * min(1, dt * 8);
+    if (g.dead) return;
+    // chewing a stretched-out or holding tentacle bites it off
+    if (b.grabK > 0.2 && (k.state === 'reach' || k.state === 'hold' || k.state === 'grab')) {
+      const cl = this.clubs(b, g.T);
+      for (let i = 0; i < 2; i++) {
+        if (b.cut[i] >= 1) continue;
+        const on = segDist(p.x, p.y, cl[i].bx, cl[i].by, cl[i].x, cl[i].y) < p.r * 0.85 + b.r * 0.12;
+        if (on) { k.chew[i] += dt * (p.dashT > 0 ? 3 : 1); if (k.chew[i] > (k.held === i ? 0.6 : 0.45)) { this.cutOff(g, b, k, i); if (!b.alive) return; } }
+        else k.chew[i] = max(0, k.chew[i] - dt);
+      }
+    }
+    if (d < b.r * 0.9 + p.r * 0.8 && k.state !== 'hold') {
+      if (k.state === 'wounded') { if (winBite(b, k, 4, 0.5)) g.bossHit(0.075, (p.x + b.x) / 2, (p.y + b.y) / 2); }
+      else {
+        const pen = b.r * 0.9 + p.r * 0.8 - d; p.x += dx / d * pen; p.y += dy / d * pen;
+        if (k.bumpT <= 0) { k.bumpT = 1.2; g.texts.push({ x: p.x, y: p.y - p.r * 1.5, s: 'Its arms push you off!', life: 0.9, c: '#cfd8e8' }); }
+        if (g.hurt(10, b, { why: 'Giant squid arms', iframes: 0.6 })) { p.vx = dx / d * 360; p.vy = dy / d * 360; }
+      }
+    }
+  },
+  sense(g, b, k) { k.revT = g.p.senseT || 5; },
+  slash(g, b, k) {
+    if (k.state === 'wounded') { g.bossHit(0.09, b.x, b.y, { text: 'Slashed!', tc: '#bfe6ff', c: [200, 235, 255] }); return; }
+    if (b.grabK > 0.2) { const cl = this.clubs(b, g.T), p = g.p; const i = hypot(cl[0].x - p.x, cl[0].y - p.y) < hypot(cl[1].x - p.x, cl[1].y - p.y) ? 0 : 1; this.cutOff(g, b, k, b.cut[i] < 1 ? i : 1 - i, 'Tentacle cut!'); return; }
+    g.bossDamage(30);
+  },
+  lights(g, b, k) {
+    const out = [], p = g.p, ca = cos(b.ang), sa = sin(b.ang);
+    for (const s of [-1, 1]) out.push({ x: b.x + ca * b.r * 0.35 - sa * s * b.r * 0.32, y: b.y + sa * b.r * 0.35 + ca * s * b.r * 0.32, r: b.r * (0.5 + 0.6 * b.eyeK), col: [190, 230, 255], a: 0.12 + 0.6 * b.eyeK });
+    if (k.revT > 0) out.push({ x: b.x, y: b.y, r: b.r * 2.6, col: [210, 180, 255], a: 0.35 * min(1, k.revT) });
+    if (b.grabK > 0.15) for (const c of this.clubs(b, g.T)) out.push({ x: c.x, y: c.y, r: b.r * 0.7, col: [120, 200, 255], a: 0.35 * b.grabK });
+    // swimming fast stirs up the glowing plankton around you
+    if (p.speedN > 0.8) out.push({ x: p.x, y: p.y, r: (p.r0 || p.r) * 5 + 160, col: [110, 200, 255], a: min(0.4, (p.speedN - 0.8) * 0.8) });
+    return out;
+  },
+  over(g, ctx, z) {
+    const b = g.boss, k = b.k, T = g.T;
+    if (k.state === 'eye') { ctx.beginPath(); ctx.moveTo(b.x, b.y); ctx.lineTo(b.x + cos(b.ang) * b.r * 4.2, b.y + sin(b.ang) * b.r * 4.2); ctx.strokeStyle = `rgba(255,150,110,${0.18 + 0.18 * sin(T * 26)})`; ctx.lineWidth = b.r * 0.7; ctx.lineCap = 'round'; ctx.stroke(); }
+    if (k.state === 'wounded') glow(ctx, b.x, b.y, b.r * 1.3, [150, 255, 200], 0.2 + 0.12 * sin(T * 9));
+    if (k.state === 'hold' && k.held >= 0) { const c = this.clubs(b, g.T)[k.held]; glow(ctx, c.x, c.y, b.r * 0.6, [255, 220, 120], 0.3 + 0.2 * sin(T * 14)); }
+  },
+};
+const clamp01 = (x) => max(0, min(1, x));
+
+// ===================================================================================== Sperm Whale
+// The sperm whale's clicks are the loudest sound any animal makes. It hunts by sonar, and a click at close range
+// may stun its prey. Stay out of the beam. Sperm whales also sleep: after a while it hangs still in the water,
+// fast asleep, and you can bite it until it wakes with a thrash.
+BOSS_KIT.spermwhale = {
+  r: (p) => 58 + p.r * 1.0,
+  chip: 0.06, phaseAt: [0.5], phaseText: ['Faster clicks'],
+  hint: ['bolt', 'Keep out of its sonar beam. After a few clicks it falls asleep: bite it before it wakes'],
+  spawn(g, b, k) { k.state = 'hunt'; k.st = 0; k.clickT = 2.6; k.clicks = 0; k.bumpT = 0; k.backT = 0; b.clickK = 0; b.sleepK = 0; b.biteK = 0; },
+  beam(b) { return { L: b.r * 7.5, half: 0.3 }; },
+  tick(g, b, k, dt) {
+    const p = g.p, ps = g.pTop(), ph2 = b.phase >= 2, T = g.T;
+    const dx = p.x - b.x, dy = p.y - b.y, d = hypot(dx, dy) + 0.01;
+    k.bumpT = max(0, k.bumpT - dt); k.backT = max(0, k.backT - dt);
+    let tx = 0, ty = 0, sp = 0, sk = 1.5, click = 0, sleep = 0, bite = 0;
+    switch (k.state) {
+      case 'hunt': { // it keeps you at sonar range, turning slowly
+        k.clickT -= dt;
+        const want = b.r * 4.2, f = d > want ? 1 : -0.6;
+        tx = dx / d * f; ty = dy / d * f; sp = ps * 0.55;
+        b.ang = turn(b.ang, atan2(dy, dx), dt * 1.1);
+        if (k.clickT <= 0 && !g.dead) { k.state = 'aim'; k.st = ph2 ? 0.6 : 0.8; g.sfx('tick'); }
+        break;
+      }
+      case 'aim': // the head fills with sound: the beam is coming
+        k.st -= dt; b.tele = 1; click = 0.35 + 0.15 * sin(T * 30); b.vx *= exp(-dt * 3); b.vy *= exp(-dt * 3);
+        b.ang = turn(b.ang, atan2(dy, dx), dt * (ph2 ? 2.4 : 2.0));
+        if (k.st <= 0) {
+          k.state = 'click'; k.st = 0.35; k.clicks++;
+          const { L, half } = this.beam(b), hx = b.x + cos(b.ang) * b.r, hy = b.y + sin(b.ang) * b.r;
+          const ux = p.x - hx, uy = p.y - hy, ud = hypot(ux, uy);
+          (g.rings = g.rings || []).push({ x: hx, y: hy, r: 0, R: L * 0.6, life: 0.5, c: [255, 240, 220] });
+          g.sfx('hit', { pitch: 2.2 }); g.sfx('boss', { vol: 0.35 }); g.shake = min(14, g.shake + 6);
+          k.hitP = false;
+          if (!g.dead && p.breachT <= 0 && ud < L + p.r && abs(ad(b.ang, atan2(uy, ux))) < half + p.r / max(ud, 1)) {
+            k.hitP = true;
+            if (g.hurt(22, b, { why: 'Sperm whale click', iframes: 0.5 })) { p.slowT = 2.4; p.frozenT = 0.6; g.flash = 0.35; g.texts.push({ x: p.x, y: p.y - p.r * 1.6, s: 'Stunned by sonar!', life: 1.1, c: '#fff0d8' }); }
+          }
+        }
+        break;
+      case 'click':
+        k.st -= dt; click = 1;
+        if (k.st <= 0) {
+          if (k.hitP) { k.state = 'lunge'; k.st = 0.8; k.ca = atan2(dy, dx); k.hit = false; }
+          else if (k.clicks >= (ph2 ? 4 : 3)) { k.state = 'sleep'; k.st = ph2 ? 4.4 : 5.2; k.wb = 0; k.clicks = 0; g.hint('boss_sperm2', 'It’s asleep! Bite it before it wakes', 'target', 2600); }
+          else { k.state = 'hunt'; k.clickT = ph2 ? 1.6 : 2.2; }
+        }
+        break;
+      case 'lunge': { // a stunned target gets the jaw
+        k.st -= dt; bite = 1; tx = cos(k.ca); ty = sin(k.ca); sp = ps * 2.0; sk = 6; b.ang = turn(b.ang, k.ca, dt * 3);
+        const mx = b.x + cos(b.ang) * b.r * 0.9, my = b.y + sin(b.ang) * b.r * 0.9;
+        if (!k.hit && !g.dead && hypot(p.x - mx, p.y - my) < p.r * 0.9 + b.r * 0.4) { k.hit = true; if (g.hurt(28, b, { why: 'Sperm whale jaw', iframes: 0.7 })) { p.vx = cos(b.ang) * 560; p.vy = sin(b.ang) * 560; } }
+        if (k.st <= 0) { if (k.clicks >= (ph2 ? 4 : 3)) { k.state = 'sleep'; k.st = ph2 ? 4.4 : 5.2; k.wb = 0; k.clicks = 0; } else { k.state = 'hunt'; k.clickT = ph2 ? 1.6 : 2.2; } }
+        break;
+      }
+      case 'sleep': // hanging still in the water, fast asleep
+        k.st -= dt; sleep = 1; b.vx *= exp(-dt * 3); b.vy *= exp(-dt * 3);
+        if (k.st <= 0) { k.state = 'wake'; k.st = 0.55; g.sfx('boss', { vol: 0.5 }); }
+        break;
+      case 'wake': { // it wakes with a thrash of its flukes
+        k.st -= dt; b.ang += sin(T * 18) * dt * 2;
+        if (!k.thrashed && k.st < 0.35) {
+          k.thrashed = true; g.shake = min(16, g.shake + 8); g.burst(b.x, b.y, [220, 240, 255], 20, 320);
+          if (!g.dead && d < b.r * 2 + p.r) { if (g.hurt(18, b, { why: 'Sperm whale flukes', iframes: 0.6 })) { p.vx = dx / d * 620; p.vy = dy / d * 620; } }
+        }
+        if (k.st <= 0) { k.thrashed = false; k.state = 'hunt'; k.clickT = ph2 ? 1.8 : 2.4; }
+        break;
+      }
+    }
+    if (k.state === 'hunt' || k.state === 'lunge') steer(b, tx, ty, sp, sk, dt);
+    const ap = (v, to, rate) => v + (to - v) * min(1, dt * rate);
+    b.clickK = ap(b.clickK, click, 14); b.sleepK = ap(b.sleepK, sleep, sleep ? 1.5 : 6); b.biteK = ap(b.biteK, bite, 8);
+    if (g.dead) return;
+    if (d < b.r * 0.9 + p.r * 0.8) {
+      if (k.state === 'sleep') { if (winBite(b, k, 5, 0.45)) g.bossHit(0.06, (p.x + b.x) / 2, (p.y + b.y) / 2); }
+      else if (k.state !== 'lunge') {
+        const pen = b.r * 0.9 + p.r * 0.8 - d; p.x += dx / d * pen; p.y += dy / d * pen;
+        const rel = abs(ad(b.ang, atan2(dy, dx)));
+        if (rel > 2.3 && k.backT <= 0) { k.backT = 1.1; g.bossHit(0.02, (p.x + b.x) / 2, (p.y + b.y) / 2); } // a nip at its tail
+        else if (rel < 0.7) { if (g.hurt(16, b, { why: 'Sperm whale', iframes: 0.6 })) { p.vx = dx / d * 420; p.vy = dy / d * 420; } }
+        else if (k.bumpT <= 0) { k.bumpT = 1.4; g.texts.push({ x: p.x, y: p.y - p.r * 1.5, s: 'Too big!', life: 0.9, c: '#cfd8e8' }); }
+      }
+    }
+  },
+  slash(g, b, k) { if (k.state === 'sleep') g.bossHit(0.08, b.x, b.y, { text: 'Slashed!', tc: '#bfe6ff', c: [200, 235, 255] }); else g.bossDamage(30); },
+  over(g, ctx, z) {
+    const b = g.boss, k = b.k, T = g.T;
+    if (k.state === 'aim' || k.state === 'click') {
+      const { L, half } = this.beam(b), hx = b.x + cos(b.ang) * b.r, hy = b.y + sin(b.ang) * b.r;
+      ctx.beginPath(); ctx.moveTo(hx, hy); ctx.arc(hx, hy, L, b.ang - half, b.ang + half); ctx.closePath();
+      ctx.fillStyle = k.state === 'aim' ? `rgba(255,120,100,${0.08 + 0.07 * sin(T * 26)})` : 'rgba(255,245,225,0.22)'; ctx.fill();
+      ctx.strokeStyle = k.state === 'aim' ? 'rgba(255,150,120,0.55)' : 'rgba(255,250,235,0.7)'; ctx.lineWidth = 2 / z; ctx.stroke();
+      if (k.state === 'click') { ctx.lineWidth = 4 / z; for (let i = 1; i <= 3; i++) { const rr = L * (i / 3) * (1 - k.st / 0.35 * 0.5); ctx.beginPath(); ctx.arc(hx, hy, rr, b.ang - half, b.ang + half); ctx.strokeStyle = `rgba(255,250,235,${0.5 / i})`; ctx.stroke(); } }
+    }
+    if (k.state === 'sleep') {
+      glow(ctx, b.x, b.y, b.r * 1.3, [150, 255, 200], 0.18 + 0.1 * sin(T * 3));
+      ctx.font = `800 ${Math.round(20 / z)}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.fillStyle = `rgba(230,245,255,${0.5 + 0.3 * sin(T * 2)})`;
+      ctx.fillText('z z z', b.x, b.y - b.r * 1.3 - 10 * sin(T * 1.5));
+    }
+  },
+};
+
+// ===================================================================================== Orca Pod
+// Orcas hunt whale sharks as a team: one rams the shark to flip it upside down, which leaves a shark limp and
+// helpless (tonic immobility). Don't let them roll you: swim away hard, wriggle, or dash. Each orca has to come
+// up to breathe after an attack: that is your moment to bite it.
+const POD = 3, OR_HITS = 5;
+BOSS_KIT.orcas = {
+  r: (p) => 30 + p.r * 0.55,
+  fixed: true, chip: 0.06, phaseAt: [0.5], phaseText: ['Two at a time!'],
+  hint: ['bolt', 'Orcas ram you to roll you over. Swim away hard or dash to stay upright, then bite them while they breathe'],
+  spawn(g, b, k) {
+    const p = g.p; k.sq = [b];
+    for (let i = 1; i < POD; i++) {
+      const a = atan2(b.y - p.y, b.x - p.x) + i * 0.8, R = hypot(b.x - p.x, b.y - p.y);
+      k.sq.push({ kind: 'orca', x: p.x + cos(a) * R, y: p.y + sin(a) * R, vx: 0, vy: 0, ang: a + PI, r: b.r * (0.92 + random() * 0.12), seed: random() * 10, t: random() * 5, alive: true });
+    }
+    k.total = POD * OR_HITS; k.flipper = null;
+    for (const q of k.sq) Object.assign(q, { hits: OR_HITS, st: 'circle', stT: 0, orb: atan2(q.y - p.y, q.x - p.x), sprintK: 0, biteK: 0, flipK: 0, breathK: 0, biteCd: 0, wb: 0, flash: 0, hit: false });
+    k.dartT = 2.2; k.bumpT = 0;
+  },
+  release(g, k, text, c = '#e0f0ff') {
+    const q = k.flipper; if (!q) return;
+    k.flipper = null; q.st = 'breathe'; q.stT = 2; q.wb = 0; q.flipK = 0;
+    if (text) g.texts.push({ x: g.p.x, y: g.p.y - g.p.r * 1.6, s: text, life: 1, c });
+  },
+  tick(g, b, k, dt) {
+    const p = g.p, ps = g.pTop(), ph2 = b.phase >= 2, T = g.T;
+    k.bumpT = max(0, k.bumpT - dt);
+    const live = k.sq.filter((q) => q.alive !== false);
+    if (k.flipper && (k.flipper.alive === false || !live.includes(k.flipper))) k.flipper = null;
+    k.dartT -= dt;
+    if (k.dartT <= 0 && !g.dead && !k.flipper && p.frozenT <= 0) {
+      const ready = live.filter((q) => q.st === 'circle');
+      for (let i = 0; i < (ph2 ? 2 : 1) && ready.length; i++) { const q = ready.splice((random() * ready.length) | 0, 1)[0]; q.st = 'eye'; q.stT = ph2 ? 0.5 : 0.65; }
+      k.dartT = ph2 ? 2.0 : 2.6;
+    }
+    // being rolled over: resist by swimming away from the orca, wriggling, or dashing
+    if (k.flipper) {
+      const q = k.flipper, ux = p.x - q.x, uy = p.y - q.y, ud = hypot(ux, uy) + 0.01;
+      const [ix, iy, im] = g.moveDir();
+      const away = im > 0.4 && (ix * ux + iy * uy) / ud > 0.3;
+      p.flipK = clamp01((p.flipK || 0) + dt * (away ? -0.75 : 0.7) - (p.wiggle > 2 ? dt * 0.5 : 0));
+      if (p.dashT > 0 || p.breachT > 0) { p.flipK = 0; this.release(g, k, 'Shaken off!'); }
+      else if (p.flipK >= 1) {
+        p.frozenT = 1.5; p.flipK = 1; g.hurt(30, q, { why: 'Rolled over by orcas', iframes: 0.3 });
+        g.texts.push({ x: p.x, y: p.y - p.r * 1.6, s: 'Rolled over!', life: 1.4, c: '#ffb0a0' }); g.shake = min(16, g.shake + 8);
+        this.release(g, k, null);
+      } else if (p.flipK <= 0 && q.held > 0.4) this.release(g, k, 'You stayed upright!');
+    } else if (p.frozenT <= 0) p.flipK = max(0, (p.flipK || 0) - dt * 2);
+    for (const q of live) {
+      q.t = (q.t || 0) + dt; q.biteCd = max(0, q.biteCd - dt); q.flash = max(0, (q.flash || 0) - dt * 4);
+      const dx = p.x - q.x, dy = p.y - q.y, d = hypot(dx, dy) + 0.01;
+      let tx = 0, ty = 0, sp = 0, sk = 3, breath = 0;
+      switch (q.st) {
+        case 'circle': {
+          q.orb += dt * (0.7 + 0.2 * sin(q.seed)) * (q.seed > 5 ? 1 : -1);
+          const R = 280 + q.r * 2.2 + 50 * sin(T * 1.1 + q.seed);
+          const gx = p.x + cos(q.orb) * R - q.x, gy = p.y + sin(q.orb) * R - q.y, gd = hypot(gx, gy) + 0.01;
+          tx = gx / gd; ty = gy / gd; sp = min(ps * 1.4, gd * 3); q.ang = turn(q.ang, atan2(q.vy, q.vx), dt * 4);
+          break;
+        }
+        case 'eye': // it picks you out: the ram is coming
+          q.stT -= dt; q.vx *= exp(-dt * 4); q.vy *= exp(-dt * 4); q.ang = turn(q.ang, atan2(dy, dx), dt * 7);
+          if (q.stT <= 0) { q.st = 'ram'; q.stT = 0.75; q.hit = false; q.da = atan2(dy + p.vy * 0.25, dx + p.vx * 0.25); g.sfx('dash', { vol: 0.4 }); }
+          break;
+        case 'ram': {
+          q.stT -= dt; tx = cos(q.da); ty = sin(q.da); sp = ps * 2.4; sk = 8; q.ang = turn(q.ang, q.da, dt * 6); q.sprintK = 1;
+          if (!q.hit && !g.dead && d < q.r + p.r * 0.85 && p.breachT <= 0) {
+            q.hit = true; q.biteK = 1;
+            if (p.puffK > 0.5) { q.st = 'dazed'; q.stT = 2.2; q.wb = 0; this.hitOrca(g, b, k, q, 0.4, 'Bounced off!'); continue; }
+            if (!k.flipper && p.frozenT <= 0) { k.flipper = q; q.st = 'flip'; q.held = 0; q.side = ad(atan2(-dy, -dx), 0) >= 0 ? 1 : -1; g.hurt(10, q, { why: 'Orca ram', iframes: 0.3 }); g.hint('boss_orca1', 'It’s rolling you over! Swim away from it or dash', 'bolt', 2600); }
+            else if (g.hurt(16, q, { why: 'Orca ram', iframes: 0.5 })) { p.vx = cos(q.da) * 520; p.vy = sin(q.da) * 520; }
+          }
+          if (q.st === 'ram' && q.stT <= 0) { q.st = 'breathe'; q.stT = ph2 ? 1.7 : 2.1; q.wb = 0; }
+          break;
+        }
+        case 'flip': { // pressed against your side, pushing you over
+          q.held = (q.held || 0) + dt;
+          const a = atan2(q.y - p.y, q.x - p.x), want = p.r * 0.85 + q.r * 0.7;
+          q.x += (p.x + cos(a) * want - q.x) * min(1, dt * 10); q.y += (p.y + sin(a) * want - q.y) * min(1, dt * 10);
+          q.vx = p.vx; q.vy = p.vy; q.ang = turn(q.ang, a + PI, dt * 6); q.flipK = min(1, q.flipK + dt * 2);
+          p.vx -= cos(a) * 260 * dt; p.vy -= sin(a) * 260 * dt;
+          break;
+        }
+        case 'breathe': // it has to come up for air: open to bites
+          q.stT -= dt; breath = 1; q.vx *= exp(-dt * 2.2); q.vy *= exp(-dt * 2.2); q.flipK = max(0, q.flipK - dt * 2);
+          if (q.stT <= 0) { q.st = 'circle'; q.orb = atan2(q.y - p.y, q.x - p.x); }
+          break;
+        case 'dazed':
+          q.stT -= dt; q.vx *= exp(-dt * 2); q.vy *= exp(-dt * 2); q.ang += sin(T * 3 + q.seed) * dt; q.flipK = max(0, q.flipK - dt * 2);
+          if (q.stT <= 0) { q.st = 'circle'; q.orb = atan2(q.y - p.y, q.x - p.x); }
+          break;
+      }
+      if (q.st === 'circle' || q.st === 'ram') sqSteer(q, tx, ty, sp, sk, dt);
+      if (q.st !== 'ram') q.sprintK = max(0, q.sprintK - dt * 3);
+      q.biteK = max(0, q.biteK - dt * 3); q.breathK = max(breath ? 0 : 0, (q.breathK || 0) + ((breath ? 1 : 0) - (q.breathK || 0)) * min(1, dt * 5));
+      if (q.st !== 'flip') { q.x += q.vx * dt; q.y += q.vy * dt; }
+      if (!Number.isFinite(q.x) || hypot(q.x - p.x, q.y - p.y) > 2000) { const a = random() * TAU; q.x = p.x + cos(a) * 600; q.y = p.y + sin(a) * 600; q.vx = q.vy = 0; }
+      if (g.dead || !b.alive) continue;
+      if (d < q.r * 0.95 + p.r * 0.8 && q.st !== 'flip') {
+        if (q.st === 'breathe' || q.st === 'dazed') { if (q.biteCd <= 0 && q.wb < (q.st === 'dazed' ? 2 : 2)) { q.biteCd = 0.5; q.wb++; this.hitOrca(g, b, k, q, g.biteK(), null); } }
+        else if (q.st === 'circle' && k.bumpT <= 0) { k.bumpT = 1.2; g.texts.push({ x: p.x, y: p.y - p.r * 1.5, s: 'Too quick!', life: 0.8, c: '#cfd8e8' }); }
+      }
+    }
+  },
+  hitOrca(g, b, k, q, n, text) {
+    const ox = q.x, oy = q.y;
+    g.bossHit(n / k.total, q.x, q.y, { raw: true, text, tc: '#ffd8d0', c: [255, 220, 210] });
+    q.hits -= n; q.flash = 1;
+    if (!b.alive || q.hits > 0.01) return;
+    if (k.flipper === q) k.flipper = null;
+    g.texts.push({ x: ox, y: oy - q.r, s: 'It swims off!', life: 1, c: '#e8e8f0' }); g.sfx('bubble');
+    if (q === b) {
+      const rest = k.sq.filter((o) => o !== b && o.alive !== false); if (!rest.length) return;
+      const o = rest.reduce((a, c) => (hypot(c.x - ox, c.y - oy) < hypot(a.x - ox, a.y - oy) ? c : a));
+      for (const key of ['x', 'y', 'vx', 'vy', 'ang', 'r', 'seed', 't', 'hits', 'st', 'stT', 'orb', 'sprintK', 'biteK', 'flipK', 'breathK', 'biteCd', 'wb', 'hit', 'da', 'held', 'side']) b[key] = o[key];
+      if (k.flipper === o) k.flipper = b;
+      o.alive = false;
+    } else q.alive = false;
+    k.sq = k.sq.filter((o) => o.alive !== false);
+  },
+  stunNear(g, b, k, x, y, R, text) {
+    let n = 0;
+    for (const q of k.sq) if (q.alive !== false && hypot(q.x - x, q.y - y) < R + q.r) { if (k.flipper === q) k.flipper = null; q.st = 'dazed'; q.stT = 2.2; q.wb = 0; q.flash = 1; n++; }
+    if (n) { g.p.flipK = 0; g.texts.push({ x, y: y - 40, s: text, life: 1.2, c: '#ffe0c0' }); g.hint('boss_orca2', 'Dazed! Bite them now', 'target', 2400); }
+  },
+  breachAny(g, b, k, R) { this.stunNear(g, b, k, g.p.x, g.p.y, R, 'Splashed!'); },
+  puff(g, b, k) { if (k.flipper) { g.p.flipK = 0; this.release(g, k, 'It can’t roll you!'); } },
+  slashAny(g, b, k, R, half) {
+    const p = g.p; let n = 0;
+    for (const q of k.sq) { if (q.alive === false) continue; const ux = q.x - p.x, uy = q.y - p.y, ud = hypot(ux, uy); if (ud < R + q.r && abs(ad(p.ang, atan2(uy, ux))) < half + q.r / max(ud, 1)) { if (k.flipper === q) { k.flipper = null; p.flipK = 0; } q.st = 'dazed'; q.stT = 2; q.wb = 0; q.flash = 1; n++; } }
+    if (n) { g.texts.push({ x: p.x, y: p.y - p.r * 2, s: 'Swept!', life: 1, c: '#ffe0c0' }); g.hint('boss_orca2', 'Dazed! Bite them now', 'target', 2400); }
+  },
+  over(g, ctx, z, inView, sc) {
+    const b = g.boss, k = b.k, T = g.T, p = g.p;
+    for (const q of k.sq) { if (q === b || q.alive === false || !inView(q.x, q.y, q.r * 3)) continue; drawFake(ctx, q, T, sc); }
+    for (const q of k.sq) {
+      if (q.alive === false || !inView(q.x, q.y, q.r * 3)) continue;
+      if (q.st === 'eye') { glow(ctx, q.x, q.y, q.r * 2, [255, 120, 80], 0.3 + 0.2 * sin(T * 26)); ctx.font = `900 ${Math.round(24 / z)}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,150,110,0.9)'; ctx.fillText('!', q.x, q.y - q.r * 1.6); }
+      else if (q.st === 'breathe' || q.st === 'dazed') glow(ctx, q.x, q.y, q.r * 1.6, [150, 255, 200], 0.2 + 0.1 * sin(T * 9));
+    }
+    // how far over they've rolled you
+    if (p.flipK > 0.02 && !g.dead) {
+      const R = (p.r0 || p.r) * 1.35 + 14;
+      ctx.beginPath(); ctx.arc(p.x, p.y, R, -PI / 2, -PI / 2 + TAU * p.flipK);
+      ctx.strokeStyle = `rgba(255,${180 - 120 * p.flipK},120,0.85)`; ctx.lineWidth = 6 / z; ctx.lineCap = 'round'; ctx.stroke();
+      if (k.flipper) { ctx.font = `900 ${Math.round(18 / z)}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.fillStyle = `rgba(255,225,200,${0.7 + 0.3 * sin(T * 12)})`; ctx.fillText('Swim away!', p.x, p.y - R - 12 / z); }
+    }
+  },
+};
+
 // ===================================================================================== engine glue (mixin)
 export const Bosses = {
   pTop() { return D.baseSpeed(this.p.r) * this.speedMult; },
   // how hard your bites land on a boss: jaws, eyes, enzymes and a dash all help
-  biteK() { const p = this.p; return (1 + 0.1 * (p.muts.lysosome | 0)) * (1 + 0.12 * (p.muts.beak | 0)) * Math.pow(this.biteMult || 1, 0.35) * (p.dashT > 0 ? 1.25 : 1); },
+  biteK() { const p = this.p; return (1 + 0.1 * (p.muts.lysosome | 0)) * (1 + 0.12 * (p.muts.beak | 0)) * (1 + 0.1 * (p.muts.serrated | 0)) * Math.pow(this.biteMult || 1, 0.35) * (p.dashT > 0 ? 1.25 : 1) * (p.senseT > 0 ? 1.3 : 1); },
   kitSpawn(b) {
     const K = b.kit, p = this.p;
     b.k = {}; b.ax = p.x; b.ay = p.y; b.biteCd = 0; b.phase = 1; b.tele = 0;

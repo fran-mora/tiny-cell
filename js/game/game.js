@@ -6,7 +6,7 @@ import * as D from './data.js';
 import * as C from './campaign.js';
 import { drawSpecies, drawPlayer, drawPilotFish, drawKin, glowSprite, makeCausticTile, makeShaft, portrait, mixRGB, rgbStr, WHITE, CREATURE_ART, BOSS_ART } from './art.js';
 // boss portraits for the codex and journey: which body each boss is drawn with
-Object.assign(BOSS_ART, { giantamoeba: { base: 'colossus', col: null }, virus: { base: 'queen', col: null }, abyssal: { base: 'angler', col: null }, progenitor: { base: 'siphboss', col: null }, grouper: { base: 'grouper', col: null }, squidpack: { base: 'humboldt', col: null }, thresher: { base: 'thresher', col: null }, swordfish: { base: 'swordfish', col: null }, lionsmane: { base: 'lionsmane', col: null }, sealions: { base: 'sealion', col: null } });
+Object.assign(BOSS_ART, { giantamoeba: { base: 'colossus', col: null }, virus: { base: 'queen', col: null }, abyssal: { base: 'angler', col: null }, progenitor: { base: 'siphboss', col: null }, grouper: { base: 'grouper', col: null }, squidpack: { base: 'humboldt', col: null }, thresher: { base: 'thresher', col: null }, swordfish: { base: 'swordfish', col: null }, lionsmane: { base: 'lionsmane', col: null }, sealions: { base: 'sealion', col: null }, tigershark: { base: 'tigershark', col: null }, giantsquid: { base: 'giantsquid', col: null }, spermwhale: { base: 'spermwhale', col: null }, orcas: { base: 'orca', col: null } });
 import { injectStyle, releaseStyle } from './style.js';
 import { Cinematics } from './cinematics.js';
 import { Threats, THREAT_INFO } from './threats.js';
@@ -93,7 +93,7 @@ class MicrobeGame {
     this.p = {
       x: 0, y: 0, vx: 0, vy: 0, r: D.playerRadius(1), ang: -PI / 2, seed: 0.42,
       level: 1, xp: 0, hp: 100, maxHp: 100, muts: {}, iframes: 0, flashT: 0, dent: 0, dentA: 0, stretch: 0,
-      cyst: 0, cystUsed: false, dashT: 0, dashCd: 0, novaCd: 0, photoCd: 0, shoalCd: 0, suckCd: 0, suckT: 0, puffCd: 0, puffT: 0, puffK: 0, slashCd: 0, slashT: 0, slashK: 0, slashDir: 1, sailK: 0, stripeK: 0, stripeT: 0, breachCd: 0, breachT: 0, breachK: 0, toxinT: 3, latched: 0, wiggle: 0, lastVA: 0, speedN: 0, wob: 0,
+      cyst: 0, cystUsed: false, dashT: 0, dashCd: 0, novaCd: 0, photoCd: 0, shoalCd: 0, suckCd: 0, suckT: 0, puffCd: 0, puffT: 0, puffK: 0, slashCd: 0, slashT: 0, slashK: 0, slashDir: 1, sailK: 0, stripeK: 0, stripeT: 0, breachCd: 0, breachT: 0, breachK: 0, senseCd: 0, senseT: 0, senseK: 0, filterCd: 0, filterT: 0, filterK: 0, frozenT: 0, flipK: 0, toxinT: 3, latched: 0, wiggle: 0, lastVA: 0, speedN: 0, wob: 0,
     };
     this.gained = [];
     if (this.camp) {
@@ -158,31 +158,31 @@ class MicrobeGame {
     const m = this.p.muts;
     return this.camp ? min(C.TUNE.engulfCap, 0.85 + 0.04 * (m.pseudopod | 0) + 0.02 * (m.jaws | 0)) : 0.85 + 0.07 * (m.pseudopod | 0) + 0.06 * (m.jaws | 0);
   }
-  canEat(e) { return !e.boss && !e.ally && e.kind !== 'colossus' && e.kind !== 'queen' && e.kind !== 'siphonophore' && !(SP[e.kind] && SP[e.kind].inedible) && !(e.armor > 0 && shelled(e)) && e.r < this.p.r * this.engulf; }
+  canEat(e) { return !e.boss && !e.ally && e.kind !== 'colossus' && e.kind !== 'queen' && e.kind !== 'siphonophore' && !(SP[e.kind] && SP[e.kind].inedible) && !(e.armor > 0 && shelled(e)) && e.r < this.p.r * this.engulf && ((this.p.stage | 0) < 10 || (SP[e.kind] && SP[e.kind].filter) || e.r < this.p.r * 0.38); } // a whale shark only swallows what fits its filter
 
   recalc() {
     const p = this.p, m = p.muts, g = this.genome;
     const oldMax = p.maxHp;
     const stageHp = 1 + 0.15 * ((p.stage | 0 || 1) - 1);
-    p.maxHp = Math.round(100 * stageHp * (1 + 0.15 * (g.hp | 0)) + 25 * (m.membrane | 0) + 40 * (m.shell | 0) + 30 * (m.gelskin | 0) + (this.boonHp | 0));
+    p.maxHp = Math.round(100 * stageHp * (1 + 0.15 * (g.hp | 0)) + 25 * (m.membrane | 0) + 40 * (m.shell | 0) + 30 * (m.gelskin | 0) + 40 * (m.deepdive | 0) + (this.boonHp | 0));
     if (p.maxHp > oldMax) p.hp += p.maxHp - oldMax;
     p.hp = min(p.hp, p.maxHp);
     p.r0 = D.playerRadius(p.level); p.r = p.r0 * (1 + ((p.stage | 0) === 6 ? PUFF_GROW : 0) * (p.puffK || 0)); // r0: your size; r: grows while inflated (pufferfish only)
-    let sm = (1 + 0.06 * (g.motor | 0)) * (1 + 0.12 * (m.flagellum | 0)) * (1 + 0.1 * (m.muscle | 0)) * (1 + 0.12 * (m.fins | 0)) * (1 + 0.08 * (m.sail | 0));
+    let sm = (1 + 0.06 * (g.motor | 0)) * (1 + 0.12 * (m.flagellum | 0)) * (1 + 0.1 * (m.muscle | 0)) * (1 + 0.12 * (m.fins | 0)) * (1 + 0.08 * (m.sail | 0)) * (1 + 0.07 * (m.warmblood | 0));
     if (this.camp && sm > C.TUNE.speedSoft) sm = C.TUNE.speedSoft + (sm - C.TUNE.speedSoft) * C.TUNE.speedK; // stacked speed has diminishing returns
     this.speedMult = sm * Math.min(1.5, this.boonMult || 1);
-    this.accel = 5.5 * (1 + 0.25 * (m.cilia | 0)) * (1 + 0.2 * (m.muscle | 0)) * (1 + 0.12 * (m.fins | 0)) * (1 + 0.2 * (m.hover | 0)) * (1 + 0.1 * (m.sail | 0));
+    this.accel = 5.5 * (1 + 0.25 * (m.cilia | 0)) * (1 + 0.2 * (m.muscle | 0)) * (1 + 0.12 * (m.fins | 0)) * (1 + 0.2 * (m.hover | 0)) * (1 + 0.1 * (m.sail | 0)) * (1 + 0.1 * (m.warmblood | 0));
     this.reach = (1 + 0.15 * (m.cilia | 0)) * (1 + 0.1 * (m.nerve | 0));
     let mg = (1 + 0.4 * (m.biolum | 0)) * (1 + 0.2 * (g.sensory | 0)) * (1 + 0.25 * (m.signal | 0)) * (1 + 0.3 * (m.eyes | 0)) * (1 + 0.3 * (m.tentacles | 0)) * (1 + 0.15 * (m.sail | 0)) * (1 + 0.25 * (m.warmeyes | 0)) * this.reach;
     if (this.camp && mg > 2.2) mg = 2.2 + Math.log(mg / 2.2) * 0.55; // stacked lures have diminishing returns (x34 becomes about x3.7)
     this.magnet = (55 + p.r * 2.2) * mg;
-    this.xpMult = (1 + 0.1 * (g.digest | 0)) * (1 + 0.15 * (m.vacuole | 0)) * (1 + 0.12 * (m.polyps | 0)) * (this.boonMult || 1);
-    this.regen = 0.5 * (m.mito | 0) + 0.8 * (m.gills | 0) + 0.6 * (m.cleaners | 0);
+    this.xpMult = (1 + 0.1 * (g.digest | 0)) * (1 + 0.15 * (m.vacuole | 0)) * (1 + 0.12 * (m.polyps | 0)) * (1 + 0.08 * (m.countershade | 0)) * (1 + 0.15 * (m.remoras | 0)) * (this.boonMult || 1);
+    this.regen = 0.5 * (m.mito | 0) + 0.8 * (m.gills | 0) + 0.6 * (m.cleaners | 0) + 0.4 * (m.remoras | 0);
     this.stingMult = max(0.1, 1 - 0.3 * (m.stingproof | 0)); // a jelly-eater's mouth
     this.hazMult = 1 - 0.25 * (m.osmo | 0);
-    this.sight = max(0.25, (1 - 0.22 * (m.mimicry | 0)) * (1 - 0.12 * (m.signal | 0)));
-    this.armor = min(this.camp ? C.TUNE.armorCap : 0.6, 0.08 * (m.guard | 0) + 0.05 * (m.shell | 0) + 0.1 * (m.hide | 0) + 0.06 * (m.gelskin | 0));
-    this.biteMult = (1 + 0.3 * (m.jaws | 0)) * (1 + 0.15 * (m.eyes | 0));
+    this.sight = max(0.25, (1 - 0.22 * (m.mimicry | 0)) * (1 - 0.12 * (m.signal | 0)) * (1 - 0.12 * (m.countershade | 0)) * (1 - 0.08 * (m.deepdive | 0)));
+    this.armor = min(this.camp ? C.TUNE.armorCap : 0.6, 0.08 * (m.guard | 0) + 0.05 * (m.shell | 0) + 0.1 * (m.hide | 0) + 0.06 * (m.gelskin | 0) + 0.06 * (m.deepdive | 0));
+    this.biteMult = (1 + 0.3 * (m.jaws | 0)) * (1 + 0.15 * (m.eyes | 0)) * (1 + 0.15 * (m.serrated | 0));
     this.auraDps = ((m.cnido | 0) ? 6 + 6 * m.cnido : 0) + 8 * (m.tentacles | 0);
     this.iframeBonus = 0.15 * (m.nerve | 0);
   }
@@ -512,13 +512,13 @@ class MicrobeGame {
 
   updatePlayer(dt) {
     const p = this.p, m = p.muts;
-    p.iframes = max(0, p.iframes - dt); p.flashT = max(0, p.flashT - dt); p.cyst = max(0, p.cyst - dt); if (p.slowT > 0) p.slowT -= dt;
+    p.iframes = max(0, p.iframes - dt); p.flashT = max(0, p.flashT - dt); p.cyst = max(0, p.cyst - dt); if (p.slowT > 0) p.slowT -= dt * (1 + 0.4 * (p.muts.warmblood | 0)); if (p.frozenT > 0) p.frozenT -= dt;
     p.dashCd = max(0, p.dashCd - dt); p.novaCd = max(0, p.novaCd - dt);
-    p.photoCd = max(0, p.photoCd - dt); p.shoalCd = max(0, p.shoalCd - dt); p.suckCd = max(0, p.suckCd - dt); p.puffCd = max(0, p.puffCd - dt); p.slashCd = max(0, p.slashCd - dt); p.breachCd = max(0, p.breachCd - dt);
+    p.photoCd = max(0, p.photoCd - dt); p.shoalCd = max(0, p.shoalCd - dt); p.suckCd = max(0, p.suckCd - dt); p.puffCd = max(0, p.puffCd - dt); p.slashCd = max(0, p.slashCd - dt); p.breachCd = max(0, p.breachCd - dt); p.senseCd = max(0, p.senseCd - dt); p.filterCd = max(0, p.filterCd - dt);
     p.dent *= exp(-dt * 6);
     if (this.dead) { p.vx *= 0.9; p.vy *= 0.9; return; }
     if (this.cineLock()) { this.cineMove(dt); return; }
-    const [dx, dy, mag] = this.moveDir();
+    const [dx, dy, mag0] = this.moveDir(), mag = p.frozenT > 0 ? 0 : mag0; // frozen: rolled over and helpless
     if (mag > 0) this.hints.moved += dt;
     const latchSlow = 1 - min(0.45, p.latched * 0.07);
     const mucus = p.inMucus || p.inTrap ? min(0.85, 0.42 + 0.12 * (p.muts.osmo | 0)) : 1; // sticky slime and spines slow you right down
@@ -526,7 +526,7 @@ class MicrobeGame {
     if (p.dashT > 0) {
       p.dashT -= dt;
     } else if (mag > 0) {
-      const tx = dx * top * mag, ty = dy * top * mag;
+      const fk = p.filterT > 0 ? 0.75 : 1, tx = dx * top * mag * fk, ty = dy * top * mag * fk; // mouth wide open: slower
       const a = 1 - exp(-dt * this.accel);
       p.vx += (tx - p.vx) * a; p.vy += (ty - p.vy) * a;
     } else {
@@ -710,7 +710,7 @@ class MicrobeGame {
       // predators feed too: they slowly grow to keep pace with you instead of becoming prey
       if (e.szK) { const want = ((1 - C.TUNE.track) * this.expR() + C.TUNE.track * p.r) * min(e.szK, 1.05); if (e.r < want) e.r = min(want, e.r * (1 + C.TUNE.huntGrow * dt)); }
       const edible = this.canEat(e); e.edibleCache = edible;
-      const bigger = !edible && e.r > p.r * 0.95;
+      const bigger = !edible && (e.r > p.r * 0.95 || !!(SP[e.kind] && SP[e.kind].pack)); // pack hunters (orcas) take on bigger prey
       let tx = 0, ty = 0, sp = e.spd, steer = 2.2;
       const wander = () => { e.wander += (random() - 0.5) * dt * 2.4; tx = cos(e.wander); ty = sin(e.wander); };
       const flee = (k = 1) => { tx = -dx / d; ty = -dy / d; sp *= k; };
@@ -1164,7 +1164,7 @@ class MicrobeGame {
     this.sparkle(e.x - nx * e.r, e.y - ny * e.r, [255, 235, 170], 5); this.sfx('hit', { pitch: 1.6 }); this.buzz(10);
   }
   // a small animal nips, one your size hurts, a big one bites hard
-  biteScale(e) { const k = e.r / this.p.r; return k < 1 ? Math.pow(k, 2.5) : min(C.TUNE.biteCap, k); }
+  biteScale(e) { const k = e.r / this.p.r; if (k < 1 && SP[e.kind] && SP[e.kind].pack) return max(0.45, k * k); return k < 1 ? Math.pow(k, 2.5) : min(C.TUNE.biteCap, k); } // a pack hunter's bite still hurts a bigger animal
   // krill swarms and fish schools steer by the centre and heading of their group
   computeFlocks() {
     const F = this.flock || (this.flock = {});
@@ -1228,7 +1228,7 @@ class MicrobeGame {
     if (this.boss) this.kitEat(e);
     if (SP[e.kind] && SP[e.kind].ai === 'glowbomb') this.glowAlarm(e);
     e.alive = false; if (e.latched) { this.p.latched--; }
-    const v = (KIND_XP[e.kind] || 2) * (e.r / 6) * this.df() * (shelled(e) ? 1.3 : 1) * mult * (this.p.muts.stingproof && SP[e.kind] && SP[e.kind].ai === 'jelly' ? 1 + 0.5 * this.p.muts.stingproof : 1);
+    const v = (KIND_XP[e.kind] || 2) * (e.r / 6) * this.df() * (shelled(e) ? 1.3 : 1) * mult * (this.p.muts.stingproof && SP[e.kind] && SP[e.kind].ai === 'jelly' ? 1 + 0.5 * this.p.muts.stingproof : 1) * (this.p.muts.gillrakers && SP[e.kind] && SP[e.kind].filter ? 1 + 0.4 * this.p.muts.gillrakers : 1);
     this.gainXP(v, true);
     this.stats.eaten++; this.stats.kills++;
     this.combo++; this.comboT = 1.0;
@@ -1574,7 +1574,7 @@ class MicrobeGame {
       s.wx = wx; s.wy = wy; s.wr = wr;
       if (s.cd <= 0 && hypot(p.x - wx, p.y - wy) < p.r + wr) {
         s.cd = isQ ? 2.0 : 2.6; bit = true;
-        const dmg = (28 + p.r * 1.3) * (1 + 0.3 * (p.muts.lysosome | 0)) * (this.biteMult || 1) * (p.dashT > 0 ? 1.5 : 1);
+        const dmg = (28 + p.r * 1.3) * (1 + 0.3 * (p.muts.lysosome | 0)) * (this.biteMult || 1) * (p.dashT > 0 ? 1.5 : 1) * (p.senseT > 0 ? 1.3 : 1);
         this.bossDamage(dmg);
         this.burst(wx, wy, [255, 240, 140], 16, 220);
         this.sfx('gulp'); this.sfx('hit'); this.buzz(30); this.shake = min(14, this.shake + 7);
@@ -1600,6 +1600,17 @@ class MicrobeGame {
     b.hp -= n; b.flash = quiet ? max(b.flash, 0.3) : 1;
     if (b.hp <= 0) this.bossDie();
   }
+  // the end of the journey: something even bigger than you glides past
+  finaleWhale() {
+    if (this.dead) return;
+    const p = this.p, a = p.ang + PI * 0.75, R = this.viewR() * 1.1;
+    const e = this.spawn('bluewhale', p.x + cos(a) * R, p.y + sin(a) * R, { force: true, r: (p.r0 || p.r) * 1.1 }); // about twice your length
+    if (!e) return;
+    const ux = p.x - e.x, uy = p.y - e.y, ud = hypot(ux, uy) + 0.01, side = 0.35;
+    e.ctl = { tx: ux / ud * cos(side) - uy / ud * sin(side), ty: ux / ud * sin(side) + uy / ud * cos(side), sp: 150 + (p.r0 || p.r) * 1.5, steer: 1.5 };
+    e.ang = atan2(e.ctl.ty, e.ctl.tx); e.breathK = 0;
+    this.later(1400, () => this.hint('finale_whale', 'A blue whale: the biggest animal that ever lived', 'star', 4000));
+  }
   bossDie() {
     const b = this.boss; if (!b || !b.alive) return;
     b.alive = false; b.hp = 0; b.noDraw = false;
@@ -1619,6 +1630,7 @@ class MicrobeGame {
     this.renderPips();
     if (this.camp) {
       this.banner('Defeated', b.B.name, 'gold');
+      if (!this.L.ocean && this.camp.level === C.TOTAL_LEVELS && C.LIVE_HABITATS === C.HABITATS.length - 1) this.later(1200, () => this.finaleWhale());
       if (this.L.ocean) this.later(1400, () => { if (!this.dead) this.rematchReward(); });
       this.later(3200, () => { if (!this.dead) this.levelComplete(); });
       return;
@@ -2188,7 +2200,7 @@ class MicrobeGame {
       ctx.save(); ctx.translate(e.x, e.y); ctx.rotate(e.boss && (e.kind === 'colossus' || e.kind === 'volvox') ? 0 : e.ang);
       ctx.scale(e.r, e.r);
       if (e.spawnFade < 1) { e.spawnFade = min(1, e.spawnFade + dt * 3); ctx.globalAlpha = e.spawnFade; }
-      if (SP[e.kind] && SP[e.kind].camo) ctx.globalAlpha *= e.vis ?? 0.14; // camouflage
+      if (SP[e.kind] && SP[e.kind].camo && !(CREATURE_ART[e.kind] && CREATURE_ART[e.kind].ownVis)) ctx.globalAlpha *= e.vis ?? 0.14; // camouflage (some art fades itself)
       if (e.kind === 'clone' && (p.stage | 0) >= 3) drawKin(ctx, e, p.stage | 0, p.muts, T, e.r * sc); // your young, not a cell
       else drawSpecies(ctx, e, T, e.r * sc, { queenPhase: false });
       if (e.flash > 0) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = e.flash * 0.6; ctx.drawImage(glowSprite(WHITE), -1.2, -1.2, 2.4, 2.4); ctx.globalCompositeOperation = 'source-over'; }
@@ -2317,6 +2329,7 @@ class MicrobeGame {
       ctx.fillStyle = this.redVig; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1;
     }
     if (this.L && this.L.dark) this.drawDark(ctx, W, H, wx, wy, z);
+    this.drawSense(ctx, W, H, wx, wy, z);
     this.kitScreen(ctx, W, H);
     this.cineScreen(ctx, W, H);
     // joystick

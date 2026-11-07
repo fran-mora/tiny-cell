@@ -295,14 +295,17 @@ class App {
 
   endingDialog() {
     audio.sfx('victory'); haptic([30, 60, 30, 60, 30]);
-    const st = S();
+    const st = S(), finale = Game.LIVE_HABITATS === Game.HABITATS.length - 1;
+    let whale = null; if (finale) { try { whale = Game.portrait('microbe', 'bluewhale', 150); whale.style.width = whale.style.height = '100%'; } catch (e) {} }
     dialog({
       dismissable: false,
       body: el('div.center', {}, [
         el('div.era-kicker', {}, 'Journey complete'),
-        el('div.era-big', {}, 'From a single cell'),
-        el('p.dim', { style: { margin: '0 0 10px' } }, `You crossed ${Game.LIVE_HABITATS} habitats, beat ${Game.LIVE_HABITATS} bosses and evolved from a single cell into a ${Game.STAGES[Game.LIVE_STAGE].name.toLowerCase()}.`),
-        el('p', { style: { margin: '0 0 12px', fontWeight: 700 } }, 'Bigger fish are on their way in future updates. Until then the Open Ocean is open: endless expeditions, boss rematches that teach you new traits, and every trait you are still missing.'),
+        el('div.era-big', {}, finale ? 'The biggest fish in the sea' : 'From a single cell'),
+        finale ? el('div.thumb', { style: { width: '150px', height: '110px', margin: '0 auto 6px' } }, whale) : null,
+        el('p.dim', { style: { margin: '0 0 10px' } }, `You crossed ${Game.LIVE_HABITATS} habitats, beat ${Game.LIVE_HABITATS} bosses and evolved from a single cell into a ${Game.STAGES[Game.LIVE_STAGE].name.toLowerCase()}${finale ? ', the biggest fish alive' : ''}.`),
+        finale ? el('p', { style: { margin: '0 0 10px' } }, 'And out in the blue, something even bigger glides past: a blue whale, 30 metres long, the biggest animal that has ever lived. Not a fish, but proof that the ocean always has something bigger.') : null,
+        el('p', { style: { margin: '0 0 12px', fontWeight: 700 } }, finale ? 'The Open Ocean is still open: endless expeditions, boss rematches that teach you new traits, and every trait you are still missing.' : 'Bigger fish are on their way in future updates. Until then the Open Ocean is open: endless expeditions, boss rematches that teach you new traits, and every trait you are still missing.'),
         el('div.stat-grid', {}, [
           el('div.stat', {}, [el('div.v', {}, fmt(st.totals.attempts)), el('div.k', {}, 'Attempts')]),
           el('div.stat', {}, [el('div.v', {}, duration(st.totals.playTimeSec)), el('div.k', {}, 'Time underwater')]),
@@ -472,7 +475,7 @@ class App {
       p('<b style="color:var(--text)">The journey:</b> 48 levels across 8 habitats. Survive the timer to clear a level. Every sixth level is a boss: bite its glowing weak spots and avoid its body.'),
       p('<b style="color:var(--text)">Dying</b> sends you back to the start of the same level. You never lose traits or evolution progress.'),
       p('<b style="color:var(--dna)">Evolution:</b> eating fills your evolution bar. When it fills, pick a trait. Traits stay for the whole journey and stack when picked again.'),
-      p('<b style="color:var(--text)">Bodies:</b> every 10 levels a boss evolves you into a new body: colony, flatworm, primordial fish, jawed fish, pufferfish, sailfish. Each body brings a power and a new family of traits. There is no limit: every trait you pick stays with you, so you can collect them all.'),
+      p(`<b style="color:var(--text)">Bodies:</b> every 10 levels a boss evolves you into a new body: ${Game.STAGES.slice(2, Game.LIVE_STAGE + 1).map((x) => x.name.toLowerCase()).join(', ')}. Each body brings a power and a new family of traits. There is no limit: every trait you pick stays with you, so you can collect them all.`),
       p('<b style="color:var(--text)">Powers:</b> you can take up to 4 powers into a level. Your newest always comes; choose the rest with the Powers button on the home screen.'),
     ] });
   }

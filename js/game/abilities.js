@@ -18,7 +18,11 @@ export const ABILITIES = [
   { id: 'puff', cdKey: 'puffCd', cd: (l) => 13 - 1.5 * (l - 1), col: '#ffd58a', key: 'g', use: 'usePuff' },
   { id: 'slash', cdKey: 'slashCd', cd: (l) => 7 - 0.8 * (l - 1), col: '#8fd0ff', key: 'c', use: 'useSlash' },
   { id: 'breach', cdKey: 'breachCd', cd: (l) => 12 - 1.5 * (l - 1), col: '#bfe9ff', key: 'x', use: 'useBreach' },
+  { id: 'sense', cdKey: 'senseCd', cd: (l) => 15 - 2 * (l - 1), col: '#d2b8ff', key: 'v', use: 'useSense' },
+  { id: 'filter', cdKey: 'filterCd', cd: (l) => 12 - 1.5 * (l - 1), col: '#b8f0ff', key: 'b', use: 'useFilter' },
 ];
+const senseR = (p) => (p.r0 || p.r) * 8 + 420;
+const filterCone = (p) => { const g = 1 + 0.15 * (p.muts.gillrakers | 0); return { L: ((p.r0 || p.r) * 4.5 + 260) * g, half: 0.75 }; };
 const BREACH_T = 0.95; // time in the air
 const breachR = (p) => (p.r0 || p.r) * 5 + 80;
 const SLASH_T = 0.32; // how long the swipe lasts
@@ -167,6 +171,36 @@ export const Abilities = {
     this.sfx('hit', { pitch: 0.6 }); this.sfx('bubble', { vol: 0.8 }); this.buzz([30, 30, 40]);
   },
 
+  // Electrosense: sharks feel the faint electric field of beating hearts and working muscles through jelly-filled
+  // pores on the snout (the ampullae of Lorenzini). For a few seconds you sense everything around you: hidden
+  // animals show up, every heartbeat is marked, and your bites find the weak spots.
+  useSense() {
+    const p = this.p, lv = p.muts.sense | 0;
+    if (!lv || p.senseCd > 0 || this.dead || this.modal) return;
+    p.senseCd = ABILITY_BY_ID.sense.cd(lv); p.senseT = 4 + lv; p.senseMax = p.senseT;
+    (this.rings = this.rings || []).push({ x: p.x, y: p.y, r: 0, R: senseR(p), life: 0.9, c: [210, 180, 255] });
+    this.revealSensed();
+    const b = this.boss;
+    if (b && b.alive && b.kit && b.kit.sense) b.kit.sense(this, b, b.k);
+    this.sfx('event', { vol: 0.5 }); this.sfx('tick'); this.buzz([10, 40, 10]);
+    this.abFlash('sense');
+    once(this, 'sense', 'Electrosense! You feel every heartbeat around you, and your bites hit harder', 'eye');
+  },
+  revealSensed() {
+    const p = this.p, R = senseR(p);
+    for (const e of this.ents) if (e.alive && !e.ally && SP[e.kind] && SP[e.kind].camo && hypot(e.x - p.x, e.y - p.y) < R + e.r) { e.vis = 1; e.lcd = max(e.lcd || 0, 1); }
+  },
+
+  // Filter Feeding: a whale shark opens its mouth wide and swims, sieving everything small from the water
+  useFilter() {
+    const p = this.p, lv = p.muts.filter | 0;
+    if (!lv || p.filterCd > 0 || this.dead || this.modal) return;
+    p.filterCd = ABILITY_BY_ID.filter.cd(lv); p.filterT = 2.5 + 0.5 * lv; p.filterMax = p.filterT;
+    this.sfx('gulp'); this.sfx('bubble', { vol: 0.8 }); this.buzz(15);
+    this.abFlash('filter');
+    once(this, 'filter', 'Mouth wide open! Everything small in front of you is sucked in', 'fish');
+  },
+
   // a predator prefers a nearby decoy fish to you
   lureFor(e, pd) {
     let best = null, bd = 520;
@@ -182,6 +216,24 @@ export const Abilities = {
     p.puffK = wasK + (want - wasK) * (1 - exp(-dt * (want ? 9 : 5)));
     if (p.puffK < 0.002 && !want) p.puffK = 0;
     if (p.r0) p.r = p.r0 * (1 + ((p.stage | 0) === 6 ? 0.55 : 0) * p.puffK); // only a pufferfish actually swells
+    // electrosense: the sense fades; hidden hunters stay revealed while it lasts
+    if (p.senseT > 0) { p.senseT -= dt; p.senseRev = (p.senseRev || 0) - dt; if (p.senseRev <= 0) { p.senseRev = 0.25; this.revealSensed(); } }
+    p.senseK = (p.senseK || 0) + ((p.senseT > 0 ? 1 : 0) - (p.senseK || 0)) * (1 - exp(-dt * 6));
+    // filter feeding: the mouth gapes and a wide cone of water pours in
+    if (p.filterT > 0) p.filterT -= dt;
+    p.filterK = (p.filterK || 0) + ((p.filterT > 0 ? 1 : 0) - (p.filterK || 0)) * (1 - exp(-dt * 7));
+    if (p.filterT > 0) {
+      const { L, half } = filterCone(p), a0 = p.ang, R0 = p.r0 || p.r;
+      const mx = p.x + cos(a0) * R0 * 0.9, my = p.y + sin(a0) * R0 * 0.9;
+      for (const m of this.motes) { const ux = m.x - mx, uy = m.y - my, ud = hypot(ux, uy) + 0.01; if (ud < L && abs(ad(a0, atan2(uy, ux))) < half) { const k = min(1, (700 + R0 * 8) * dt / ud); m.x += (mx - m.x) * k; m.y += (my - m.y) * k; } }
+      for (const e of this.ents) {
+        if (!e.alive || e.ally || e.boss || !e.edibleCache) continue;
+        const ux = e.x - mx, uy = e.y - my, ud = hypot(ux, uy) + 0.01;
+        if (ud > L + e.r || abs(ad(a0, atan2(uy, ux))) > half + e.r / ud) continue;
+        e.stun = max(e.stun || 0, 0.4); const k = min(1, (420 + R0 * 5) * dt / ud); e.x += (mx - e.x) * k; e.y += (my - e.y) * k;
+        if (ud < R0 * 0.9 + e.r) this.eat(e);
+      }
+    }
     // breach: up, over and down with a crash
     if (p.breachT > 0) { p.breachT -= dt; p.breachK = sin(PI * min(1, 1 - p.breachT / BREACH_T)); if (p.breachT <= 0) { p.breachT = 0; p.breachK = 0; this.breachLand(); } }
     // sailfish: the bill swipe, the sail (raised to turn and hunt, folded to race) and the hunting stripes
@@ -226,8 +278,45 @@ export const Abilities = {
     }
   },
 
+  // electrosense: every heartbeat in range pulses, drawn over the dark (screen space)
+  drawSense(ctx, W, H, wx, wy, z) {
+    const p = this.p; if (!(p.senseK > 0.02)) return;
+    const T = this.T, R = senseR(p), k = p.senseK;
+    const groups = [[], [], []]; // prey, danger, boss
+    for (const e of this.ents) {
+      if (!e.alive || e.ally || e.hidePlayerFx) continue;
+      const d = hypot(e.x - p.x, e.y - p.y); if (d > R + e.r) continue;
+      const sx = wx(e.x), sy = wy(e.y), sr = e.r * z; if (sx < -sr || sy < -sr || sx > W + sr || sy > H + sr) continue;
+      groups[e.boss ? 2 : e.edibleCache ? 0 : SP[e.kind] && SP[e.kind].hostile ? 1 : 0].push([sx, sy, sr, e.seed || 0]);
+    }
+    const cols = ['rgba(150,255,210,', 'rgba(255,140,170,', 'rgba(220,180,255,'];
+    ctx.lineWidth = 2;
+    for (let gi = 0; gi < 3; gi++) {
+      const G = groups[gi]; if (!G.length) continue;
+      ctx.beginPath();
+      for (const [sx, sy, sr, sd] of G) { const beat = (T * 1.6 + sd) % 1, rr = sr * (1.1 + 0.6 * beat) + 6; ctx.moveTo(sx + rr, sy); ctx.arc(sx, sy, rr, 0, TAU); }
+      ctx.strokeStyle = cols[gi] + (0.55 * k).toFixed(3) + ')'; ctx.stroke();
+      ctx.beginPath();
+      for (const [sx, sy, sr] of G) { const rr = max(3, sr * 0.25); ctx.moveTo(sx + rr, sy); ctx.arc(sx, sy, rr, 0, TAU); }
+      ctx.fillStyle = cols[gi] + (0.5 * k).toFixed(3) + ')'; ctx.fill();
+    }
+  },
+
   drawActives(ctx, z) {
     const p = this.p, T = this.T;
+    if (p.filterK > 0.02) {
+      const { L, half } = filterCone(p), a0 = p.ang, R0 = p.r0 || p.r, k = p.filterK;
+      const mx = p.x + cos(a0) * R0 * 0.9, my = p.y + sin(a0) * R0 * 0.9;
+      ctx.beginPath(); ctx.moveTo(mx, my); ctx.arc(mx, my, L, a0 - half, a0 + half); ctx.closePath();
+      ctx.fillStyle = `rgba(180,240,255,${0.06 * k})`; ctx.fill();
+      ctx.beginPath();
+      for (let i = 0; i < 22; i++) {
+        const a = a0 + (((i * 0.618) % 1) - 0.5) * 2 * half, u = 1 - ((T * 1.4 + i * 0.37) % 1), r0 = L * u, r1 = r0 - 60 - R0 * 0.6;
+        if (r1 < R0 * 0.5) continue;
+        ctx.moveTo(mx + cos(a) * r0, my + sin(a) * r0); ctx.lineTo(mx + cos(a) * r1, my + sin(a) * r1);
+      }
+      ctx.strokeStyle = `rgba(215,250,255,${0.5 * k})`; ctx.lineWidth = 3 / z; ctx.lineCap = 'round'; ctx.stroke();
+    }
     // the bill slash: a bright crescent sweeping across the front
     if (p.slashT > 0) {
       const { R, half } = slashArc(p), u = 1 - p.slashT / SLASH_T, d = p.slashDir;

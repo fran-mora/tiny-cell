@@ -10,7 +10,8 @@ export const ABILITY_IDS = ABILITIES.map((a) => a.id);
 export { STAGES, HABITATS, BOSSES, levelConfig, TOTAL_LEVELS, LEVELS_PER_HABITAT, EVOLVE_AFTER, stageForCleared, evoNeed, TRAIT_FROM, OCEAN_HABS, STAGE_POWER, FINAL_POWER, SHOAL_STAGE, POWER_NAMES, powersFor, traitForm, loadoutFor, LOADOUT_SIZE, newestPower, LIVE_HABITATS, LIVE_STAGE } from './campaign.js';
 
 // Codex entries for every enemy / prey / boss: { id, name, desc, firstEra }
-export const MICROBE_SPECIES = SPECIES.map(({ id, name, desc, firstEra }) => ({ id, name, desc, firstEra }));
+const LATER_BOSSES = new Set(C.HABITATS.slice(C.LIVE_HABITATS + 1).filter(Boolean).map((h) => h.boss)); // not in this build yet
+export const MICROBE_SPECIES = SPECIES.filter((m) => !LATER_BOSSES.has(m.id)).map(({ id, name, desc, firstEra }) => ({ id, name, desc, firstEra }));
 
 // Mutations offered on level-up: { id, name, desc, maxLevel, rarity, tags }
 export const MUTATIONS = [...MUTS, ...C.NEW_MUTATIONS.filter((m) => (m.stage || 1) <= C.LIVE_STAGE)].map(({ id, name, desc, maxLevel, rarity, tags, stage, lv, active }) => ({ id, name, desc, maxLevel, rarity, tags: tags.slice(), stage: stage || 1, lv, active: !!active }));

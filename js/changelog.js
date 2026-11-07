@@ -1,5 +1,13 @@
 // Player-facing release notes, newest first.
 export const CHANGELOG = [
+  { build: 22, title: 'The sailfish', notes: [
+    'Levels 61 to 70, with a new body: the Sailfish (about 3 m), the fastest fish in the sea. If you had finished the journey, you carry on at level 61 straight away.',
+    'New power, Bill Slash: whip your bill sideways through everything in front of you. Whatever it hits is stunned and hurt, as sailfish really do to sardines.',
+    'Two new habitats in the open ocean: the Sardine Run (flying fish, yellowfin tuna, mahi-mahi, dolphins, hammerheads, marlin and Portuguese man o\u2019 war) and the pitch-dark Night Blue. Pufferfish-sized animals are small fry now.',
+    'Two new bosses. The Thresher Shark lashes its huge tail over its head: keep out of the arc, then bite or slash it while it is spent. The Broadbill Swordfish hunts at night with heated eyes: follow its glow, dodge its charge and bite its side as it turns, or parry the charge with a Bill Slash.',
+    'Three new traits: Sail (faster, and it herds food towards you), Warm Eyes (a heater organ lets you see further, even in the dark) and Hunting Stripes (prey freeze when you charge them, and slashes stun longer).',
+    'On the sailfish, Inflate becomes Spread Fins, and your old traits take sailfish forms: strong jaws under the bill, bony scales, a sensory bill.',
+  ] },
   { build: 21, title: 'The pufferfish', notes: [
     'The journey goes on past the jawed fish: levels 51 to 60, with a new body, the Pufferfish (about 1 m). If you had finished the journey, you carry on at level 51 straight away.',
     'New power, Inflate: gulp water and swell into a spiny ball. Nothing can swallow or grab you, anything that bites you gets a mouthful of spines, and other damage is halved. But you can barely swim and you can’t eat until you deflate.',

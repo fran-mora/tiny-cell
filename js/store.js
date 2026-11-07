@@ -98,7 +98,7 @@ function migrate(s) {
     c.journeyEnd = END;
   }
   // powers come with bodies now (Build 18): saves that already have the bodies get their powers
-  const POWERS = { 2: 'dash', 3: 'nova', 4: 'photo', 5: 'suction', 6: 'puff', 7: 'slash' };
+  const POWERS = { 2: 'dash', 3: 'nova', 4: 'photo', 5: 'suction', 6: 'puff', 7: 'slash', 8: 'breach', 9: 'sense', 10: 'filter' };
   for (const [st, id] of Object.entries(POWERS)) if ((c.stage | 0) >= +st && !c.muts[id]) { c.muts[id] = 1; if (!c.mutOrder.includes(id)) c.mutOrder.push(id); if (+st >= 6) s.flags.newPower = id; }
   if ((c.complete || (c.stage | 0) >= 6) && !c.muts.shoal) { c.muts.shoal = 1; if (!c.mutOrder.includes('shoal')) c.mutOrder.push('shoal'); }
   if (!s.codex.microbes) s.codex.microbes = {};

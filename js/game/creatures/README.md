@@ -194,3 +194,170 @@ screenshots). It shows each state large, in-game size, tiny/LOD and the codex po
   circling the head). Also export `wreck(ctx, t, H)`: its lair, a rusted shipwreck hull section
   (~7 × 3 units, centred at 0,0, drawn under the grouper) with a torn end, ribs, plating, a collapsed
   deckhouse, a fallen mast, barnacles, soft coral tufts, sea fans and a dark open cargo hatch near +x.
+
+### T7 — sailfish scale (1–4 m): the open blue ocean
+Seen from above like T5/T6; mouths open in the picture plane (jaws part sideways or swing forward). The
+player here is a ~3 m sailfish.
+* **flyingfish** — slim fish, dark-blue back and silver flanks, big eyes, huge pectoral "wings" (ray fans
+  folded back along the flanks when swimming) plus small pelvic hind wings, forked tail with the longer
+  lower lobe on +y. Schooling prey. `glideK` (body straight, wings and hind wings spread wide, spray
+  droplets and sparkles flung off). The codex portrait shows it gliding.
+* **tuna** — yellowfin tuna: torpedo body, dark-blue back, silver-yellow flanks with a golden stripe, a
+  row of yellow finlets along the back and flanks near the tail, long yellow sickle second-dorsal/anal
+  fins streaming back on both sides, long dark pectorals, keeled tail stock, crescent tail with a fast
+  thunniform beat. Schooling prey. No hooks.
+* **mahimahi** — blunt square forehead, gold flanks and green back with small blue spots and a sliding
+  iridescent sheen, a blue-edged dorsal fin running the whole length of the back, deeply forked golden
+  tail. Prey. No hooks.
+* **dolphin** — common dolphin: rounded melon and long beak, blowhole, dark cape with a V under the
+  falcate dorsal fin over the tan-yellow (front) and pale-grey (rear) flank patches — the hourglass —,
+  dark beak-to-eye stripe, flippers, horizontal flukes that pump up and down (barely any side-to-side
+  wave): their crescent swells and shrinks with the stroke. Predator. `sprintK` (faster pump, flippers
+  tucked, motion streaks), `biteK` (the beak's jaws part sideways: pink mouth, rows of small teeth).
+* **manowar** — Portuguese man o' war: translucent blue-purple gas float with a pleated, scallop-edged
+  pink crest along its top, a purple cluster of polyps beneath, 7–9 long beaded blue tentacles streaming
+  back to ~−4 units. Hazard. `stingK` (tentacles flash bright white-blue, beads glow). The codex portrait
+  shortens the tentacles and recentres it.
+* **hammerhead** — scalloped hammerhead: grey shark with the wide scalloped cephalofoil at +x (eyes at
+  its tips, nostril grooves, electro-sense pores when `H.hd`), the head sweeping slowly side to side,
+  tall dorsal, falcate pectorals, long upper tail lobe (−y). Predator. `biteK` (the jaw swings forward
+  from under the hammer with serrated teeth, third eyelids close).
+* **marlin** — blue marlin: spear bill to ~+1.85, cobalt back, silver flanks, pale-blue vertical stripes,
+  a high pointed dorsal lobe then a low ridge, rigid scythe pectorals, tall crescent tail, keels. Predator.
+  `sprintK` (stripes glow electric blue, dorsal folded flat, pectorals pressed back, body straight,
+  motion streaks), `biteK` (bill and short lower jaw part sideways round a dark-red gape).
+* **thresher** (boss) — common thresher: compact purple-grey shark with huge eyes, white belly showing
+  over the long falcate pectorals, and a scythe-like upper tail lobe as long as its body (to ~−3.5).
+  `windK` (body coils into a C towards +y and the scythe folds forward along that flank: cocked),
+  `whipK` (coils harder and lashes the scythe across, over and past the head towards −y with a fading
+  motion-blur fan and ghost tails; impact sparkles at the tip as it lands) — `whipK` 1 wins over
+  `windK`, so ramp `windK` then `whipK`; `stunK` (dazed: eyes rolled and half-lidded, slow wobbling
+  drift, belly showing, sparkles circling the head). `H.hd`: lateral lines, snout pores, denticle sheen.
+* **swordfish** (boss) — broadbill swordfish: long, flat, wide sword to ~+2.2, smooth scaleless dark
+  bronze-purple skin, huge eyes, tall rigid sickle dorsal, long sickle pectorals (no pelvics), big keel
+  and crescent tail. `chargeK` (sword-first lunge: body straight and stretched, fins swept back, the
+  sword's edges gleam, bow wave off the tip, motion streaks), `glowK` (eyes and the brain-heater patch
+  between them glow warm orange), `wakeK` (blue bioluminescent sparks stirred up along and behind it).
+
+### T8 — ocean-sunfish scale (2–5 m): jellyfish-rich open water, kelp and reef cleaning stations
+Swimmers are seen from above like T5/T6 (mouths open in the picture plane). Nomura's jellyfish is drawn
+side-on like T4's medusa (bell apex at +x, arms and tentacles trailing to −x); the lion's mane boss is
+seen from straight above. The player here is a 3 m, 2-tonne ocean sunfish that eats jellyfish.
+* **salp** — salp chain: 6–10 glassy barrel zooids (count from `e.seed`) linked in a zigzag along x
+  (~±1.25), each with faint muscle hoops, a slanting gill bar, a small orange gut nucleus at its rear and
+  a red eye spot (big sizes); a contraction wave runs down the chain from `t`. Prey. No hooks.
+* **pyrosome** — translucent pink hollow tube: rounded closed end at +x, open end with a diaphragm at −x
+  (~−1.1); the bumpy surface is staggered whorls of tiny zooids, each with a blue-green light organ that
+  ripples. Prey. `glowK` (a bright bioluminescent wave runs from the tip to the open end, the whole
+  colony brightens).
+* **nomura** — Nomura's jellyfish: huge brownish-pink mushroom bell (front = +x) mottled with brown
+  blotches and pale warts, radial grooves, a ruffled skirt of scapulets, thick frilly cauliflower oral
+  arms of mixed lengths (to ~−1.6) and many thin filaments trailing back to ~−3 with nematocyst dots.
+  The bell pulses from `t`. Predator. `stingK` (filaments flash bright, sparks along them). The codex
+  portrait shifts it forward so bell and filaments fit.
+* **leatherback** — leatherback turtle: dark teardrop leathery shell with seven lengthwise ridges
+  converging on a pointed caudal peak, white speckles, no scutes; huge speckled front flippers with pale
+  trailing edges rowing slowly (feathering at the end of each stroke), broad rear paddles, big blotched
+  head with a notched beak and the pink spot on top at +x. Neutral, too big to eat. No hooks.
+* **blueshark** — blue shark: slender cobalt body with a deep-indigo back and bright flank lines, long
+  conical snout, big round dark eyes, very long scythe pectorals, set-back dorsal, forked tail. Predator.
+  `biteK` (lower jaw swings forward ahead of the snout: dark gape, serrated teeth).
+* **sealion** — California sea lion: sleek brown body with a darker back and wet sheen, round head and
+  blunt tan muzzle, dark nose, big dark eyes, small rolled ear flaps, short pale whiskers, long dark
+  paddle fore-flippers (furred at the base) in a flying stroke, a V of hind flippers with five toes each.
+  Playful twisting swim from `t`: the body rolls (the pale belly shows on one side, the flippers
+  foreshorten) and bends. Predator; also drawn larger for the boss gang (`H.hd`: fur lie, digit lines,
+  more whiskers). `sprintK` (body straight, flippers swept back, motion streaks), `biteK` (lower jaw
+  swings forward: pink gape, tongue, canines; whiskers flare forward).
+* **lionsmane** (boss) — lion's mane jellyfish seen from above: a huge round bell, eight lobes split by
+  notches with yellow rhopalia, a translucent golden margin over a deep red-orange centre, 16 radial
+  bands, eight horseshoe clusters of hair-fine tentacle roots seen through the bell, a frilly red "mane"
+  of four ruffled oral curtains in a cross, and a dense fringe of fine tentacles streaming back to ~−1.6
+  (the game draws the long curtains itself). Idle bell breathing from `t`. `pulse` (bell contracts,
+  notches deepen, fringe pulls in), `stingK` (fringe flashes white-gold with sparks), `hurtK` (bell
+  flinches and shakes, its rim crumples, it darkens to a bruised red-brown). Also export
+  `tentacle(ctx, ax, ay, bx, by, t, H, k)`: a bundle of 3–5 fine wavy red-orange strands from A to B in
+  the current transform's units (`H.lw` = pixel widths; `H.lod`/`H.hd` are ignored). Each strand's
+  sideways offset at an end point depends only on that point's position, so consecutive segments join
+  and the strands weave like hair; `k` 1 = healthy (faint additive glow, lighter strands), 0 = cut and
+  limp (dim brownish, 3 slack strands, slow kinky waves). ≤ 3 strokes per call. Preview-only
+  `e.withCurtains` draws a few curtains with it.
+
+### T9 — great-white scale (4–8 m): a seal island and a deep mid-ocean shark gathering spot
+The four sharks share one pipeline in `t9.js` (`sharkCore`): countershaded bodies (the pale underside
+shows round the edges from above), sickle fins, jaws that open in the picture plane (the lower jaw swings
+forward ahead of the snout), species shape tables. The player here is a 6 m great white.
+* **furseal** — Cape fur seal: dark-brown torpedo body with a paler belly at the edges, small head with
+  tiny rolled ears, big dark eyes, dark nose and long pale whiskers, long naked black fore flippers in a
+  quick power stroke, paired hind flippers with scalloped toes at −x. Porpoising from `t`: it swells
+  towards the camera at the top of each leap (shadow drifting away, spray flung off). Prey. No hooks.
+* **elephantseal** — elephant seal: huge rotund grey-brown body with moult blotches, thick neck folds
+  and pinkish scars, small clawed fore flippers, broad hind flippers sweeping side to side, huge eyes,
+  and a floppy wrinkled trunk-like proboscis swinging over the snout. Neutral. No hooks.
+* **mako** — shortfin mako: sleek indigo-blue body with a metallic sheen, white underside showing at the
+  edges, long conical snout, big all-black eyes, short pectorals, crescent tail with keels on the tail
+  stock. `sprintK` (body straightened, fins swept back, motion streaks, blue glow), `biteK` (jaw swings
+  forward with long slender teeth, eyes roll white).
+* **bronzewhaler** — copper/bronze requiem shark: coppery back with a sheen, pointed snout, long falcate
+  pectorals, dusky fin tips, golden eyes. `biteK` (jaw forward, teeth showing, nictitating membranes close).
+* **sixgill** — bluntnose sixgill: thick dark body, broad blunt rounded head, six gill slits, round paddle
+  pectorals, a single small dorsal set far back, a long low tail with a notch near its tip, glowing green
+  eyes. `vis` (0–1 visibility: at 0 only a faint shimmering edge and the green eye glints show; an
+  undefined `vis` counts as 1, so the codex and gallery show it), `tele` (tenses and trembles, gills
+  flare, mouth parts slightly, eyes glow brighter), `lunge` (body straight and stretched, mouth wide open
+  with broad teeth, streaks). NB the game also multiplies `globalAlpha` by `e.vis` for `camo` kinds.
+* **manta** — giant oceanic manta seen from above: black diamond of crescent wings flapping slowly (span
+  foreshortens through the stroke, wings catch the light as they rise), white shoulder patches with the
+  black "T" between them, a paler rim of the white underside, rolled cephalic fins either side of the
+  wide mouth, eyes on the sides of the head, short whip tail with a little dorsal fin. Neutral. No hooks.
+* **tigershark** (boss) — tiger shark: broad body, short square snout, dark tiger bars across a grey-brown
+  back with spots on the head, darker fins, big jaws (`H.hd`: lateral lines, snout pores, labial furrows,
+  scars). `gapeK` (jaw thrown wide forward into a huge round gape with a dark throat, head bulging, gills
+  flaring, water streaming in), `biteK` (jaw forward, cockscomb teeth, nictitating membranes close),
+  `sickK` (poisoned: pale and greenish, eyes rolled, slow lazy tail, drooping fins, sluggish wobble,
+  greenish bubbles).
+* **giantsquid** (boss) — giant squid: long red-brown mantle with a heart of fins at −x, the huge eyes
+  on the head, 8 long sucker-lined arms and 2 very long feeding tentacles (at rest to ~+2.9) ending in
+  toothed clubs. `grabK` (tentacles shoot out straight ahead to ~+4.2, clubs open, arms spread showing the
+  beak), `eyeK` (eyes glow gold: it has spotted you), `inkK` (ink cloud behind, it blanches), `cut`
+  (array `[a, b]` of 0–1 for the tentacle on the −y and +y side: the tip is bitten away, club first, down
+  to a ragged stump with a haze of blue blood at 1). Also export `tentaclePos(e, T, i)` → `{x, y}` in unit
+  space: where club (or stump end) `i` is at game time `T` (same `T` as `drawSpecies`, like `lurePos`).
+
+### T10 — whale-shark scale (10–30 m): the open ocean's giants and the swarms they feed on
+The player here is a 15 m whale shark, a filter feeder. Whales beat their flukes up and down, so from above
+their bodies barely sway: the stroke shows as the notched flukes foreshortening. Dorsal fins and spouts lean
+towards −y (like the T6 fins) so their height reads from above. The giants reach well outside the unit
+circle along x (extents below), so give them several collision circles or a capsule. The three swarms are
+pre-baked point tables (a few paths each, cheap); they thin out as they are eaten (`e.hp / e.maxHp`), and
+their LOD is a soft glow blob.
+* **krillcloud** — a loose glowing cloud of ~240 tiny pink-orange krill specks milling round (a few swim
+  against the swirl), denser to radius ~1 with a fuzzy fringe to ~1.4, blue bioluminescent glints winking
+  on and off; black eyes close up. Prey. No hooks.
+* **baitball** — ~150 silver sardines in 8 rings milling round a centre (inner rings faster), each flashing
+  white as its flank turns to the light, blue-green backs close up. Prey. No hooks.
+* **eggcloud** — ~30 drifting bundles of pink and orange coral egg beads (glossy spheres, the eggs inside
+  visible close up), glowing faintly. Prey. No hooks.
+* **orca** — x ≈ +1.2 … −1.7. Glossy black, white eye patches at the sides of the head, grey saddle
+  behind the tall leaning dorsal fin, black paddle flippers; the codex portrait shows it banking. Predator,
+  also the boss pod (`H.hd`: tooth rakes, a sheen down the back). `sprintK` (body straight, faster fluke
+  stroke, flippers tucked, motion streaks), `biteK` (lower jaw swings forward ahead of the snout: pink
+  mouth, big conical teeth top and bottom), `flipK` (rolls onto its side: the white belly and flank patch
+  swing into view, the dorsal fin swings out to −y in profile, the flukes turn edge-on and show their
+  pale undersides), `breathK` (a bushy spout of mist from the blowhole).
+* **whitetip** — oceanic whitetip: stocky bronze-grey shark, blunt rounded snout, huge rounded paddle
+  pectorals, big rounded first dorsal, every fin tipped mottled white; pilot fish ride its bow wave close
+  up. Predator. `biteK` (lower jaw swings forward, serrated teeth, eyes roll white); also `sprintK` (body
+  straight, fins swept back, motion streaks).
+* **bluewhale** — x ≈ +3.1 … −3.25. Very long slender mottled blue-grey body, broad flat U-shaped head with
+  a single median ridge running to the splash guard in front of the twin blowholes, long thin flippers, a
+  small dorsal fin far back, wide flukes, slow stroke. Neutral giant, also the ending (`H.hd`: denser
+  mottling, a sheen down the back, the tail-stock keel). `breathK` (a tall column of mist).
+* **spermwhale** (boss) — x ≈ +1.27 … −2.35 (the codex portrait recentres it). Box-shaped head a third of
+  its length with pale scars (and round squid-sucker scars when `H.hd`), the S-shaped blowhole at its front
+  left, wrinkled skin behind, small paddle flippers, a low hump then a row of knuckles, broad triangular
+  flukes. `clickK` (echolocation, as a strength: a bright flash at the front of the head and arcs of sound
+  that travel outwards from it on their own from `t`), `sleepK` (logging at the surface: perfectly still,
+  eyes closed, its wet back showing, slow ripples, bubbles and a lazy blow angled forward-left every few
+  seconds), `biteK` (the long narrow lower jaw swings out from under the head ahead of the snout: white,
+  pink-grooved, two rows of conical teeth, a dark gape under the head).

@@ -156,7 +156,7 @@ export const SPECIES = {
     desc: 'A shoal of sardines packed into a swirling ball, the fish fighting to get to the middle.' },
   eggcloud: { tier: 10, ai: 'volvox', filter: true, size: [0.7, 1.1], spd: 10, xp: 3.8, pcol: [255, 170, 190], name: 'Coral Spawn', role: 'prey',
     desc: 'Once a year the corals of Ningaloo all spawn on the same night, filling the sea with pink egg bundles. Whale sharks come to feast.' },
-  orca: { tier: 10, ai: 'sprinter', size: [0.55, 0.75], spd: 115, xp: 3, hostile: true, inedible: true, bite: [18, 5], pcol: [30, 30, 40], name: 'Orca', role: 'predator',
+  orca: { tier: 10, ai: 'sprinter', pack: true, size: [0.55, 0.75], spd: 115, xp: 3, hostile: true, inedible: true, bite: [18, 5], pcol: [30, 30, 40], name: 'Orca', role: 'predator',
     desc: 'The top predator of the sea. Pods of orcas hunt sharks, seals and whales together, and are smaller than a whale shark but far more dangerous.' },
   whitetip: { tier: 10, ai: 'hunter', size: [0.45, 0.6], spd: 95, xp: 3, hostile: true, inedible: true, bite: [14, 4], pcol: [150, 140, 120], name: 'Oceanic Whitetip', role: 'predator',
     desc: 'A bold, white-tipped shark of the open ocean that follows whale sharks and ships looking for scraps.' },

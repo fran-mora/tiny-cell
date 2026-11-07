@@ -1,5 +1,5 @@
 // Dev gallery for js/game/art.js — evolution stages, campaign traits, portraits and boss art.
-// ?view=main|grid|levels|sheet|zoom|one|puff|boss|states|perf|diff  ?t=<seconds> freezes time (for screenshots)
+// ?view=main|grid|levels|sheet|zoom|one|puff|sail|boss|states|perf|diff  ?t=<seconds> freezes time (for screenshots)
 import { drawPlayer, drawSpecies, portrait, stagePortrait, BOSS_ART, glowSprite } from '../js/game/art.js';
 
 const q = new URLSearchParams(location.search);
@@ -9,16 +9,16 @@ const root = document.getElementById('root');
 const status = document.getElementById('status');
 const DPR = Math.min(2, window.devicePixelRatio || 1);
 
-const NEW = ['guard', 'polyps', 'signal', 'muscle', 'jaws', 'nerve', 'cnido', 'fins', 'eyes', 'shell', 'tentacles', 'hide', 'gills', 'beak', 'tetrodo', 'hover'];
+const NEW = ['guard', 'polyps', 'signal', 'muscle', 'jaws', 'nerve', 'cnido', 'fins', 'eyes', 'shell', 'tentacles', 'hide', 'gills', 'beak', 'tetrodo', 'hover', 'sail', 'warmeyes', 'stripes'];
 const OLD = ['flagellum', 'cilia', 'membrane', 'spikes', 'toxin', 'chloro', 'mito', 'vacuole', 'pseudopod', 'biolum', 'symbionts', 'fission', 'mimicry', 'dash', 'nova', 'cyst', 'osmo', 'lysosome'];
-const STAGE_NAMES = ['', 'Single cell', 'Colony', 'Flatworm', 'Jawless fish', 'Jawed fish', 'Pufferfish'];
+const STAGE_NAMES = ['', 'Single cell', 'Colony', 'Flatworm', 'Jawless fish', 'Jawed fish', 'Pufferfish', 'Sailfish'];
 const NS = STAGE_NAMES.length - 1; // number of stages
 
 function rng(seed) { let s = seed % 2147483647 || 1; return () => ((s = (s * 16807) % 2147483647) / 2147483647); }
 // the body stage each campaign trait unlocks at (it can be owned from then on)
-const NEW_STAGE = { guard: 2, polyps: 2, signal: 2, muscle: 3, jaws: 3, nerve: 3, cnido: 3, fins: 4, eyes: 4, shell: 4, tentacles: 5, hide: 5, gills: 5, beak: 6, tetrodo: 6, hover: 6 };
+const NEW_STAGE = { guard: 2, polyps: 2, signal: 2, muscle: 3, jaws: 3, nerve: 3, cnido: 3, fins: 4, eyes: 4, shell: 4, tentacles: 5, hide: 5, gills: 5, beak: 6, tetrodo: 6, hover: 6, sail: 7, warmeyes: 7, stripes: 7 };
 const MAXLV = { flagellum: 5, cilia: 4, membrane: 5, spikes: 4, toxin: 4, chloro: 3, mito: 4, vacuole: 5, pseudopod: 3, biolum: 4, symbionts: 4, fission: 2, mimicry: 3, dash: 4, nova: 3, cyst: 3, osmo: 3, lysosome: 3,
-  guard: 3, polyps: 3, signal: 3, muscle: 4, jaws: 3, nerve: 3, cnido: 3, fins: 4, eyes: 3, shell: 3, tentacles: 3, hide: 3, gills: 3, beak: 3, tetrodo: 3, hover: 3 };
+  guard: 3, polyps: 3, signal: 3, muscle: 4, jaws: 3, nerve: 3, cnido: 3, fins: 4, eyes: 3, shell: 3, tentacles: 3, hide: 3, gills: 3, beak: 3, tetrodo: 3, hover: 3, sail: 3, warmeyes: 3, stripes: 3 };
 function heavyMix(stage) {
   const r = rng(stage * 977 + 13), m = {};
   for (const id of OLD) if (r() < 0.55) m[id] = 1 + ((r() * 4) | 0);
@@ -80,22 +80,25 @@ if (view === 'main') {
   const cols = NS, cw = 900 / cols;
   const big = [], small = [];
   for (let s = 1; s <= NS; s++) {
-    big.push(playerTile(cw * (s - 0.5) + 10, 108, 30, mkP(s), STAGE_NAMES[s], { ly: 205 }));
-    small.push(playerTile(cw * (s - 0.5) + 4, 262, 17, mkP(s), 'phone size', { ly: 316 }));
+    big.push(playerTile(cw * (s - 0.5) + (s === 7 ? -2 : 10), 108, s === 7 ? 25 : 30, mkP(s), STAGE_NAMES[s], { ly: 205 }));
+    small.push(playerTile(cw * (s - 0.5) + (s === 7 ? -4 : 4), 262, 17, mkP(s), 'phone size', { ly: 316 }));
   }
   section('Evolution stages · no mutations (animated)', 900, 330, [...big, ...small]);
   const mixB = [], mixS = [];
   for (let s = 1; s <= NS; s++) {
-    mixB.push(playerTile(cw * (s - 0.5) + 10, 120, 27, mkP(s, heavyMix(s)), STAGE_NAMES[s] + ' + mix', { ly: 228 }));
-    mixS.push(playerTile(cw * (s - 0.5) + 4, 290, 17, mkP(s, heavyMix(s)), 'phone size', { ly: 345 }));
+    mixB.push(playerTile(cw * (s - 0.5) + (s === 7 ? -2 : 10), 120, s === 7 ? 23 : 27, mkP(s, heavyMix(s)), STAGE_NAMES[s] + ' + mix', { ly: 228 }));
+    mixS.push(playerTile(cw * (s - 0.5) + (s === 7 ? -4 : 4), 290, 17, mkP(s, heavyMix(s)), 'phone size', { ly: 345 }));
   }
   section('Each stage with a heavy random mix (every trait its stage allows + random old ones)', 900, 360, [...mixB, ...mixS]);
   portraitGrid('New trait portraits · mutationPortrait()', NEW.map((id) => ['mutation', id]));
-  portraitGrid('Active powers · mutationPortrait()', ['photo', 'shoal', 'suction', 'puff'].map((id) => ['mutation', id]));
-  portraitGrid('Stage portraits · portrait("stage", n)', [1, 2, 3, 4, 5, 6].map((n) => ['stage', n, `${n} · ${STAGE_NAMES[n]}`]));
+  portraitGrid('Active powers · mutationPortrait()', ['photo', 'shoal', 'suction', 'puff', 'slash'].map((id) => ['mutation', id]));
+  portraitGrid('Stage portraits · portrait("stage", n)', [1, 2, 3, 4, 5, 6, 7].map((n) => ['stage', n, `${n} · ${STAGE_NAMES[n]}`]));
   // every trait as it is shown once you are a pufferfish (portrait('mutation', id, size, 6))
   root.append(el('h2', { textContent: 'Trait portraits on the pufferfish · portrait("mutation", id, 88, 6)' }));
-  { const g = el('div', { className: 'grid' }); for (const id of [...NEW, ...OLD]) g.append(el('figure', {}, [portrait('mutation', id, 88, 6), el('figcaption', { textContent: id })])); root.append(g); }
+  { const g = el('div', { className: 'grid' }); for (const id of [...NEW.filter((id) => NEW_STAGE[id] <= 6), ...OLD]) g.append(el('figure', {}, [portrait('mutation', id, 88, 6), el('figcaption', { textContent: id })])); root.append(g); }
+  // and once you are a sailfish (portrait('mutation', id, size, 7))
+  root.append(el('h2', { textContent: 'Trait portraits on the sailfish · portrait("mutation", id, 88, 7)' }));
+  { const g = el('div', { className: 'grid' }); for (const id of [...NEW, ...OLD, 'slash']) g.append(el('figure', {}, [portrait('mutation', id, 88, 7), el('figcaption', { textContent: id })])); root.append(g); }
   portraitGrid('Boss portraits · portrait("microbe", id)', Object.keys(BOSS_ART).map((id) => ['microbe', id, `${id} (${BOSS_ART[id].base})`]));
   portraitGrid('Existing trait portraits (unchanged)', OLD.map((id) => ['mutation', id]), 64);
   portraitGrid('Species portraits (unchanged)', ['drifter', 'grazer', 'diatom', 'hunter', 'phage', 'amoeba', 'siphonophore', 'ciliate', 'rotifer', 'volvox'].map((id) => ['microbe', id]), 64);
@@ -107,14 +110,14 @@ if (view === 'grid') {
   const cw = 900 / (NS + 1), rh = 108;
   const tiles = [];
   NEW.forEach((id, r) => {
-    for (let s = NEW_STAGE[id]; s <= NS; s++) tiles.push(playerTile(cw * (s + 0.5), rh * (r + 0.5) + 4, 24, mkP(s, { [id]: 3 }), null));
+    for (let s = NEW_STAGE[id]; s <= NS; s++) tiles.push(playerTile(cw * (s + 0.5) - (s === 7 ? 4 : 0), rh * (r + 0.5) + 4, s === 7 ? 20 : 24, mkP(s, { [id]: 3 }), null));
   });
   const lab = { draw(ctx) { NEW.forEach((id, r) => { ctx.font = '600 13px ui-rounded, system-ui'; ctx.textAlign = 'left'; ctx.fillStyle = '#cfe2ff'; ctx.fillText(id, 14, rh * (r + 0.5) + 8); }); for (let s = 1; s <= NS; s++) label(ctx, cw * (s + 0.5), 12, STAGE_NAMES[s]); } };
   section('Each campaign trait (level 3) on every stage that can own it', 900, rh * NEW.length + 10, [...tiles, lab]);
   // the single-cell traits can be owned at any stage: show them on the animals
   const OLDA = OLD.filter((id) => id !== 'symbionts' && id !== 'fission');
   const cw2 = 900 / (NS - 1), rh2 = 104, t2 = [];
-  OLDA.forEach((id, r) => { for (let s = 3; s <= NS; s++) t2.push(playerTile(cw2 * (s - 2 + 0.5), rh2 * (r + 0.5) + 6, 28, mkP(s, { [id]: 3 }, id === 'dash' ? { dashT: (r & 1) ? 0.2 : 0 } : id === 'cyst' ? { cyst: 1 } : {}), null)); });
+  OLDA.forEach((id, r) => { for (let s = 3; s <= NS; s++) t2.push(playerTile(cw2 * (s - 2 + 0.5), rh2 * (r + 0.5) + 6, s === 7 ? 22 : 28, mkP(s, { [id]: 3 }, id === 'dash' ? { dashT: (r & 1) ? 0.2 : 0 } : id === 'cyst' ? { cyst: 1 } : {}), null)); });
   const lab2 = { draw(ctx) { OLDA.forEach((id, r) => { ctx.font = '600 13px ui-rounded, system-ui'; ctx.textAlign = 'left'; ctx.fillStyle = '#cfe2ff'; ctx.fillText(id, 14, rh2 * (r + 0.5) + 10); }); for (let s = 3; s <= NS; s++) label(ctx, cw2 * (s - 2 + 0.5), 12, STAGE_NAMES[s]); } };
   section('Single-cell traits (level 3) on the animal stages', 900, rh2 * OLDA.length + 10, [...t2, lab2]);
 }
@@ -124,14 +127,14 @@ if (view === 'levels') {
   const stg = +(q.get('stage') || 5), ids = [...NEW, ...OLD].filter((id) => (NEW_STAGE[id] || 1) <= stg && id !== 'symbionts' && id !== 'fission');
   const pk = +(q.get('puff') || 0); // ?puff=0…1 inflates the pufferfish
   const cw = 900 / 6, rh = 100, tiles = [];
-  ids.forEach((id, r) => { for (let lv = 1; lv <= MAXLV[id]; lv++) tiles.push(playerTile(cw * (lv + 0.5), rh * (r + 0.5) + 6, pk ? 20 : 26, mkP(stg, { [id]: lv }, { puffK: pk }), null)); });
+  ids.forEach((id, r) => { for (let lv = 1; lv <= MAXLV[id]; lv++) tiles.push(playerTile(cw * (lv + 0.5), rh * (r + 0.5) + 6, pk ? 20 : stg === 7 ? 19 : 26, mkP(stg, { [id]: lv }, { puffK: pk }), null)); });
   const lab = { draw(ctx) { ids.forEach((id, r) => { ctx.font = '600 13px ui-rounded, system-ui'; ctx.textAlign = 'left'; ctx.fillStyle = '#cfe2ff'; ctx.fillText(id, 14, rh * (r + 0.5) + 10); }); for (let l = 1; l <= 5; l++) label(ctx, cw * (l + 0.5), 12, 'level ' + l); } };
   section(`Trait levels on ${STAGE_NAMES[stg]}`, 900, rh * ids.length + 10, [...tiles, lab]);
 }
 
 if (view === 'sheet') {
   // ?view=sheet&stage=n&lv=3&R=56 — every trait the stage can own, one big labelled tile each
-  const stg = +(q.get('stage') || 5), lv = +(q.get('lv') || 3), R = +(q.get('R') || 56), cols = 3;
+  const stg = +(q.get('stage') || 5), lv = +(q.get('lv') || 3), R = +(q.get('R') || (stg === 7 ? 40 : 56)), cols = 3;
   const ids = [...NEW, ...OLD].filter((id) => (NEW_STAGE[id] || 1) <= stg && id !== 'symbionts' && id !== 'fission');
   const cw = 900 / cols, rh = R * 3.3, tiles = [];
   ids.forEach((id, i) => {
@@ -146,18 +149,20 @@ if (view === 'one') {
   const stg = +(q.get('stage') || 5), R = +(q.get('R') || 190), muts = {};
   for (const kv of (q.get('muts') || '').split(',').filter(Boolean)) { const [k, v] = kv.split(':'); muts[k] = +(v || 3); }
   const extra = { ang: +(q.get('ang') || 0) }; if (q.has('dashT')) extra.dashT = +q.get('dashT'); if (q.has('speed')) extra.speedN = +q.get('speed'); if (q.has('puff')) extra.puffK = +q.get('puff');
+  for (const [k, n] of [['sail', 'sailK'], ['slash', 'slashK'], ['slashDir', 'slashDir'], ['stripe', 'stripeK'], ['sailSide', 'sailSide']]) if (q.has(k)) extra[n] = +q.get(k);
   section(`${STAGE_NAMES[stg]} · ${Object.keys(muts).join(', ') || 'no traits'}`, 900, R * 3.3, [playerTile(450, R * 1.6, R, mkP(stg, muts, extra), null)]);
 }
 
 if (view === 'zoom') {
   // big renders: plain stage (left) and a tier-typical build (right)
   const TIER = [null, { flagellum: 3, chloro: 2, mito: 2, vacuole: 2 }, { guard: 2, polyps: 2, signal: 1, cilia: 2 }, { muscle: 2, jaws: 2, nerve: 2, cnido: 2 },
-    { fins: 2, eyes: 2, shell: 2, jaws: 2 }, { tentacles: 2, hide: 2, gills: 2, fins: 2, eyes: 2, jaws: 2 }, { beak: 2, tetrodo: 2, hover: 2, eyes: 2, tentacles: 2 }];
+    { fins: 2, eyes: 2, shell: 2, jaws: 2 }, { tentacles: 2, hide: 2, gills: 2, fins: 2, eyes: 2, jaws: 2 }, { beak: 2, tetrodo: 2, hover: 2, eyes: 2, tentacles: 2 },
+    { sail: 2, warmeyes: 2, stripes: 2, jaws: 2, eyes: 2, tentacles: 2 }];
   const tiles = [];
   for (let s = 1; s <= NS; s++) {
-    const y = 160 + (s - 1) * 320, ox = s >= 3 ? 20 : 0;
-    tiles.push(playerTile(225 + ox, y, 78, mkP(s, {}, { ang: 0 }), STAGE_NAMES[s], { ly: y + 150 }));
-    tiles.push(playerTile(675 + ox, y, 78, mkP(s, TIER[s], { ang: 0 }), STAGE_NAMES[s] + ' · ' + Object.keys(TIER[s]).join(', '), { ly: y + 150 }));
+    const y = 160 + (s - 1) * 320, ox = s === 7 ? -15 : s >= 3 ? 20 : 0, R = s === 7 ? 70 : 78;
+    tiles.push(playerTile(225 + ox, y, R, mkP(s, {}, { ang: 0 }), STAGE_NAMES[s], { ly: y + 150 }));
+    tiles.push(playerTile(675 + ox, y, R, mkP(s, TIER[s], { ang: 0 }), STAGE_NAMES[s] + ' · ' + Object.keys(TIER[s]).join(', '), { ly: y + 150 }));
   }
   section('Stages up close (heading +x)', 900, 320 * NS + 20, tiles);
 }
@@ -172,6 +177,23 @@ if (view === 'puff') {
     tiles.push(playerTile(cw * (i + 0.5), 610, 34, mkP(6, { beak: 3, tetrodo: 3, hover: 3, hide: 2 }, { puffK: k, ang: -0.3 }), 'beak · tetrodo · hover · hide', { ly: 700 }));
   });
   section('Pufferfish inflation · p.puffK', 900, 720, tiles);
+}
+
+if (view === 'sail') {
+  // the sailfish's hooks: p.sailK (sail raised), p.slashK + p.slashDir (Bill Slash), p.stripeK (hunting colours),
+  // big and phone size; then the new traits by level and a heavy mix in action
+  const ks = [0, 0.25, 0.5, 0.75, 1], cw = 900 / ks.length, tiles = [];
+  const rows = [['sailK', (k) => ({ sailK: k })], ['slashK (dir +1)', (k) => ({ slashK: k, slashDir: 1 })], ['slashK (dir -1, sail up)', (k) => ({ slashK: k, slashDir: -1, sailK: 1 })], ['stripeK', (k) => ({ stripeK: k })]];
+  rows.forEach(([name, f], r) => ks.forEach((k, i) => {
+    const y = 80 + r * 230;
+    tiles.push(playerTile(cw * (i + 0.5) - 6, y, 30, mkP(7, {}, { ang: -0.3, ...f(k) }), `${name} ${k}`, { ly: y + 105 }));
+    tiles.push(playerTile(cw * (i + 0.5) - 4, y + 150, 17, mkP(7, {}, { ang: -0.3, ...f(k) }), null));
+  }));
+  const y0 = 80 + rows.length * 230 + 20;
+  ['sail', 'warmeyes', 'stripes'].forEach((id, r) => { for (let lv = 1; lv <= 3; lv++) tiles.push(playerTile(cw * (lv + 0.5) - 6, y0 + r * 150, 28, mkP(7, { [id]: lv }, { ang: -0.3 }), `${id} ${lv}`, { ly: y0 + r * 150 + 70 })); });
+  const y1 = y0 + 3 * 150 + 20;
+  [[{}, 'heavy mix'], [{ sailK: 1, stripeK: 1 }, 'mix · sail up · hunting'], [{ slashK: 0.9, slashDir: 1, sailK: 1, stripeK: 0.6 }, 'mix · slashing']].forEach(([ex, name], i) => tiles.push(playerTile(150 + i * 300, y1 + 60, 34, mkP(7, heavyMix(7), { ang: -0.3, ...ex }), name, { ly: y1 + 160 })));
+  section('Sailfish hooks · p.sailK, p.slashK / p.slashDir, p.stripeK (big and phone size), the new traits, mixes', 900, y1 + 180, tiles);
 }
 
 if (view === 'states') {
@@ -245,7 +267,11 @@ if (view === 'perf') {
     const p = mkP(6, muts, { puffK: 1 });
     bench(`stage 6 inflated ${label}`, (T) => { g.setTransform(1, 0, 0, 1, 200, 200); g.clearRect(-200, -200, 400, 400); g.scale(40, 40); drawPlayer(g, p, T, 80); });
   }
-  if (q.has('traits')) for (const s of [4, 5, 6]) for (const id of [...NEW, ...OLD]) {
+  for (const [label, ex] of [['sail up + hunting', { sailK: 1, stripeK: 1 }], ['slashing', { slashK: 0.8, slashDir: 1, sailK: 1 }]]) {
+    const p = mkP(7, heavyMix(7), ex);
+    bench(`stage 7 heavy ${label}`, (T) => { g.setTransform(1, 0, 0, 1, 200, 200); g.clearRect(-200, -200, 400, 400); g.scale(40, 40); drawPlayer(g, p, T, 80); });
+  }
+  if (q.has('traits')) for (const s of [4, 5, 6, 7]) for (const id of [...NEW, ...OLD]) {
     const p = mkP(s, { [id]: 3 });
     bench(`  s${s} ${id}`, (T) => { g.setTransform(1, 0, 0, 1, 200, 200); g.clearRect(-200, -200, 400, 400); g.scale(40, 40); drawPlayer(g, p, T, 80); }, 200);
   }
