@@ -1,5 +1,13 @@
 // Player-facing release notes, newest first.
 export const CHANGELOG = [
+  { build: 24, title: 'The great white shark', notes: [
+    'Levels 81 to 90, with a new body: the Great White Shark (6 m), the biggest predatory fish, warm-blooded and built to ambush seals from below. If you had finished the journey, you carry on at level 81 straight away.',
+    'New power, Electrosense: the jelly-filled pores on your snout feel the electric field of every beating heart. For a few seconds you sense everything around you, even in the dark, hidden hunters show up and your bites hit harder.',
+    'Two new habitats: Seal Island (Cape fur seals, elephant seals, shortfin makos, bronze whalers, manta rays) and the pitch-dark White Shark Caf\u00e9 in the middle of the ocean, where bluntnose sixgills lurk unseen.',
+    'Two new bosses. The Tiger Shark eats anything: get a toxic boxfish between you and its jaws so it swallows that instead, then bite it while it is sick (you can nose the boxfish into place). The Giant Squid hides in the dark: watch for its huge glowing eyes, and when its feeding tentacles grab you, bite them off. With both gone, bite its body.',
+    'Three new traits: Serrated Teeth (harder bites), Warm Muscles (faster, and slowdowns wear off sooner) and Countershading (animals notice you later).',
+    'On the shark your old powers and traits take shark forms: Threat Display, Head Shake, Belly Flash, shark jaws, dermal denticles and a keen nose.',
+  ] },
   { build: 23, title: 'The ocean sunfish', notes: [
     'Levels 71 to 80, with a new body: the Ocean Sunfish, the heaviest bony fish in the world (3 m tall and two tonnes). You see it basking on its side at the surface, the way it got its name. If you had finished the journey, you carry on at level 71 straight away.',
     'New power, Breach: leap clear of the water and crash back down, as sunfish really do. Nothing can touch you in the air, and the landing stuns and hurts everything around.',
