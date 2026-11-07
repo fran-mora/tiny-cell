@@ -1772,7 +1772,7 @@ BOSS_KIT.lionsmane = {
     else if (cut) g.texts.push({ x: p.x, y: p.y - p.r * 2, s: 'Strands torn!', life: 1, c: '#ffd0b0' });
   },
   under(g, ctx, z, inView, sc) {
-    const b = g.boss, k = b.k, T = g.T, art = CREATURE_ART.lionsmane, H = art ? artH(b.r * 0.12 * sc, art.col) : null;
+    const b = g.boss, k = b.k, T = g.T, art = CREATURE_ART.lionsmane, H = art ? artH(sc / 3, art.col) : null; // world space: lw(1) = 3 device px
     ctx.lineCap = 'round';
     for (const S of k.st) {
       for (let j = 1; j <= LM_SEGS; j++) {
@@ -2249,13 +2249,17 @@ BOSS_KIT.spermwhale = {
     const ap = (v, to, rate) => v + (to - v) * min(1, dt * rate);
     b.clickK = ap(b.clickK, click, 14); b.sleepK = ap(b.sleepK, sleep, sleep ? 1.5 : 6); b.biteK = ap(b.biteK, bite, 8);
     if (g.dead) return;
-    if (d < b.r * 0.9 + p.r * 0.8) {
-      if (k.state === 'sleep') { if (winBite(b, k, 5, 0.45)) g.bossHit(0.06, (p.x + b.x) / 2, (p.y + b.y) / 2); }
+    // its body is long: from the box-shaped head (+0.85 r) back to the tail stock (−1.9 r)
+    const ca = cos(b.ang), sa = sin(b.ang), hx = b.x + ca * b.r * 0.85, hy = b.y + sa * b.r * 0.85, kx = b.x - ca * b.r * 1.9, ky = b.y - sa * b.r * 1.9;
+    const vx = kx - hx, vy = ky - hy, u = clamp01(((p.x - hx) * vx + (p.y - hy) * vy) / (vx * vx + vy * vy));
+    const nx = hx + vx * u, ny = hy + vy * u, cx = p.x - nx, cy = p.y - ny, cd = hypot(cx, cy) + 0.01, reachR = b.r * (0.82 - 0.25 * u) + p.r * 0.8;
+    if (cd < reachR) {
+      if (k.state === 'sleep') { if (winBite(b, k, 5, 0.45)) g.bossHit(0.06, (p.x + nx) / 2, (p.y + ny) / 2); }
       else if (k.state !== 'lunge') {
-        const pen = b.r * 0.9 + p.r * 0.8 - d; p.x += dx / d * pen; p.y += dy / d * pen;
+        const pen = reachR - cd; p.x += cx / cd * pen; p.y += cy / cd * pen;
         const rel = abs(ad(b.ang, atan2(dy, dx)));
-        if (rel > 2.3 && k.backT <= 0) { k.backT = 1.1; g.bossHit(0.02, (p.x + b.x) / 2, (p.y + b.y) / 2); } // a nip at its tail
-        else if (rel < 0.7) { if (g.hurt(16, b, { why: 'Sperm whale', iframes: 0.6 })) { p.vx = dx / d * 420; p.vy = dy / d * 420; } }
+        if (u > 0.75 && k.backT <= 0) { k.backT = 1.1; g.bossHit(0.02, (p.x + nx) / 2, (p.y + ny) / 2); } // a nip at its tail
+        else if (u < 0.05 && rel < 0.7) { if (g.hurt(16, b, { why: 'Sperm whale', iframes: 0.6 })) { p.vx = dx / d * 420; p.vy = dy / d * 420; } }
         else if (k.bumpT <= 0) { k.bumpT = 1.4; g.texts.push({ x: p.x, y: p.y - p.r * 1.5, s: 'Too big!', life: 0.9, c: '#cfd8e8' }); }
       }
     }

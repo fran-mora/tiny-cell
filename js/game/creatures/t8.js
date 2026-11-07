@@ -779,7 +779,7 @@ function drawSeaLion(ctx, e, t, s, H) {
 // Seen from straight above: a huge eight-lobed bell, red-orange to yellow, eight horseshoe clusters of pleated
 // tentacle bases and a frilly red "mane" of oral curtains in the centre, with a dense fringe of fine tentacles
 // streaming back to ~−1.6. The long tentacle curtains are drawn by the game with the exported `tentacle` drawer.
-const LM_DEEP = [150, 28, 20], LM_YEL = [255, 206, 96], LM_TENT = [236, 92, 44], LM_TENT2 = [255, 168, 84], LM_LIMP = [112, 80, 70], LM_BRUISE = [64, 16, 14], LM_FLASH = [255, 214, 150], LM_GLOW = [255, 140, 70];
+const LM_YEL = [255, 206, 96], LM_TENT = [236, 92, 44], LM_TENT2 = [255, 168, 84], LM_LIMP = [112, 80, 70], LM_BRUISE = [64, 16, 14], LM_FLASH = [255, 214, 150], LM_GLOW = [255, 140, 70];
 const LM_R = 0.95;
 let LMT = 0, LMH = 0, LMN = 0.08;
 // bell margin radius at angle th: 8 lobes (centred on 0, ±PI/4, …) split by deep notches, 4 lappets per lobe; hurt crumples it
