@@ -1,5 +1,13 @@
 // Player-facing release notes, newest first.
 export const CHANGELOG = [
+  { build: 25, title: 'The whale shark: the journey is complete', notes: [
+    'The last ten levels, 91 to 100, with your final body: the Whale Shark (15 m), the biggest fish alive. If you had finished the journey, you carry on at level 91 straight away.',
+    'New power, Filter Feeding: open your huge mouth wide and swim, and everything small in front of you is sucked in, clouds of krill and coral spawn included. As a filter feeder you only swallow food clouds and small animals.',
+    'Two new habitats: Ningaloo Reef, where the coral spawns, and The Big Blue, the open ocean kilometres deep, with krill swarms, bait balls, manta rays, oceanic whitetips, blue whales and hunting orcas.',
+    'Two last bosses. The Sperm Whale hunts by sonar, the loudest sound any animal makes: keep out of its beam, and bite it when it falls asleep. The final boss is an Orca Pod: orcas ram you to roll you belly-up, so swim away hard or dash to stay upright, then bite them while they come up to breathe.',
+    'Beat the orcas and something even bigger glides past: a blue whale, the biggest animal that has ever lived. Then the Open Ocean opens for endless expeditions.',
+    'Three new traits: Remoras (they ride along, tidy up your scraps and heal you), Gill Rakers (food clouds are far more filling) and Deep Diver (a tougher body, and hunters lose you sooner).',
+  ] },
   { build: 24, title: 'The great white shark', notes: [
     'Levels 81 to 90, with a new body: the Great White Shark (6 m), the biggest predatory fish, warm-blooded and built to ambush seals from below. If you had finished the journey, you carry on at level 81 straight away.',
     'New power, Electrosense: the jelly-filled pores on your snout feel the electric field of every beating heart. For a few seconds you sense everything around you, even in the dark, hidden hunters show up and your bites hit harder.',

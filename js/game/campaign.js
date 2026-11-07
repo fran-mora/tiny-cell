@@ -360,7 +360,7 @@ export const HABITATS = [
 export const LEVELS_PER_HABITAT = 5;
 // Habitats playable in this build. Later ones (and their bodies, traits and bosses) may already be defined here
 // while their art is being made; they stay out of the game until this number reaches them.
-export const LIVE_HABITATS = Math.min(HABITATS.length - 1, (globalThis.__TC_LIVE | 0) || 18); // __TC_LIVE: local testing only
+export const LIVE_HABITATS = Math.min(HABITATS.length - 1, (globalThis.__TC_LIVE | 0) || 20); // __TC_LIVE: local testing only
 export const TOTAL_LEVELS = LIVE_HABITATS * LEVELS_PER_HABITAT;
 export const LIVE_STAGE = HABITATS[LIVE_HABITATS].tier; // the last body you can reach in this build
 export const LAYOUT = 50; // saves from the 48-level journey are mapped onto this one

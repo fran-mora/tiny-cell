@@ -1644,7 +1644,7 @@ function cystShell(ctx, t, lw) {
   else if (AN.st === 7) { cx = 0.14; rx = 2.32; ry = 1.08; } // long enough for the bill and the tail
   else if (AN.st === 8) { cx = -0.04; rx = 1.38; ry = 1.4; } // (the sunfish folds its tall fins in: molaFin)
   else if (AN.st === 9) { cx = -0.42; rx = 1.76; ry = 0.98; } // (the shark sweeps its pectorals back: sharkPecs)
-  else if (AN.st === 10) { cx = -0.48; rx = 1.86; ry = 1.04; } // (the whale shark too: wsPecs)
+  else if (AN.st === 10) { cx = -0.52; rx = 1.96; ry = 1.16; } // (the whale shark too: wsPecs)
   if (AN.st >= 4) {
     // a fish seals itself in a glossy mucus cocoon (like a lungfish's, or a sleeping parrotfish's bubble)
     const k = 1 + 0.02 * sin(t * 2.2);
@@ -4797,7 +4797,7 @@ function sharkFront(ctx, m) {
 // the slashDir side, leaving an arc of churned water); sailK = the dorsal fin taller; stripeK = Star Spots (the pale
 // spots brighten and twinkle); rollK (optional, 0…1) = rolled onto its side (Belly Flash).
 const WS_BLUE = [38, 62, 98], WS_DEEP = [12, 20, 38], WS_BELLY = [232, 238, 240], WS_SPOT = [238, 246, 240], WS_ABYSS = [6, 20, 58];
-const WS_GLINT = [130, 205, 255], STAR_C = [222, 242, 255], RAKER_C = [244, 200, 206], KRILL_C = [255, 170, 138], REMORA_B = [50, 54, 63], REMORA_D = [132, 136, 146];
+const WS_GLINT = [130, 205, 255], STAR_C = [222, 242, 255], RAKER_C = [244, 200, 206], KRILL_C = [255, 170, 138], REMORA_B = [36, 38, 46], REMORA_D = [178, 182, 192];
 const EYE10_X = 0.89, GILL10_X = 0.74, GILL10_DX = 0.058, PEC10_X = 0.33, DORS10_A = -0.2, DORS10_B = -0.6, DORS10_2A = -0.98, DORS10_2B = -1.07;
 // this frame's colours and state: sk = Star Spots 0…1, cs = Countershading level, dd = Deep Diver 0…1, fl = Filter Feeding
 // (gape = how far the mouth is open), pk = Threat Display, sl / dir = Tail Sweep, br = Surface Rush, sn = Electrosense,
@@ -4825,9 +4825,7 @@ function wsPalette(m) {
   mixRGB(AN.mem, WS_SPOT, 0.62, S10.spot);
   S10.sk = min(1, max(p.stripeK || 0, m.stripes ? 0.2 + 0.15 * min(3, m.stripes) : 0));
   S10.up = smooth01(min(1, max(p.sailK || 0, m.sail ? 0.2 + 0.1 * min(3, m.sail) : 0)));
-  // the mouth: shut (Wide Mouth gulps a little now and then), half open surging up, gaping in Filter Feeding
-  const s = sin(AN.t * 0.9), gulp = m.jaws ? (s > 0.55 ? 0.24 * Math.pow((s - 0.55) / 0.45, 1.5) : 0) : 0;
-  S10.gape = max(S10.fl, gulp, 0.3 * S10.br);
+  S10.gape = S10.fl; // (the mouth gapes in Filter Feeding)
   // the dorsal fin leans over towards rest +v (seen from above it would be edge-on), rocking with each slow beat, standing
   // stiffer in a Threat Display, and right over with the body as it rolls
   S10.lean = (0.5 + 0.12 * sin(AN.phw + 0.9)) * (1 - 0.35 * S10.pk) * (1 - 0.6 * c01(S10.roll / 1.2)) + S10.roll;
@@ -4904,7 +4902,7 @@ function wsStripes(ctx) {
       on ? sl(ctx, x, v) : sm(ctx, x, v); on = true;
     }
   }
-  ctx.strokeStyle = rgbStr(S10.spot, 0.46 + 0.22 * S10.sk); ctx.lineWidth = max(AN.lw(AN.lo ? 0.8 : 1), 0.015); ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke();
+  ctx.strokeStyle = rgbStr(S10.spot, (0.46 + 0.22 * S10.sk) * (0.4 + 0.6 * c01((AN.s - 16) / 56))); ctx.lineWidth = max(AN.lw(AN.lo ? 0.8 : 1), 0.015); ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke(); // (fainter small: the spots lead)
 }
 // the three ridges down each side of the back: [x start, fraction at the start, fraction along the body, x end] (the
 // lowest runs out along the flank into the caudal keel)
@@ -4917,7 +4915,7 @@ function ridgeF(k, x) {
   return f;
 }
 function wsRidges(ctx) {
-  const lo = AN.lo, lw = AN.lw, N = lo ? 8 : 18, ro = S10.roll > 0.01, pk = S10.pk;
+  const lo = AN.lo, lw = AN.lw, N = lo ? 7 : 14, ro = S10.roll > 0.01, pk = S10.pk, sc = 0.45 + 0.55 * c01((AN.s - 16) / 56);
   for (let pass = 0; pass < 2; pass++) {
     ctx.beginPath();
     for (let k = 0; k < (lo ? 2 : 3); k++) for (const sd of SIDES) {
@@ -4930,18 +4928,19 @@ function wsRidges(ctx) {
         on ? sl(ctx, x, v) : sm(ctx, x, v); on = true;
       }
     }
-    if (pass) { ctx.strokeStyle = rgbStr(S10.spot, 0.5 + 0.15 * pk + 0.12 * S10.sk); ctx.lineWidth = max(lw(lo ? 1 : 1.4), 0.016); }
+    if (pass) { ctx.strokeStyle = rgbStr(S10.spot, (0.5 + 0.12 * S10.sk) * sc + 0.15 * pk); ctx.lineWidth = max(lw(lo ? 1 : 1.4), 0.016); }
     else { ctx.strokeStyle = rgbStr(S10.deep, 0.42 + 0.12 * pk); ctx.lineWidth = max(lw(lo ? 1.2 : 2), 0.026); }
     ctx.lineCap = 'round'; ctx.stroke();
   }
 }
 function wsBody(ctx, n) {
-  const lo = AN.lo, N = lo ? 12 : 28, xa = AN.xf + 0.02, xb = AN.xr - 0.03, ro = S10.roll, cs = S10.cs;
+  const lo = AN.lo, N = lo ? 12 : 22, xa = AN.xf + 0.02, xb = AN.xr - 0.03, ro = S10.roll, cs = S10.cs;
   ctx.fillStyle = rgbStr(S10.belly, 0.98); ctx.fill();
   ctx.save(); ctx.clip();
   // the back over the top (a hairline of pale belly at the flanks, a broad white edge with Countershading); its darker upper
   // surface; the shadowed spine down the middle
-  wsBand(ctx, -0.985 + 0.035 * cs, 0.985 - 0.035 * cs, xa, xb, N); ctx.fillStyle = rgbStr(S10.flank, 0.98); ctx.fill();
+  wsBand(ctx, -0.985 + 0.05 * cs, 0.985 - 0.05 * cs, xa, xb, N); ctx.fillStyle = rgbStr(S10.flank, 0.98); ctx.fill();
+  if (cs && !lo) { ctx.strokeStyle = rgbStr(WS_DEEP, 0.2 + 0.08 * cs); ctx.lineWidth = AN.lw(1); ctx.stroke(); } // (the crisp line where the back meets the belly)
   wsBand(ctx, -0.88, 0.88, xa, xb, N); ctx.fillStyle = rgbStr(S10.back, 0.55); ctx.fill();
   wsBand(ctx, -0.74, 0.74, xa, xb, N); ctx.fillStyle = rgbStr(S10.back, 0.85); ctx.fill();
   wsBand(ctx, -0.42, 0.42, xa - 0.08, xb, N); ctx.fillStyle = rgbStr(S10.deep, 0.15); ctx.fill();
@@ -5172,9 +5171,9 @@ function leatherTile() {
 }
 function thickHide(ctx, lv) {
   const lw = AN.lw, ro = S10.roll > 0.01;
-  insetFill(ctx, 1, rgbStr(WS_DEEP, 0.06 + 0.04 * lv));
+  insetFill(ctx, 1, rgbStr(WS_DEEP, 0.08 + 0.05 * lv));
   if (AN.lo) return;
-  if (AN.s > 50) {
+  if (AN.s > 40) {
     const m = grads(ctx);
     let pat = m.get('leather');
     if (pat === undefined) {
@@ -5182,7 +5181,7 @@ function thickHide(ctx, lv) {
       if (pat && pat.setTransform && typeof DOMMatrix === 'function') pat.setTransform(new DOMMatrix([0.36 / 64, 0, 0, 0.36 / 64, 0, 0]));
       m.set('leather', pat);
     }
-    if (pat) { ctx.globalAlpha = AN.A0 * (0.2 + 0.1 * lv) * min(1, (AN.s - 50) / 40); ctx.fillStyle = pat; ctx.fillRect(-2.4, -1.6, 4.8, 3.2); ctx.globalAlpha = AN.A0; }
+    if (pat) { ctx.globalAlpha = AN.A0 * (0.26 + 0.12 * lv) * min(1, (AN.s - 40) / 40); ctx.fillStyle = pat; ctx.fillRect(-2.4, -1.6, 4.8, 3.2); ctx.globalAlpha = AN.A0; }
   }
   // the deep folds: long creases down the flanks and round the head, lit along their upper edge
   for (let pass = 0; pass < 2; pass++) {
@@ -5192,7 +5191,7 @@ function thickHide(ctx, lv) {
       let on = false;
       for (let i = 0; i <= 10; i++) { const x = xa - (xa - xb) * (i / 10), f = sd * min(0.97, f0 + 0.025 * sin(x * 9 + k * 2)); if (ro && rfc(f) < 0.05) { on = false; continue; } const v = (ro ? rfv(f) : f) * AN.W(x); on ? sl(ctx, x, v) : sm(ctx, x, v); on = true; }
     }
-    ctx.strokeStyle = pass ? rgbStr(S10.spot, 0.14 + 0.04 * lv) : rgbStr(WS_DEEP, 0.3 + 0.07 * lv); ctx.lineWidth = lw(pass ? 0.9 : 1.4); ctx.lineCap = 'round'; ctx.stroke();
+    ctx.strokeStyle = pass ? rgbStr(S10.spot, 0.2 + 0.05 * lv) : rgbStr(WS_DEEP, 0.42 + 0.08 * lv); ctx.lineWidth = pass ? lw(1) : max(lw(1.6), 0.02); ctx.lineCap = 'round'; ctx.stroke();
   }
 }
 // Deep Diver (deepdive): the body gone the dark blue of deep water (wsPalette), a slow sheen of faint light sliding over it
@@ -5273,7 +5272,7 @@ function wsMouth(ctx, m) {
     ctx.fillStyle = 'rgba(20,8,24,0.97)'; ctx.fill();
     ctx.save(); ctx.clip();
     // the throat, dull red, and the arches of the gills behind (spongy sieve pads with Gill Rakers)
-    ctx.beginPath(); ctx.ellipse(-a * 0.35, 0, a * 0.75, b * 0.72, 0, 0, TAU); ctx.fillStyle = 'rgba(128,34,58,0.5)'; ctx.fill();
+    ctx.beginPath(); ctx.ellipse(-a * 0.4, 0, a * 0.7, b * 0.66, 0, 0, TAU); ctx.fillStyle = 'rgba(92,26,46,0.38)'; ctx.fill();
     if (!AN.lo || gr) {
       ctx.beginPath();
       for (let k = 0; k < 4; k++) { const xx = -a * (0.15 + 0.2 * k), hb = b * (0.78 - 0.12 * k); ctx.moveTo(xx + a * 0.25, -hb); ctx.quadraticCurveTo(xx - a * 0.2, 0, xx + a * 0.25, hb); }
@@ -5306,6 +5305,7 @@ function wsMouth(ctx, m) {
       ctx.beginPath(); line(0.045 + 0.012 * jw, 0.91);
       ctx.strokeStyle = rgbStr(S10.spot, (0.24 + 0.14 * jw) * k); ctx.lineWidth = lw(1 + 0.6 * jw); ctx.stroke();
     }
+    if (sr && !AN.lo && !AN.fine) { ctx.beginPath(); line(0.032, 0.94); ctx.strokeStyle = rgbStr([250, 246, 236], (0.3 + 0.1 * sr) * k); ctx.lineWidth = lw(1); ctx.setLineDash([lw(1), lw(1)]); ctx.stroke(); ctx.setLineDash([]); }
     if (sr && AN.fine) {
       // the tiny teeth: a fine pale stipple along the lips
       ctx.beginPath();
@@ -5317,27 +5317,29 @@ function wsMouth(ctx, m) {
 // Filter Feeding: streams of water and tiny specks of krill and eggs pouring into the open mouth from ahead (drawn behind
 // the body: the head and the gaping mouth swallow their ends)
 function wsStreams(ctx) {
-  const k = S10.fl, t = AN.t, lw = AN.lw;
-  skin(F10.xf + 0.06, 0);
+  const k = S10.fl, t = AN.t, lw = AN.lw, ns = AN.lo ? 5 : 9;
+  skin(F10.xf + 0.08, 0);
   ctx.save(); ctx.translate(SK[0], SK[1]); ctx.rotate(SK[2]);
   ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
+  // each stream: a curve from out ahead (u = 0) curling in to the mouth (u = 1)
+  const P = (i, u) => { const ang = ((i + 0.5) / ns - 0.5) * 2.2, r = 1.05 * (1 - u) + 0.08, a = ang * (0.35 + 0.65 * (1 - u)) - 0.2 * ang * u * (1 - u); FA[0] = cos(a) * r; FA[1] = sin(a) * r * 1.1; return FA; };
+  // the water: faint, broad ribbons, a brighter pulse running in along each
   ctx.beginPath();
-  for (let i = 0, ns = AN.lo ? 6 : 11; i < ns; i++) {
-    const ang = ((i + 0.5) / ns - 0.5) * 2.1;
-    let f = t * 1.15 + i * 0.37; f -= Math.floor(f);
-    const r0 = 0.25 + 1.15 * (1 - f), r1 = max(0.1, r0 - 0.42), bend = 0.25 * ang;
-    ctx.moveTo(cos(ang) * r0, sin(ang) * r0 * 1.15); ctx.quadraticCurveTo(cos(ang - bend) * (r0 + r1) * 0.5, sin(ang - bend) * (r0 + r1) * 0.5, cos(ang * 0.6) * r1, sin(ang * 0.6) * r1 * 0.8);
-  }
-  ctx.strokeStyle = rgbStr([200, 240, 255], 0.38 * k); ctx.lineWidth = lw(1.4); ctx.stroke();
+  for (let i = 0; i < ns; i++) for (let j = 0; j <= 6; j++) { P(i, 0.12 + 0.13 * j); j ? ctx.lineTo(FA[0], FA[1]) : ctx.moveTo(FA[0], FA[1]); }
+  ctx.strokeStyle = rgbStr([190, 235, 255], 0.09 * k); ctx.lineWidth = lw(4); ctx.lineJoin = 'round'; ctx.stroke();
+  ctx.beginPath();
+  for (let i = 0; i < ns; i++) { let f = t * 0.9 + i * 0.37; f -= Math.floor(f); for (let j = 0; j <= 3; j++) { P(i, 0.1 + 0.8 * f + 0.05 * j); j ? ctx.lineTo(FA[0], FA[1]) : ctx.moveTo(FA[0], FA[1]); } }
+  ctx.strokeStyle = rgbStr([215, 245, 255], 0.4 * k); ctx.lineWidth = lw(1.2); ctx.stroke();
+  // tiny specks (krill and eggs) swept in faster and faster
   for (let pass = 0; pass < 2; pass++) {
     ctx.beginPath();
-    for (let i = pass; i < (AN.lo ? 12 : 24); i += 2) {
-      let f = t * 0.75 + i * 0.618; f -= Math.floor(f);
-      const r = 0.1 + 1.3 * Math.pow(1 - f, 1.3), ang = (((i * 0.382) % 1) - 0.5) * 2 * (0.25 + 0.75 * (1 - f)), sz = 0.012 + 0.008 * ((i * 0.27) % 1);
-      const x = cos(ang) * r, y = sin(ang) * r * 1.1 + 0.03 * sin(t * 5 + i);
+    for (let i = pass; i < (AN.lo ? 12 : 28); i += 2) {
+      let f = t * 0.55 + i * 0.618; f -= Math.floor(f);
+      P(i % ns + ((i * 0.37) % 1) - 0.5, f * f);
+      const sz = (0.011 + 0.008 * ((i * 0.27) % 1)) * (1 - 0.3 * f), x = FA[0], y = FA[1] + 0.02 * sin(t * 5 + i);
       ctx.moveTo(x + sz, y); ctx.arc(x, y, sz, 0, TAU);
     }
-    ctx.fillStyle = rgbStr(pass ? KRILL_C : [230, 248, 255], 0.75 * k); ctx.fill();
+    ctx.fillStyle = rgbStr(pass ? KRILL_C : [230, 248, 255], 0.8 * k); ctx.fill();
   }
   ctx.restore();
 }
@@ -5349,28 +5351,27 @@ function remora(ctx, L, t, i, wig) {
   const lw = AN.lw, w = wig * sin(t * 9 + i * 2.3);
   ctx.beginPath(); ctx.moveTo(-L * 0.38, w * L * 0.3); ctx.lineTo(-L * 0.58, -L * 0.12 + w * L); ctx.quadraticCurveTo(-L * 0.5, w * L * 0.7, -L * 0.58, L * 0.12 + w * L); ctx.closePath();
   ctx.fillStyle = rgbStr(REMORA_B, 0.95); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(-L * 0.14, w * L * 0.12, L * 0.25, L * 0.1, 0, 0, TAU); ctx.fillStyle = rgbStr(REMORA_B, 0.55); ctx.fill(); // (the fin fringe)
+  ctx.beginPath(); ctx.ellipse(-L * 0.14, w * L * 0.12, L * 0.25, L * 0.1, 0, 0, TAU); ctx.fillStyle = rgbStr(REMORA_B, 0.5); ctx.fill(); // (the fin fringe)
   ctx.beginPath(); ctx.moveTo(L * 0.5, 0); ctx.quadraticCurveTo(L * 0.47, -L * 0.08, L * 0.22, -L * 0.088); ctx.quadraticCurveTo(-L * 0.18, -L * 0.075, -L * 0.42, w * L * 0.3);
   ctx.quadraticCurveTo(-L * 0.18, L * 0.075, L * 0.22, L * 0.088); ctx.quadraticCurveTo(L * 0.47, L * 0.08, L * 0.5, 0); ctx.closePath();
-  ctx.fillStyle = rgbStr(REMORA_B, 0.97); ctx.fill(); ctx.strokeStyle = 'rgba(196,206,222,0.6)'; ctx.lineWidth = lw(0.7); ctx.stroke();
+  ctx.fillStyle = rgbStr(REMORA_B, 0.97); ctx.fill(); ctx.strokeStyle = 'rgba(205,215,230,0.75)'; ctx.lineWidth = lw(1); ctx.stroke();
   ctx.beginPath(); ctx.ellipse(L * 0.27, 0, L * 0.17, L * 0.058, 0, 0, TAU); ctx.fillStyle = rgbStr(REMORA_D, 0.95); ctx.fill();
   if (AN.s * L > 9) {
     ctx.beginPath(); for (let k = 1; k <= 7; k++) { const u = k / 8 - 0.5, h = L * 0.052 * sqrt(max(0, 1 - 4 * u * u)); ctx.moveTo(L * (0.27 + 0.34 * u), -h); ctx.lineTo(L * (0.27 + 0.34 * u), h); }
-    ctx.strokeStyle = 'rgba(28,30,38,0.75)'; ctx.lineWidth = lw(0.6); ctx.stroke();
-    ctx.beginPath(); ctx.ellipse(L * 0.27, 0, L * 0.17, L * 0.058, 0, 0, TAU); ctx.strokeStyle = 'rgba(225,230,240,0.55)'; ctx.lineWidth = lw(0.6); ctx.stroke();
+    ctx.strokeStyle = 'rgba(28,30,38,0.8)'; ctx.lineWidth = lw(0.6); ctx.stroke();
   }
 }
 // Remoras: 1–3 clinging to your flanks (one tucked under the belly's edge), every few seconds letting go to shuffle to a new
 // spot, and one more swimming along under your head, its snout poking out ahead of your mouth (it dodges aside when you
 // filter)
-const REM10 = [0.14, 1, 0, -0.42, -1, 1, -0.76, 1, 0]; // [rest x, side, under the belly's edge]
+const REM10 = [0.12, 1, 0, -0.42, -1, 1, -0.72, 1, 0]; // [rest x, side, under the belly's edge]
 function wsRemoras(ctx, lv, front) {
-  const t = AN.t, n = min(3, lv), L = 0.3, flip = S10.cr < 0;
+  const t = AN.t, n = min(3, lv), L = 0.44, flip = S10.cr < 0;
   for (let i = 0; i < n; i++) {
     const under = !!REM10[i * 3 + 2] !== flip; if (under === !!front) continue;
     const per = 5.5 + 1.3 * i, s = (t + i * 2.1) / per, c = Math.floor(s), f = s - c, mv = smooth01(c01((f - 0.84) / 0.16));
     const spot = (q) => 0.12 * sin(q * 2.4 + i * 1.9), x = REM10[i * 3] + spot(c) + (spot(c + 1) - spot(c)) * mv, sd = REM10[i * 3 + 1];
-    skin(x, rav(sd * (REM10[i * 3 + 2] ? 1.78 : 1.15)) * AN.W(x));
+    skin(x, rav(sd * (REM10[i * 3 + 2] ? 1.78 : 0.92)) * AN.W(x));
     const px = SK[0], py = SK[1], a = SK[2] + sd * 0.06 * (1 - mv);
     if (front) { ctx.save(); ctx.translate(px + 0.025, py + 0.035); ctx.rotate(a); ctx.beginPath(); ctx.ellipse(0, 0, L * 0.46, L * 0.11, 0, 0, TAU); ctx.fillStyle = rgbStr(WS_DEEP, 0.25); ctx.fill(); ctx.restore(); }
     ctx.save(); ctx.translate(px, py); ctx.rotate(a); remora(ctx, L, t, i, 0.03 + 0.14 * sin(PI * mv)); ctx.restore();
@@ -5424,9 +5425,14 @@ function wsSpray(ctx, front) {
   ctx.strokeStyle = rgbStr(WHITE, 0.32 * k); ctx.lineWidth = lw(2); ctx.lineCap = 'round'; ctx.stroke();
   // the bow wave: foam piled up ahead of the head, peeling off back past the flanks
   ctx.beginPath();
-  for (const sd of SIDES) smoothLine(ctx, [F10.xf + 0.1, 0, F10.xf + 0.06, sd * 0.3, 0.88, sd * 0.56, 0.5, sd * 0.72, 0.0, sd * 0.88, -0.6, sd * 1.05]);
-  ctx.strokeStyle = rgbStr([225, 246, 255], 0.35 * k); ctx.lineWidth = lw(4.5); ctx.stroke();
+  for (const sd of SIDES) smoothLine(ctx, [F10.xf + 0.13, 0, F10.xf + 0.09, sd * 0.3, 0.96, sd * 0.5, 0.62, sd * 0.72, 0.1, sd * 0.98, -0.5, sd * 1.26, -1.1, sd * 1.52]);
+  ctx.strokeStyle = rgbStr([225, 246, 255], 0.3 * k); ctx.lineWidth = lw(5); ctx.stroke();
   ctx.strokeStyle = rgbStr(WHITE, 0.6 * k); ctx.lineWidth = lw(1.6); ctx.stroke();
+  // the foam churned up along the front of the head, and ripples spreading off the bow wave
+  ctx.beginPath();
+  for (let i = 0; i < (AN.lo ? 5 : 11); i++) { const u = (i + 0.5) / (AN.lo ? 5 : 11) * 2 - 1, wob = 0.015 * sin(t * 7 + i * 2.1); frontAt(abs(u) * 0.9); skin(FA[0] + 0.07 + wob, (u < 0 ? -1 : 1) * FA[1] * S10.wk * 1.05); const r = 0.03 + 0.012 * ((i * 0.618) % 1); ctx.moveTo(SK[0] + r, SK[1]); ctx.arc(SK[0], SK[1], r, 0, TAU); }
+  ctx.fillStyle = rgbStr(WHITE, 0.32 * k); ctx.fill();
+  if (!AN.lo) { ctx.beginPath(); for (const sd of SIDES) smoothLine(ctx, [0.7, sd * 0.86, 0.2, sd * 1.12, -0.4, sd * 1.42]); ctx.strokeStyle = rgbStr([215, 240, 255], 0.22 * k); ctx.lineWidth = lw(1.2); ctx.stroke(); }
   ctx.globalAlpha = AN.A0; ctx.globalCompositeOperation = 'source-over';
   const nd = AN.lo ? 12 : 26;
   ctx.globalAlpha = AN.A0 * min(1, k * 1.6);
@@ -5512,13 +5518,20 @@ function wsFront(ctx, m) {
   if (m.beak) wsCheeks(ctx, m.beak);
   wsMouth(ctx, m);
   sharkNose(ctx, m, 1.05, 0.5);
-  sharkPores(ctx, PORE10, F10.xf - 0.02, 0.97, 0.3, 1.15, !!m.sense); // (the pores show up close once you have Electrosense)
+  if (m.sense && !AN.lo && S10.sn < 0.3) {
+    // the pores on the snout, showing once you have Electrosense: dark dots, each in a pale rim
+    ctx.beginPath(); for (let i = 0; i < PORE10.length; i += 2) { const x = PORE10[i]; skin(x, PORE10[i + 1] * AN.W(x)); ctx.moveTo(SK[0] + 0.012, SK[1]); ctx.arc(SK[0], SK[1], 0.012, 0, TAU); }
+    ctx.fillStyle = rgbStr(mixRGB(S10.spot, SENSE_C, 0.4, TMPC), 0.35); ctx.fill();
+    ctx.beginPath(); for (let i = 0; i < PORE10.length; i += 2) { const x = PORE10[i]; skin(x, PORE10[i + 1] * AN.W(x)); ctx.moveTo(SK[0] + 0.006, SK[1]); ctx.arc(SK[0], SK[1], 0.006, 0, TAU); }
+    ctx.fillStyle = 'rgba(10,14,26,0.75)'; ctx.fill();
+  }
+  sharkPores(ctx, PORE10, F10.xf - 0.02, 0.97, 0.3, 1.15, false); // (Electrosense: they glow, ripples pulse out)
   wsEyes(ctx, m);
   if (m.gelskin) thickSkin(ctx, m.gelskin, 1);
   if (S10.pk > 0.3) wsShudder(ctx);
   if (S10.br > 0.02) wsSpray(ctx, 1);
   if (m.remoras) wsRemoras(ctx, m.remoras, 1);
-  if (m.cleaners) cleanerWrasses(ctx, m.cleaners, -0.15, 0.62, 0.6, 0.26);
+  if (m.cleaners) cleanerWrasses(ctx, m.cleaners, -0.15, 0.62, 0.6, 0.3);
 }
 
 // ============================ the animal pipeline ============================
@@ -5565,7 +5578,7 @@ function drawAnimal(ctx, p, m, t, s, ph, stage, body, mem, A0) {
 }
 
 // p: { r, ang, seed, stage (1-10), muts:{id:lv}, flash, stretch, dent, dentA, cyst, wob, speedN, dashT, dashCd, puffK?, sailK?, slashK?,
-//      slashDir?, stripeK?, breachK?, latched?, bodyCol?, memCol? }
+//      slashDir?, stripeK?, breachK?, senseK?, filterK?, flipK?, rollK?, latched?, bodyCol?, memCol? }
 // puffK (0…1, stage 6): how inflated the pufferfish is; at 1 it is a spiny ball of radius PUFF_R (1.55) units
 // stage 7 (the sailfish, 1 unit = p.r: body x ∈ [-1.4, 1.2], bill to +2.2, tail to about -1.85):
 //   sailK (0…1): the sail raised (0 = folded flat down the back; the Sail trait keeps it partly up)
@@ -5589,7 +5602,17 @@ function drawAnimal(ctx, p, m, t, s, ph, stage, body, mem, A0) {
 //   sailK (0…1): the dorsal fin taller (Tall Dorsal Fin keeps it partly up); stripeK (0…1): Ambush Rush, the
 //     countershading sharpens, and above 0.78 a surge of speed lines; breachK (0…1): Breach, arched and half rolled,
 //     water pouring off; rollK (optional, 0…1): rolled onto its side, the white belly showing (for Belly Flash)
-//   latched (> 0): Cleaner Fish peck faster. Stage 10 borrows this body until it is drawn (bodyStage).
+//   latched (> 0): Cleaner Fish peck faster.
+// stage 10 (the whale shark: body x ∈ [-1.4, 1.1], half-width 0.5; pectorals out to about |y| = 1.0, the crescent tail to
+// x ≈ -2.1; its spot pattern is seeded from p.seed, so give each player a seed of their own for a pattern of their own):
+//   filterK (0…1): Filter Feeding, the mouth gaping into a big dark oval at the front, the gill slits flaring, water and
+//     krill pouring in; flipK (0…1): rolled over by orcas (0 upright, ~0.5 on its side, 1 belly-up: the pale belly, the
+//     fins splayed and flailing); senseK (0…1): Electrosense, the pores on the snout glow and ripples pulse out
+//   breachK (0…1): Surface Rush, a bow wave peeling off the head, foam and spray, water streaming off
+//   puffK (0…1): Threat Display, stiffened: fins rigid and spread, the body arched, the beat all but stopped
+//   slashK + slashDir: Tail Sweep, the tail swung round to the slashDir side, leaving an arc of churned water
+//   sailK (0…1): the dorsal fin taller; stripeK (0…1): Star Spots, the pale spots brighten and twinkle; rollK (optional,
+//     0…1): rolled onto its side (Belly Flash); latched (> 0): Cleaner Fish peck faster.
 // ctx is pre-translated to the player, rotated so heading is +x and scaled so 1 unit = player radius.
 export function drawPlayer(ctx, p, T, s) {
   const t = T;
@@ -5836,10 +5859,10 @@ function drawSiphPortrait(g, size) {
 }
 
 // evolution stage framing for portraits: [radius as a fraction of size, x offset (units), rotation]
-const STAGE_FRAME = [null, [0.27, 0, -0.4], [0.235, 0.3, -0.4], [0.32, 0.04, -0.42], [0.32, 0.2, -0.45], [0.3, 0.2, -0.42], [0.31, 0.04, -0.42], [0.2, -0.2, -0.58], [0.235, 0.12, -0.3], [0.265, 0.42, -0.5]];
+const STAGE_FRAME = [null, [0.27, 0, -0.4], [0.235, 0.3, -0.4], [0.32, 0.04, -0.42], [0.32, 0.2, -0.45], [0.3, 0.2, -0.42], [0.31, 0.04, -0.42], [0.2, -0.2, -0.58], [0.235, 0.12, -0.3], [0.265, 0.42, -0.5], [0.255, 0.5, -0.5]];
 // the evolution stage each campaign mutation belongs to (its portrait shows that body)
 const MUT_STAGE = { guard: 2, polyps: 2, signal: 2, muscle: 3, jaws: 3, nerve: 3, cnido: 3, fins: 4, eyes: 4, shell: 4, tentacles: 5, hide: 5, gills: 5, beak: 6, tetrodo: 6, hover: 6, sail: 7, warmeyes: 7, stripes: 7,
-  gelskin: 8, stingproof: 8, cleaners: 8, serrated: 9, warmblood: 9, countershade: 9 };
+  gelskin: 8, stingproof: 8, cleaners: 8, serrated: 9, warmblood: 9, countershade: 9, remoras: 10, gillrakers: 10, deepdive: 10 };
 // per-trait framing tweaks (zoom toward the feature)
 const MUT_FRAME = { jaws: [0.38, -0.45, -0.3], eyes: [0.36, -0.35, -0.45], polyps: [0.215, 0.3, -0.4], signal: [0.2, 0.3, -0.4], tentacles: [0.3, -0.25, -0.5],
   fins: [0.34, 0.05, -0.42], shell: [0.4, -0.3, -0.45], hide: [0.31, 0.15, -0.42], gills: [0.36, -0.3, -0.45] };
@@ -5851,6 +5874,7 @@ const MUT_GLOW = {
   sail: [90, 160, 255], warmeyes: [255, 160, 90], stripes: [80, 185, 255], slash: [180, 225, 255],
   gelskin: [190, 235, 255], stingproof: [255, 160, 200], cleaners: [90, 160, 255], breach: [200, 238, 255], photo8: [220, 240, 255],
   serrated: [255, 246, 228], warmblood: [255, 120, 70], countershade: [200, 222, 240], sense: [190, 165, 255], photo9: [232, 244, 255],
+  remoras: [190, 205, 225], gillrakers: [255, 196, 206], deepdive: [70, 120, 255], filter: [184, 240, 255],
 };
 
 const MUT_T = { jaws: 1.0, serrated: 1.0 }; // portrait time per trait (jaws at rest: mandibles apart)
@@ -5893,44 +5917,53 @@ const SHARK_FRAME = { jaws: [0.44, -0.62, -0.32], serrated: [0.56, -0.72, -0.3],
   vacuole: [0.3, 0.2, -0.45], lysosome: [0.3, 0.1, -0.45], polyps: [0.32, -0.05, -0.42], muscle: [0.27, 0.35, -0.48], mito: [0.27, 0.35, -0.48],
   pseudopod: [0.28, 0.1, -0.45], spikes: [0.27, 0.3, -0.48], toxin: [0.27, 0.3, -0.48], cilia: [0.27, 0.35, -0.48], photo: [0.27, 0.4, -0.5] };
 const SHARK_PROPS = { sail: { sailK: 1 }, stripes: { stripeK: 1 } };
+// every trait shown on the whale shark (stage 10): the broad body runs corner to corner; head traits zoom in on the head
+const WS_FRAME = { jaws: [0.42, -0.74, -0.3], serrated: [0.5, -0.84, -0.3], beak: [0.42, -0.72, -0.3], eyes: [0.44, -0.72, -0.3], warmeyes: [0.42, -0.7, -0.3],
+  stingproof: [0.38, -0.62, -0.32], gills: [0.38, -0.5, -0.32], osmo: [0.4, -0.55, -0.32], gillrakers: [0.36, -0.68, -0.3], tentacles: [0.36, -0.95, -0.3],
+  shell: [0.34, -0.48, -0.35], sail: [0.31, 0.22, -0.4], hover: [0.3, -0.12, -0.4], flagellum: [0.28, 1.25, -0.45], cleaners: [0.29, 0.1, -0.45],
+  remoras: [0.36, 0.15, -0.35], warmblood: [0.27, 0.35, -0.45], countershade: [0.26, 0.45, -0.5], stripes: [0.25, 0.48, -0.5], gelskin: [0.25, 0.48, -0.5],
+  hide: [0.4, 0.05, -0.4], deepdive: [0.25, 0.48, -0.5], nerve: [0.26, 0.4, -0.48], vacuole: [0.3, 0.2, -0.45], lysosome: [0.3, 0.1, -0.45],
+  polyps: [0.32, -0.05, -0.42], muscle: [0.27, 0.4, -0.48], mito: [0.27, 0.4, -0.48], pseudopod: [0.28, 0.1, -0.45], spikes: [0.27, 0.32, -0.48],
+  toxin: [0.27, 0.32, -0.48], cilia: [0.27, 0.4, -0.48], photo: [0.26, 0.45, -0.5], biolum: [0.27, 0.42, -0.48], guard: [0.27, 0.4, -0.48] };
+const WS_PROPS = { sail: { sailK: 1 }, stripes: { stripeK: 1 }, gillrakers: { filterK: 0.85 }, jaws: { filterK: 0.4 }, serrated: { filterK: 0.7 } };
 // an early trait in its fish form (on a fish body): pyloric caeca for polyps, pilot fish for symbionts, …
 const FISH_FRAME = { cilia: [0.31, 0.12, -0.42], spikes: [0.3, 0.15, -0.42], toxin: [0.31, 0.05, -0.42], polyps: [0.34, -0.1, -0.42], lysosome: [0.34, 0, -0.42],
   vacuole: [0.33, 0.05, -0.42], osmo: [0.36, -0.3, -0.45], nerve: [0.31, 0.1, -0.42], biolum: [0.3, 0.15, -0.42], pseudopod: [0.27, 0.1, -0.42],
   flagellum: [0.25, 0.45, -0.42], mito: [0.28, 0.25, -0.42], mimicry: [0.27, 0.25, -0.42], muscle: [0.28, 0.25, -0.42] };
 function fishFormPortrait(id, size, st) {
   const [c, g] = portraitCanvas(size);
-  const muts = { [id]: 3 }, s6 = st === 6, s7 = st === 7, s8 = st === 8, s9 = st === 9, props = s7 ? { ...SAIL_PROPS[id] } : s8 ? { ...MOLA_PROPS[id] } : s9 ? { ...SHARK_PROPS[id] } : {};
-  let frame = (s9 ? SHARK_FRAME[id] : s8 ? MOLA_FRAME[id] : s7 ? SAIL_FRAME[id] : s6 ? PUFF_FRAME[id] : FISH_FRAME[id]) || STAGE_FRAME[st];
+  const muts = { [id]: 3 }, s6 = st === 6, s7 = st === 7, s8 = st === 8, s9 = st === 9, s10 = st === 10, props = s7 ? { ...SAIL_PROPS[id] } : s8 ? { ...MOLA_PROPS[id] } : s9 ? { ...SHARK_PROPS[id] } : s10 ? { ...WS_PROPS[id] } : {};
+  let frame = (s10 ? WS_FRAME[id] : s9 ? SHARK_FRAME[id] : s8 ? MOLA_FRAME[id] : s7 ? SAIL_FRAME[id] : s6 ? PUFF_FRAME[id] : FISH_FRAME[id]) || STAGE_FRAME[st];
   if (id === 'mito') muts.mito = 4;
   if (id === 'membrane') muts.membrane = 5;
-  if (id === 'dash') { props.dashT = 0.2; frame = s9 ? [0.19, 0.8, -0.45] : s8 ? [0.21, 0.5, -0.3] : s7 ? [0.17, 0.5, -0.5] : s6 ? [0.23, 0.55, -0.42] : [0.22, 0.75, -0.42]; }
-  if (id === 'cyst') { props.cyst = 1; frame = s9 ? [0.215, 0.42, -0.5] : s8 ? [0.25, 0.04, -0.3] : s7 ? [0.18, -0.16, -0.58] : s6 ? [0.22, 0.04, -0.42] : [0.23, 0.22, -0.42]; }
-  if (id === 'jaws') frame = st === 4 ? [0.4, -0.55, -0.42] : s9 ? SHARK_FRAME.jaws : s8 ? MOLA_FRAME.jaws : s7 ? SAIL_FRAME.jaws : s6 ? PUFF_FRAME.jaws : [0.38, -0.45, -0.3];
-  if (id === 'symbionts' || id === 'fission' || id === 'signal' || id === 'nova') frame = s9 ? [0.16, 0.42, -0.5] : s8 ? [0.18, 0.06, -0.3] : s7 ? [0.15, -0.15, -0.58] : s6 ? [0.21, 0.04, -0.42] : [0.2, 0.12, -0.42];
+  if (id === 'dash') { props.dashT = 0.2; frame = s10 ? [0.18, 0.88, -0.45] : s9 ? [0.19, 0.8, -0.45] : s8 ? [0.21, 0.5, -0.3] : s7 ? [0.17, 0.5, -0.5] : s6 ? [0.23, 0.55, -0.42] : [0.22, 0.75, -0.42]; }
+  if (id === 'cyst') { props.cyst = 1; frame = s10 ? [0.205, 0.48, -0.5] : s9 ? [0.215, 0.42, -0.5] : s8 ? [0.25, 0.04, -0.3] : s7 ? [0.18, -0.16, -0.58] : s6 ? [0.22, 0.04, -0.42] : [0.23, 0.22, -0.42]; }
+  if (id === 'jaws') frame = st === 4 ? [0.4, -0.55, -0.42] : s10 ? WS_FRAME.jaws : s9 ? SHARK_FRAME.jaws : s8 ? MOLA_FRAME.jaws : s7 ? SAIL_FRAME.jaws : s6 ? PUFF_FRAME.jaws : [0.38, -0.45, -0.3];
+  if (id === 'symbionts' || id === 'fission' || id === 'signal' || id === 'nova') frame = s10 ? [0.155, 0.5, -0.5] : s9 ? [0.16, 0.42, -0.5] : s8 ? [0.18, 0.06, -0.3] : s7 ? [0.15, -0.15, -0.58] : s6 ? [0.21, 0.04, -0.42] : [0.2, 0.12, -0.42];
   framedBody(g, size, st, muts, frame, MUT_GLOW[id] || [110, 255, 225], FAKE_T, props);
   const R = size * frame[0];
   if (id === 'symbionts') {
     for (let i = 0; i < 3; i++) {
-      const a = (i / 3) * TAU + 0.6, d = s7 || s9 ? 2.35 : s8 ? 2.05 : 1.8;
-      g.save(); g.translate(cos(a) * d + (s7 ? 0.15 : s9 ? -0.45 : 0), sin(a) * d * (s7 || s9 ? 0.62 : 1)); g.rotate(a + PI / 2); g.scale(0.55, 0.55); drawPilotFish(g, FAKE_T + i, R * 1.1, i); g.restore();
+      const a = (i / 3) * TAU + 0.6, d = s7 || s9 || s10 ? 2.35 : s8 ? 2.05 : 1.8;
+      g.save(); g.translate(cos(a) * d + (s7 ? 0.15 : s9 ? -0.45 : s10 ? -0.5 : 0), sin(a) * d * (s7 || s9 || s10 ? 0.62 : 1)); g.rotate(a + PI / 2); g.scale(0.55, 0.55); drawPilotFish(g, FAKE_T + i, R * 1.1, i); g.restore();
     }
   } else if (id === 'fission') {
-    g.save(); if (s7) g.translate(-0.55, 1.45); else if (s8) g.translate(1.15, 1.35); else if (s9) g.translate(-0.8, 1.35); else g.translate(-0.35, 1.3); g.scale(0.55, 0.55);
+    g.save(); if (s7) g.translate(-0.55, 1.45); else if (s8) g.translate(1.15, 1.35); else if (s9) g.translate(-0.8, 1.35); else if (s10) g.translate(-0.85, 1.4); else g.translate(-0.35, 1.3); g.scale(0.55, 0.55);
     drawPlayer(g, { r: 1, ang: frame[2], seed: 1.7, muts: {}, stage: st, speedN: 0.3, bodyCol: KIN_BODY, memCol: KIN_MEM }, FAKE_T + 0.7, R * 1.1);
     g.restore();
   } else if (id === 'nova') {
     // (the sailfish is long: the rings stretch along it)
     // (the sailfish is long, the sunfish tall: the rings stretch along them)
-    const ex = s7 || s9 ? 1.55 : s8 ? 0.72 : 1, ey = s8 ? 1.75 : 1, cx = s7 ? 0.2 : s8 ? -0.1 : s9 ? -0.45 : 0.05;
+    const ex = s7 || s9 || s10 ? 1.55 : s8 ? 0.72 : 1, ey = s8 ? 1.75 : s10 ? 1.08 : 1, cx = s7 ? 0.2 : s8 ? -0.1 : s9 ? -0.45 : s10 ? -0.5 : 0.05;
     g.globalCompositeOperation = 'lighter'; g.lineCap = 'round'; g.lineJoin = 'round';
     for (let i = 0; i < 2; i++) { g.beginPath(); g.ellipse(cx, 0, (1.6 + i * 0.4) * ex, (1.0 + i * 0.4) * ey, 0, 0, TAU); g.strokeStyle = `rgba(200,170,255,${0.65 - i * 0.25})`; g.lineWidth = 0.09 - i * 0.03; g.stroke(); }
     g.beginPath();
-    const bx = s7 || s8 || s9 ? cx : 0;
+    const bx = s7 || s8 || s9 || s10 ? cx : 0;
     for (let b = 0; b < 6; b++) { const a = b * 1.05 + 0.3; let r = 0.95; g.moveTo(bx + cos(a) * r * 1.3 * ex, sin(a) * r * 0.85 * ey); for (let j = 0; j < 4; j++) { r += 0.22; const aj = a + (j % 2 ? 0.12 : -0.12); g.lineTo(bx + cos(aj) * r * 1.3 * ex, sin(aj) * r * 0.85 * ey); } }
     g.strokeStyle = 'rgba(235,225,255,0.9)'; g.lineWidth = 0.05; g.stroke();
     g.globalCompositeOperation = 'source-over';
   } else if (id === 'dash') {
-    const x0 = s7 || s9 ? -2.05 : s8 ? -1.55 : -1.75;
+    const x0 = s7 || s9 ? -2.05 : s10 ? -2.15 : s8 ? -1.55 : -1.75;
     g.beginPath();
     for (let i = 0; i < 4; i++) { const y = (i - 1.5) * 0.4; g.moveTo(x0, y); g.lineTo(x0 - 0.5 - (i % 2) * 0.35, y); }
     g.strokeStyle = 'rgba(200,255,245,0.75)'; g.lineWidth = 0.07; g.lineCap = 'round'; g.stroke();
@@ -5939,8 +5972,36 @@ function fishFormPortrait(id, size, st) {
 }
 
 // a stage's body, no mutations: centred, glowing, transparent background
+// the final body (the end of the journey): the whale shark gliding through sunlit water, shafts of light slanting down past
+// it, a haze of plankton and a far-off shoal for scale
+function wsStagePortrait(size) {
+  const [c, g] = portraitCanvas(size);
+  g.globalCompositeOperation = 'lighter';
+  // (soft-edged shafts: each a few overlapping, ever wider and fainter wedges)
+  for (const [x0, w, a] of [[0.2, 0.1, 0.06], [0.5, 0.16, 0.045], [0.78, 0.09, 0.055], [1.02, 0.12, 0.04]]) {
+    const gr = g.createLinearGradient(0, 0, 0, size); gr.addColorStop(0, `rgba(185,240,255,${a})`); gr.addColorStop(0.7, `rgba(185,240,255,${a * 0.3})`); gr.addColorStop(1, 'rgba(185,240,255,0)');
+    g.fillStyle = gr;
+    for (let k = 0; k < 3; k++) { const e = w * 0.35 * k; g.beginPath(); g.moveTo(size * (x0 - e), 0); g.lineTo(size * (x0 + w + e), 0); g.lineTo(size * (x0 + (w + e) * 1.7 - 0.42), size); g.lineTo(size * (x0 - e * 1.7 - 0.42), size); g.closePath(); g.fill(); }
+  }
+  g.globalAlpha = 0.35; g.drawImage(glowSprite([170, 235, 255]), -size * 0.25, -size * 0.45, size * 0.9, size * 0.8); g.globalAlpha = 1; // (the light from above)
+  let sd = 4242; const r = () => ((sd = (sd * 16807) % 2147483647) / 2147483647);
+  g.beginPath(); for (let i = 0; i < 46; i++) { const x = r() * size, y = r() * size, rr = size * (0.003 + 0.005 * r()); g.moveTo(x + rr, y); g.arc(x, y, rr, 0, TAU); }
+  g.fillStyle = 'rgba(215,248,255,0.4)'; g.fill();
+  g.globalCompositeOperation = 'source-over';
+  // a far-off shoal, small and dim
+  g.beginPath();
+  for (let i = 0; i < 8; i++) {
+    const x = size * (0.66 + 0.24 * r()), y = size * (0.74 + 0.16 * r()), L = size * (0.022 + 0.008 * r()), a = -0.5 + 0.15 * (r() - 0.5), ca = cos(a), sa = sin(a);
+    g.moveTo(x + ca * L, y + sa * L); g.ellipse(x, y, L, L * 0.32, a, 0, TAU);
+    g.moveTo(x - ca * L * 0.8, y - sa * L * 0.8); g.lineTo(x - ca * L * 1.5 - sa * L * 0.4, y - sa * L * 1.5 + ca * L * 0.4); g.lineTo(x - ca * L * 1.5 + sa * L * 0.4, y - sa * L * 1.5 - ca * L * 0.4); g.closePath();
+  }
+  g.fillStyle = 'rgba(150,215,235,0.3)'; g.fill();
+  framedBody(g, size, 10, {}, STAGE_FRAME[10], COLORS.player.glow, FAKE_T, null);
+  return c;
+}
 export function stagePortrait(stage, size = 96) {
   const st = bodyStage(stage);
+  if (st === 10) return wsStagePortrait(size);
   const [c, g] = portraitCanvas(size);
   framedBody(g, size, st, {}, STAGE_FRAME[st], COLORS.player.glow, FAKE_T, st === 7 ? { sailK: 0.85, sailSide: -1 } : null); // (the sailfish shows off its sail)
   return c;
@@ -5957,6 +6018,73 @@ function bristle(g, cx, rx, ry) {
 // power looks different on later bodies)
 function abilityPortrait(id, size, stage) {
   const [c, g] = portraitCanvas(size), bst = bodyStage(stage || 1);
+  if (id === 'filter') {
+    // Filter Feeding: the whale shark's head from above, its huge mouth gaping wide, streams of water and a cloud of krill
+    // pouring in (in body units after framedBody: the mouth is at x ≈ 1.2)
+    framedBody(g, size, 10, { gillrakers: 1 }, [0.33, -0.5, -0.3], MUT_GLOW.filter, FAKE_T, { filterK: 1 });
+    g.lineCap = 'round'; g.lineJoin = 'round';
+    g.beginPath();
+    for (let i = 0; i < 6; i++) { const a = (i - 2.5) * 0.3; g.moveTo(1.45 + cos(a) * 0.62, sin(a) * 0.7); g.quadraticCurveTo(1.4 + cos(a) * 0.35, sin(a) * 0.3, 1.38, sin(a) * 0.12); }
+    g.strokeStyle = 'rgba(205,245,255,0.6)'; g.lineWidth = 0.035; g.stroke();
+    for (const [x, y, a, k] of [[1.62, -0.42, 2.6, 1], [1.82, -0.05, 3.0, 0.9], [1.6, 0.36, -2.7, 1], [1.95, 0.4, -2.9, 0.8], [1.98, -0.48, 2.8, 0.8], [1.52, 0.02, 3.1, 0.75], [2.1, 0.05, 3.0, 0.7]]) {
+      // a krill: a little curled pink shrimp swimming in
+      g.save(); g.translate(x, y); g.rotate(a); g.scale(k, k);
+      g.beginPath(); g.moveTo(0.1, 0); g.quadraticCurveTo(0.04, -0.05, -0.08, -0.03); g.quadraticCurveTo(-0.13, 0, -0.1, 0.04); g.quadraticCurveTo(0.02, 0.04, 0.1, 0); g.closePath();
+      g.fillStyle = 'rgba(255,168,140,0.95)'; g.fill(); g.strokeStyle = 'rgba(255,225,210,0.8)'; g.lineWidth = 0.012; g.stroke();
+      g.beginPath(); g.moveTo(0.09, -0.01); g.lineTo(0.17, -0.06); g.moveTo(0.09, 0.005); g.lineTo(0.17, 0.04); g.strokeStyle = 'rgba(255,200,180,0.8)'; g.lineWidth = 0.01; g.stroke();
+      g.beginPath(); g.arc(0.06, -0.012, 0.012, 0, TAU); g.fillStyle = '#1a0a10'; g.fill();
+      g.restore();
+    }
+    g.globalCompositeOperation = 'lighter';
+    for (const [x, y] of [[1.62, -0.42], [1.82, -0.05], [1.6, 0.36]]) g.drawImage(glowSprite([255, 190, 160], 1), x - 0.16, y - 0.16, 0.32, 0.32);
+    g.globalCompositeOperation = 'source-over';
+    return c;
+  }
+  if (bst >= 10 && (id === 'slash' || id === 'breach' || id === 'puff' || id === 'photo')) {
+    // the carried powers as the whale shark does them
+    if (id === 'slash') {
+      // Tail Sweep: the giant tail swung round through the water, small fish tumbling away from it
+      framedBody(g, size, 10, {}, [0.22, 0.42, -0.5], MUT_GLOW.slash, FAKE_T, { slashK: 1, slashDir: 1 });
+      const fish = [[-1.25, 1.55, 1.2], [-1.95, 1.15, 2.4], [-0.7, 1.7, 0.5]];
+      for (const [x, y, a] of fish) {
+        g.save(); g.translate(x, y); g.rotate(a);
+        g.beginPath(); g.ellipse(0, 0, 0.22, 0.075, 0, 0, TAU); g.moveTo(-0.18, 0); g.lineTo(-0.34, -0.095); g.lineTo(-0.34, 0.095); g.closePath();
+        g.fillStyle = 'rgba(222,238,250,0.96)'; g.fill(); g.strokeStyle = 'rgba(50,80,120,0.75)'; g.lineWidth = 0.03; g.stroke();
+        g.restore();
+      }
+      g.globalCompositeOperation = 'lighter';
+      for (const [x, y] of fish) g.drawImage(glowSprite([255, 240, 170], 1), x - 0.22, y - 0.22, 0.44, 0.44);
+      g.globalCompositeOperation = 'source-over';
+    } else if (id === 'breach') {
+      // Surface Rush: surging up to the surface, a bow wave peeling off the head, spray flying
+      framedBody(g, size, 10, {}, [0.23, 0.2, -0.5], MUT_GLOW.breach, FAKE_T, { breachK: 0.95 });
+      g.lineCap = 'round';
+      g.beginPath();
+      for (let i = 0; i < 7; i++) { const a = (i - 3) * 0.32, x = 1.3 + cos(a) * 0.2, y = sin(a) * 0.55; g.moveTo(x, y); g.lineTo(x + cos(a) * 0.38, y + sin(a) * 0.3); }
+      g.strokeStyle = 'rgba(230,248,255,0.85)'; g.lineWidth = 0.06; g.stroke();
+      g.beginPath();
+      for (let i = 0; i < 8; i++) { const a = (i - 3.5) * 0.36, d = 0.75 + 0.12 * (i % 3), x = 1.25 + cos(a) * d, y = sin(a) * d * 0.9, r = 0.035 + 0.02 * (i % 2); g.moveTo(x + r, y); g.arc(x, y, r, 0, TAU); }
+      g.fillStyle = 'rgba(240,252,255,0.95)'; g.fill();
+    } else if (id === 'puff') {
+      // Threat Display: stiffened, fins rigid and spread, the body arched
+      framedBody(g, size, 10, {}, [0.24, 0.5, -0.45], MUT_GLOW.puff, FAKE_T, { puffK: 1, sailK: 1 });
+      bristle(g, -0.5, 1.85, 1.05);
+    } else {
+      // Belly Flash: rolled onto its side, its white belly flashing in the light
+      framedBody(g, size, 10, { photo: 3 }, [0.25, 0.5, -0.45], MUT_GLOW.photo9, FAKE_T, { rollK: 1 });
+      g.globalCompositeOperation = 'lighter';
+      g.globalAlpha = 0.4; g.drawImage(glowSprite([235, 248, 255], 1), -1.7, -0.8, 2.4, 1.3); g.globalAlpha = 1;
+      g.beginPath();
+      for (let i = 0; i < 10; i++) { const a = (i / 10) * TAU + 0.3, r0 = 1 + 0.1 * (i % 2); g.moveTo(-0.5 + cos(a) * r0 * 1.75, sin(a) * r0 * 0.95); g.lineTo(-0.5 + cos(a) * (r0 * 1.75 + 0.4), sin(a) * (r0 * 0.95 + 0.4)); }
+      g.strokeStyle = 'rgba(225,242,255,0.7)'; g.lineWidth = 0.07; g.lineCap = 'round'; g.stroke();
+      for (const [x, y, r] of [[-0.1, -0.2, 0.3], [-0.85, -0.05, 0.22]]) {
+        g.beginPath(); g.moveTo(x - r, y); g.quadraticCurveTo(x, y, x, y - r); g.quadraticCurveTo(x, y, x + r, y); g.quadraticCurveTo(x, y, x, y + r); g.quadraticCurveTo(x, y, x - r, y);
+        g.fillStyle = 'rgba(255,255,255,0.95)'; g.fill();
+      }
+      g.globalCompositeOperation = 'source-over';
+    }
+    return c;
+  }
   if (id === 'breach') {
     // Breach: the sunfish leaping clear of the water, a splash bursting up from the surface beneath it
     // (the great white too: it famously breaches when it ambushes seals)
@@ -5983,7 +6111,7 @@ function abilityPortrait(id, size, stage) {
   if (id === 'sense') {
     // Electrosense: the great white's snout, its pores aglow, electric ripples spreading out through the dark to the
     // heartbeat of an animal hidden there
-    framedBody(g, size, 9, {}, [0.29, -1.3, -0.3], MUT_GLOW.sense, FAKE_T, { senseK: 1 });
+    framedBody(g, size, bst >= 10 ? 10 : 9, {}, [0.29, -1.3, -0.3], MUT_GLOW.sense, FAKE_T, { senseK: 1 }); // (the whale shark's broad snout once you are one)
     const hx = 2.5, hy = 0.5;
     g.lineCap = 'round'; g.lineJoin = 'round';
     // the hidden animal: a dark fish shape in the gloom
@@ -6141,15 +6269,16 @@ function abilityPortrait(id, size, stage) {
 // draws a "mini player" with a single mutation emphasised
 // stage: the body the trait is shown on; fish bodies show early traits in their fish form
 export function mutationPortrait(id, size, stage) {
-  if (id === 'photo' || id === 'shoal' || id === 'suction' || id === 'puff' || id === 'slash' || id === 'breach' || id === 'sense') return abilityPortrait(id, size, stage);
+  if (id === 'photo' || id === 'shoal' || id === 'suction' || id === 'puff' || id === 'slash' || id === 'breach' || id === 'sense' || id === 'filter') return abilityPortrait(id, size, stage);
   const fst = bodyStage(stage || 1);
   if (fst >= 4 && (MUT_STAGE[id] || 1) < 4) return fishFormPortrait(id, size, fst);
   if (MUT_STAGE[id]) {
     const [c, g] = portraitCanvas(size);
     // fins, eyes and the head shield shown on the jawed fish once you are one; every fish trait (and the
     // pufferfish's own) on the pufferfish once you are one, and on the sailfish once you are that
-    const ms = MUT_STAGE[id], stage = ms === 9 || (ms >= 4 && fst === 9) ? 9 : ms === 8 || (ms >= 4 && fst === 8) ? 8 : ms === 7 || (ms >= 4 && fst === 7) ? 7 : ms === 6 || (ms >= 4 && fst === 6) ? 6 : ms === 4 && fst === 5 ? 5 : ms;
-    if (stage === 9) framedBody(g, size, 9, { [id]: 3 }, SHARK_FRAME[id] || STAGE_FRAME[9], MUT_GLOW[id], MUT_T[id], SHARK_PROPS[id]);
+    const ms = MUT_STAGE[id], stage = ms === 10 || (ms >= 4 && fst === 10) ? 10 : ms === 9 || (ms >= 4 && fst === 9) ? 9 : ms === 8 || (ms >= 4 && fst === 8) ? 8 : ms === 7 || (ms >= 4 && fst === 7) ? 7 : ms === 6 || (ms >= 4 && fst === 6) ? 6 : ms === 4 && fst === 5 ? 5 : ms;
+    if (stage === 10) framedBody(g, size, 10, { [id]: 3 }, WS_FRAME[id] || STAGE_FRAME[10], MUT_GLOW[id], MUT_T[id], WS_PROPS[id]);
+    else if (stage === 9) framedBody(g, size, 9, { [id]: 3 }, SHARK_FRAME[id] || STAGE_FRAME[9], MUT_GLOW[id], MUT_T[id], SHARK_PROPS[id]);
     else if (stage === 8) framedBody(g, size, 8, { [id]: 3 }, MOLA_FRAME[id] || STAGE_FRAME[8], MUT_GLOW[id], MUT_T[id], MOLA_PROPS[id]);
     else if (stage === 7) framedBody(g, size, 7, { [id]: 3 }, SAIL_FRAME[id] || STAGE_FRAME[7], MUT_GLOW[id], MUT_T[id], SAIL_PROPS[id]);
     else if (stage === 6) framedBody(g, size, 6, { [id]: 3 }, PUFF_FRAME[id] || STAGE_FRAME[6], MUT_GLOW[id], MUT_T[id], PUFF_PROPS[id]);
@@ -6299,7 +6428,7 @@ function heart(g, x, y, s) {
   g.fill(); g.restore();
 }
 
-// kind: 'microbe' (species + boss ids) | 'mutation' | 'genome' | 'stage' (id = 1..10; a stage not drawn yet shows the last body)
+// kind: 'microbe' (species + boss ids) | 'mutation' | 'genome' | 'stage' (id = 1..10)
 export function portrait(kind, id, size = 96, stage) {
   try {
     if (kind === 'microbe') return microbePortrait(id, size);
