@@ -2224,7 +2224,7 @@ class MicrobeGame {
     // player
     this.cineBack(ctx);
     const pv = this.cinePlayer();
-    if (pv) {
+    if (pv && !(this.hidePlayer && this.boss && this.boss.alive)) {
       const pr = p.r0 || p.r; // the art draws the inflated balloon itself (p.puffK)
       ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.ang); ctx.scale(pr * pv.s, pr * pv.s);
       if (p.iframes > 0 && p.cyst <= 0 && !this.trans && !this.intro && !this.victory && floor(T * 20) % 2 === 0) ctx.globalAlpha = 0.55;

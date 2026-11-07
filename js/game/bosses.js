@@ -30,6 +30,7 @@ const winBite = (b, k, most, cd = 0.6) => { if (b.biteCd > 0 || (k.wb | 0) >= mo
 function drawPart(ctx, fn, x, y, ang, r, sc, T, col, ...args) {
   if (!fn) return false;
   ctx.save(); ctx.translate(x, y); ctx.rotate(ang); ctx.scale(r, r);
+  ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; // the background layers may leave additive blending on
   fn(ctx, T, artH(r * sc, col), ...args);
   ctx.restore(); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
   return true;
@@ -1291,7 +1292,7 @@ BOSS_KIT.grouper = {
         k.st -= dt; b.vx *= exp(-dt * 6); b.vy *= exp(-dt * 6);
         p.x = mx; p.y = my; p.vx = 0; p.vy = 0;
         if (p.puffK > 0.5) {
-          k.state = 'choke'; k.st = 0.7;
+          k.state = 'choke'; k.st = 0.7; b.chokeK = 1;
           g.sfx('boss'); g.shake = 14; g.flash = 0.25; g.buzz([40, 30, 60]);
           g.bossHit(0.06, mx, my, { raw: true, knock: false, text: 'Choking!', tc: '#ffd58a', c: [255, 230, 160] });
           if (!b.alive) return;
@@ -1304,7 +1305,7 @@ BOSS_KIT.grouper = {
         break;
       case 'choke': // it can't swallow a spiny ball: jammed open, then it spits you out
         k.st -= dt; p.x = mx; p.y = my; p.vx = 0; p.vy = 0;
-        if (k.st <= 0) { spit(false); k.state = 'dazed'; k.st = ph2 ? 2.8 : 3.2; k.wb = 0; g.hint('boss_grouper3', 'It’s choking! Bite it now', 'target', 2400); }
+        if (k.st <= 0) { spit(false); k.state = 'dazed'; k.st = ph2 ? 2.8 : 3.2; k.wb = 0; b.chokeK = 0; g.hint('boss_grouper3', 'It’s choking! Bite it now', 'target', 2400); }
         break;
       case 'dazed':
         k.st -= dt; b.vx *= exp(-dt * 2); b.vy *= exp(-dt * 2); b.ang += sin(g.T * 2.2) * dt * 0.3;
@@ -1319,7 +1320,8 @@ BOSS_KIT.grouper = {
     const ap = (v, to, rate) => v + (to - v) * min(1, dt * rate);
     b.gapeK = ap(b.gapeK, GULP_STATES.includes(k.state) ? (k.state === 'gape' ? 0.55 : 1) : 0, k.state === 'snap' ? 14 : 7);
     b.suckK = ap(b.suckK, k.state === 'suck' ? 1 : 0, 8);
-    b.chokeK = ap(b.chokeK, k.state === 'choke' ? 1 : 0, 10);
+    b.chokeK = ap(b.chokeK, k.state === 'choke' ? 1 : 0, 14);
+    g.hidePlayer = k.state === 'choke'; // the art draws you wedged in its mouth
     b.stunK = ap(b.stunK, k.state === 'dazed' ? 1 : 0, 5);
     if (g.dead || k.state === 'gulp' || k.state === 'choke') return;
     // its body: bites land only while it is dazed
@@ -1361,7 +1363,7 @@ BOSS_KIT.grouper = {
 const PACK = 5, SQ_HITS = 6;
 const sqSteer = (q, tx, ty, sp, k, dt) => { const a = 1 - exp(-dt * k); q.vx += (tx * sp - q.vx) * a; q.vy += (ty * sp - q.vy) * a; };
 BOSS_KIT.squidpack = {
-  r: (p) => 40 + p.r * 0.8,
+  r: (p) => 18 + p.r * 1.0, // a jumbo squid is 1.5–2 m: bigger than you, not a monster
   fixed: true, chip: 0.08, phaseAt: [0.5], phaseText: ['They attack in waves'],
   hint: ['bolt', 'When the pack flushes red, they all attack at once. Inflate or Flash, then bite the tired squid'],
   spawn(g, b, k) {
@@ -1502,7 +1504,12 @@ BOSS_KIT.squidpack = {
     }
     for (const q of k.sq) {
       if (q.alive === false || !inView(q.x, q.y, q.r * 3)) continue;
-      if (q.st === 'signal') glow(ctx, q.x, q.y, q.r * 2.2, [255, 70, 60], 0.3 + 0.2 * sin(T * 26));
+      if (q.st === 'signal') { // flushed red: about to attack. A pulsing red ring and a warning mark make it unmissable
+        const pu = 0.5 + 0.5 * sin(T * 26);
+        glow(ctx, q.x, q.y, q.r * 2.2, [255, 60, 50], 0.35 + 0.25 * pu);
+        ctx.beginPath(); ctx.arc(q.x, q.y, q.r * (1.5 + 0.15 * pu), 0, TAU); ctx.strokeStyle = `rgba(255,80,70,${0.55 + 0.35 * pu})`; ctx.lineWidth = 3 / z; ctx.stroke();
+        ctx.font = `900 ${Math.round(26 / z)}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.fillStyle = `rgba(255,110,95,${0.7 + 0.3 * pu})`; ctx.fillText('!', q.x, q.y - q.r * 1.7);
+      }
       else if (q.st === 'tired') glow(ctx, q.x, q.y, q.r * 1.6, [150, 255, 200], 0.2 + 0.1 * sin(T * 9));
       else if (q.st === 'confused') glow(ctx, q.x, q.y, q.r * 1.5, [190, 225, 255], 0.18 + 0.12 * sin(T * 17 + q.seed));
     }

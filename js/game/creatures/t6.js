@@ -16,6 +16,15 @@ const WHITE = [255, 255, 255];
 const INK = [20, 12, 28];
 const SHADE = [3, 4, 9];
 const C1 = [0, 0, 0], C2 = [0, 0, 0], C3 = [0, 0, 0], C4 = [0, 0, 0]; // scratch colours for mixRGB
+// constant tables hoisted out of the draw calls (no per-frame allocation)
+const BEAK_ROWS_HD = [0.45, 0.62, 0.8], BEAK_ROWS = [0.55, 0.8];
+const FAN_BANDS_HD = [[0.12, 0.2], [0.29, 0.38], [0.47, 0.55], [0.62, 0.68]], FAN_BANDS = [[0.15, 0.26], [0.36, 0.47], [0.56, 0.66]];
+const SPINE_BANDS = [[0.22, 0.36], [0.52, 0.66], [0.82, 0.93]];
+const SCUTES = [[0.43, 0], [0.17, 0], [-0.09, 0], [-0.345, 0], [-0.585, 0], [0.3, 0.38], [0.04, 0.44], [-0.22, 0.43], [-0.47, 0.34], [0.3, -0.38], [0.04, -0.44], [-0.22, -0.43], [-0.47, -0.34]];
+const CLUB_ROWS_HD = [-1, 1], CLUB_ROWS = [0];
+const GR_BARS = [0.3, 0.44, 0.57, 0.7, 0.83];
+const WK_SEAMS = [-0.95, -0.48, 0, 0.48, 0.95], WK_BOLLARDS = [[-0.4, -1.1], [-0.2, -1.1], [0.9, 1.1], [1.1, 1.1], [-2.7, 1.05]], WK_FANS = [[-3.0, 0.05, PI], [1.6, 1.45, PI / 2]];
+const UR_FEET = new Float32Array(30);
 
 // ---------------------------------------------------------------- shared helpers (same as t5)
 // additive glow from the cached sprite (alpha a, radius r, ky squashes it vertically)
@@ -300,7 +309,7 @@ function drawParrot(ctx, e, t, s, H) {
     ctx.fillStyle = H.rgbStr(BEAK, 0.97); ctx.fill(); ctx.strokeStyle = BEAK_E; ctx.lineWidth = lw(1.1); ctx.stroke();
     // rows of fused teeth (a mosaic)
     ctx.beginPath();
-    for (const k of hd ? [0.45, 0.62, 0.8] : [0.55, 0.8]) { ctx.moveTo(bx + brx * k * cos(a0 + 0.12), bry * k * sin(a0 + 0.12)); ctx.ellipse(bx, 0, brx * k, bry * k, 0, a0 + 0.12, a1 - 0.12); }
+    for (const k of hd ? BEAK_ROWS_HD : BEAK_ROWS) { ctx.moveTo(bx + brx * k * cos(a0 + 0.12), bry * k * sin(a0 + 0.12)); ctx.ellipse(bx, 0, brx * k, bry * k, 0, a0 + 0.12, a1 - 0.12); }
     ctx.strokeStyle = 'rgba(40,130,120,0.42)'; ctx.lineWidth = lw(0.9); ctx.stroke();
     ctx.restore();
   }
@@ -367,15 +376,15 @@ function drawUrchin(ctx, e, t, s, H) {
   // tube feet: five rows of sticky little feet poking out round the rim
   {
     ctx.beginPath();
-    const ends = [];
+    let ne = 0;
     for (let j = 0; j < 5; j++) for (let m = 0; m < 3; m++) {
       const a = UR_A0 + j * (TAU / 5) + (m - 1) * 0.1, l = UR_TR + (0.1 + 0.09 * (0.5 + 0.5 * sin(t * 1.8 + j * 1.3 + m))) * (0.4 + 0.6 * live);
       const w = 0.04 * sin(t * 2.3 + j + m * 2) * live, ex = cos(a) * l - sin(a) * w, ey = sin(a) * l + cos(a) * w;
       ctx.moveTo(cos(a) * UR_TR * 0.95, sin(a) * UR_TR * 0.95); ctx.quadraticCurveTo(cos(a) * (l - 0.05), sin(a) * (l - 0.05), ex, ey);
-      ends.push(ex, ey);
+      UR_FEET[ne++] = ex; UR_FEET[ne++] = ey;
     }
     ctx.strokeStyle = H.rgbStr(c.mem, 0.55); ctx.lineWidth = lw(1.1); ctx.lineCap = 'round'; ctx.stroke();
-    ctx.beginPath(); for (let i = 0; i < ends.length; i += 2) circ(ctx, ends[i], ends[i + 1], 0.016);
+    ctx.beginPath(); for (let i = 0; i < ne; i += 2) circ(ctx, UR_FEET[i], UR_FEET[i + 1], 0.016);
     ctx.fillStyle = H.rgbStr(c.mem, 0.75); ctx.fill();
   }
   const rin = UR_TR * 0.72 * sqrt(crack);
@@ -557,7 +566,7 @@ function lionFan(ctx, H, c, x, y, sd, aF, aB, L, t, hd, fl) {
   ctx.fillStyle = H.rgbStr(H.mixRGB(c.mem, c.body, 0.12, C3), 0.66); ctx.fill();
   // red-brown bands across the fan
   ctx.beginPath();
-  for (const [f0, f1] of hd ? [[0.12, 0.2], [0.29, 0.38], [0.47, 0.55], [0.62, 0.68]] : [[0.15, 0.26], [0.36, 0.47], [0.56, 0.66]]) {
+  for (const [f0, f1] of hd ? FAN_BANDS_HD : FAN_BANDS) {
     for (let i = 0; i < nr; i++) i ? ctx.lineTo(RX[i] * f0, RY[i] * f0) : ctx.moveTo(RX[0] * f0, RY[0] * f0);
     for (let i = nr - 1; i >= 0; i--) ctx.lineTo(RX[i] * f1, RY[i] * f1);
     ctx.closePath();
@@ -656,7 +665,7 @@ function drawLion(ctx, e, t, s, H) {
     ctx.beginPath();
     for (let i = 0; i < ns; i++) {
       const x0 = BXs[i * 3], y0 = BYs[i * 3], dx = BXs[i * 3 + 1] - x0, dy = BYs[i * 3 + 1] - y0;
-      for (const [f0, f1] of [[0.22, 0.36], [0.52, 0.66], [0.82, 0.93]]) { ctx.moveTo(x0 + dx * f0, y0 + dy * f0); ctx.lineTo(x0 + dx * f1, y0 + dy * f1); }
+      for (const [f0, f1] of SPINE_BANDS) { ctx.moveTo(x0 + dx * f0, y0 + dy * f0); ctx.lineTo(x0 + dx * f1, y0 + dy * f1); }
     }
     ctx.strokeStyle = 'rgba(255,248,240,0.95)'; ctx.lineWidth = lw(2.4); ctx.stroke();
     if (fl > 0.2) { for (let i = 0; i < ns; i += 2) glow(ctx, H, c.glow, BXs[i * 3 + 1], BYs[i * 3 + 1], 0.07, 0.75 * (fl - 0.2), 1); }
@@ -1056,7 +1065,7 @@ function drawTurtle(ctx, e, t, s, H) {
   const XB = [0.56, 0.3, 0.04, -0.22, -0.47, -0.7];
   {
     ctx.beginPath();
-    const centres = [[0.43, 0], [0.17, 0], [-0.09, 0], [-0.345, 0], [-0.585, 0], [0.3, 0.38], [0.04, 0.44], [-0.22, 0.43], [-0.47, 0.34], [0.3, -0.38], [0.04, -0.44], [-0.22, -0.43], [-0.47, -0.34]];
+    const centres = SCUTES;
     const nr = hd ? 7 : 5;
     // radiating rays from each scute's growth centre: pale wedges, dark wedges between
     for (let pass = 0; pass < 2; pass++) {
@@ -1160,7 +1169,7 @@ function drawHumboldt(ctx, e, t, s, H) {
     ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(cl * 0.4, -cw * 1.3, cl, -cw * 0.2 * (1 - grab)); ctx.quadraticCurveTo(cl * 0.4, cw * 1.3, 0, 0); ctx.closePath();
     ctx.fillStyle = H.rgbStr(body, 0.9); ctx.fill(); ctx.strokeStyle = H.rgbStr(mem, 0.85); ctx.lineWidth = lw(1); ctx.stroke();
     ctx.beginPath();
-    for (let q = 0; q < (hd ? 7 : 4); q++) { const u = 0.2 + q * (hd ? 0.1 : 0.17); for (const r of hd ? [-1, 1] : [0]) circ(ctx, cl * u, r * cw * 0.35 * sin(u * PI) * (0.6 + grab), 0.017 + 0.01 * grab); }
+    for (let q = 0; q < (hd ? 7 : 4); q++) { const u = 0.2 + q * (hd ? 0.1 : 0.17); for (const r of hd ? CLUB_ROWS_HD : CLUB_ROWS) circ(ctx, cl * u, r * cw * 0.35 * sin(u * PI) * (0.6 + grab), 0.017 + 0.01 * grab); }
     ctx.fillStyle = H.rgbStr(mem, 0.8); ctx.fill();
     if (hd) { ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = lw(0.6); ctx.stroke(); } // toothed sucker rings
     ctx.restore();
@@ -1215,7 +1224,7 @@ function drawHumboldt(ctx, e, t, s, H) {
 let GR_FLARE = 0, GR_CHEEK = 0;
 const GROUP_W = (u) => (u < 0.3 ? 0.4 + 0.29 * sin((u / 0.3) * PI / 2) ** 0.8 : 0.2 + 0.49 * (1 - ((u - 0.3) / 0.7) ** 1.6))
   + GR_FLARE * exp(-(((u - 0.37) / 0.07) ** 2)) + GR_CHEEK * exp(-(((u - 0.17) / 0.08) ** 2));
-const GR_IRIS = [210, 180, 90], GR_WHITE = [250, 246, 230], GR_RED = [190, 40, 50], PUFF = [234, 206, 120], PUFF_E = [120, 86, 40];
+const GR_IRIS = [210, 180, 90], GR_WHITE = [250, 246, 230], GR_RED = [190, 40, 50], PUFF = [90, 240, 215], PUFF_E = [30, 110, 105]; // the wedged pufferfish is the player: its colours
 // mouth curves for gape g: −y half as cubic control points [x0,y0, x1,y1, x2,y2, x3,y3] (corner → front); +y mirrors
 const MU = new Float32Array(8), MI = new Float32Array(8), MO = new Float32Array(8);
 function set8(M, a, b, c, d, e, f, g, h) { M[0] = a; M[1] = b; M[2] = c; M[3] = d; M[4] = e; M[5] = f; M[6] = g; M[7] = h; }
@@ -1243,8 +1252,8 @@ function puffer(ctx, H, x, y, r, t, hd, a) {
   for (let i = 0; i < ns; i++) { const an = (i / ns) * TAU + 0.1, l = r * (1.28 + 0.06 * sin(t * 6 + i)), w = 0.18; ctx.moveTo(x + cos(an - w) * r * 0.95, y + sin(an - w) * r * 0.95); ctx.lineTo(x + cos(an) * l, y + sin(an) * l); ctx.lineTo(x + cos(an + w) * r * 0.95, y + sin(an + w) * r * 0.95); }
   ctx.fillStyle = H.rgbStr(PUFF_E, 0.95); ctx.fill();
   ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fillStyle = H.rgbStr(PUFF, 0.95); ctx.fill();
-  ctx.save(); ctx.translate(x, y); ctx.scale(r, r); ctx.fillStyle = H.bodyGrad(ctx, [200, 160, 80], 0.8); ctx.fill(); ctx.restore();
-  ctx.strokeStyle = H.rgbStr([255, 240, 200], 0.9); ctx.lineWidth = H.lw(1.2); ctx.stroke();
+  ctx.save(); ctx.translate(x, y); ctx.scale(r, r); ctx.fillStyle = H.bodyGrad(ctx, [60, 200, 180], 0.8); ctx.fill(); ctx.restore();
+  ctx.strokeStyle = H.rgbStr([210, 255, 245], 0.9); ctx.lineWidth = H.lw(1.2); ctx.stroke();
   ctx.beginPath(); for (let i = 0; i < (hd ? 14 : 8); i++) { const an = hash(i + 70) * TAU, d = r * (0.25 + 0.6 * hash(i + 80)); circ(ctx, x + cos(an) * d, y + sin(an) * d, r * 0.07); }
   ctx.fillStyle = H.rgbStr(PUFF_E, 0.6); ctx.fill();
   for (const sd of [-1, 1]) eye(ctx, x + r * 0.42, y + sd * r * 0.42, r * 0.24, 'rgb(250,250,240)', H.lw(1), 0.5, '#05060c', 0.3);
@@ -1317,7 +1326,7 @@ function drawGrouper(ctx, e, t, s, H) {
   // mottling: irregular dark oblique bars and blotches, yellow-olive patches, small black spots on the head
   {
     ctx.beginPath();
-    const bars = [0.3, 0.44, 0.57, 0.7, 0.83];
+    const bars = GR_BARS;
     for (let b = 0; b < bars.length; b++) for (let j = -2; j <= 2; j++) {
       const u = bars[b] + j * 0.018 + (hash(b * 7 + j) - 0.5) * 0.03, f = j * 0.36 + (hash(b * 3 + j + 9) - 0.5) * 0.15;
       sp(u, f); const r = spW(u) * (0.16 + 0.08 * hash(b + j * 5)), a = spA(u) + 0.5;
@@ -1429,7 +1438,7 @@ function drawWreck(ctx, t, H) {
   ctx.strokeStyle = 'rgba(214,140,90,0.55)'; ctx.lineWidth = lb(1.4); ctx.stroke();
   // deck plating seams and rivets
   ctx.beginPath();
-  for (const y of [-0.95, -0.48, 0, 0.48, 0.95]) { ctx.moveTo(-3.0 + abs(y) * 0.5, y); ctx.lineTo(3.0, y); }
+  for (const y of WK_SEAMS) { ctx.moveTo(-3.0 + abs(y) * 0.5, y); ctx.lineTo(3.0, y); }
   for (let i = 0; i < 9; i++) { const x = -2.6 + i * 0.68; for (let r = 0; r < 4; r++) { const y0 = -0.95 + r * 0.475; ctx.moveTo(x + (r & 1) * 0.34, y0); ctx.lineTo(x + (r & 1) * 0.34, y0 + 0.475); } }
   ctx.strokeStyle = 'rgba(40,22,16,0.45)'; ctx.lineWidth = lw(1.2); ctx.stroke();
   if (hd) {
@@ -1448,7 +1457,7 @@ function drawWreck(ctx, t, H) {
   ctx.beginPath(); ctx.moveTo(-1.0, -0.15); ctx.lineTo(0.95, 1.75);
   ctx.strokeStyle = 'rgb(78,48,34)'; ctx.lineWidth = 0.12; ctx.stroke(); ctx.strokeStyle = 'rgba(214,150,100,0.5)'; ctx.lineWidth = lw(1.2); ctx.stroke();
   // bollards
-  ctx.beginPath(); for (const [x, y] of [[-0.4, -1.1], [-0.2, -1.1], [0.9, 1.1], [1.1, 1.1], [-2.7, 1.05]]) circ(ctx, x, y, 0.07);
+  ctx.beginPath(); for (const [x, y] of WK_BOLLARDS) circ(ctx, x, y, 0.07);
   ctx.fillStyle = 'rgb(70,42,32)'; ctx.fill(); ctx.strokeStyle = 'rgba(210,140,90,0.6)'; ctx.lineWidth = lw(1); ctx.stroke();
   // the open cargo hatch: a raised coaming round a pit of darkness (the grouper's lair)
   ctx.beginPath(); ctx.rect(1.28, -0.7, 1.34, 1.4);
@@ -1500,7 +1509,7 @@ function drawWreck(ctx, t, H) {
   }
   if (hd) {
     ctx.beginPath();
-    for (const [fx, fy, fa] of [[-3.0, 0.05, PI], [1.6, 1.45, PI / 2]]) for (let i = 0; i < 9; i++) {
+    for (const [fx, fy, fa] of WK_FANS) for (let i = 0; i < 9; i++) {
       const a = fa + (i - 4) * 0.2 + 0.03 * sin(t * 0.9 + i), l = 0.35 + 0.1 * hash(i + fx);
       ctx.moveTo(fx, fy); ctx.quadraticCurveTo(fx + cos(a) * l * 0.5, fy + sin(a) * l * 0.5, fx + cos(a + 0.1) * l, fy + sin(a + 0.1) * l);
     }
