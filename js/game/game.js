@@ -1603,13 +1603,13 @@ class MicrobeGame {
   // the end of the journey: something even bigger than you glides past
   finaleWhale() {
     if (this.dead) return;
-    const p = this.p, a = p.ang + PI * 0.75, R = this.viewR() * 1.1;
+    const p = this.p, a = p.ang + PI * 0.75, R = this.viewR() * 0.85;
     const e = this.spawn('bluewhale', p.x + cos(a) * R, p.y + sin(a) * R, { force: true, r: (p.r0 || p.r) * 1.1 }); // about twice your length
     if (!e) return;
     const ux = p.x - e.x, uy = p.y - e.y, ud = hypot(ux, uy) + 0.01, side = 0.35;
-    e.ctl = { tx: ux / ud * cos(side) - uy / ud * sin(side), ty: ux / ud * sin(side) + uy / ud * cos(side), sp: 150 + (p.r0 || p.r) * 1.5, steer: 1.5 };
+    e.ctl = { tx: ux / ud * cos(side) - uy / ud * sin(side), ty: ux / ud * sin(side) + uy / ud * cos(side), sp: 120 + (p.r0 || p.r) * 2, steer: 1.5 };
     e.ang = atan2(e.ctl.ty, e.ctl.tx); e.breathK = 0;
-    this.later(1400, () => this.hint('finale_whale', 'A blue whale: the biggest animal that ever lived', 'star', 4000));
+    this.later(1200, () => this.hint('finale_whale', 'A blue whale: the biggest animal that has ever lived', 'star', 4500));
   }
   bossDie() {
     const b = this.boss; if (!b || !b.alive) return;
@@ -1630,9 +1630,10 @@ class MicrobeGame {
     this.renderPips();
     if (this.camp) {
       this.banner('Defeated', b.B.name, 'gold');
-      if (!this.L.ocean && this.camp.level === C.TOTAL_LEVELS && C.LIVE_HABITATS === C.HABITATS.length - 1) this.later(1200, () => this.finaleWhale());
+      const finale = !this.L.ocean && this.camp.level === C.TOTAL_LEVELS && C.LIVE_HABITATS === C.HABITATS.length - 1;
+      if (finale) this.later(700, () => this.finaleWhale());
       if (this.L.ocean) this.later(1400, () => { if (!this.dead) this.rematchReward(); });
-      this.later(3200, () => { if (!this.dead) this.levelComplete(); });
+      this.later(finale ? 7500 : 3200, () => { if (!this.dead) this.levelComplete(); }); // (the finale lets the blue whale pass first)
       return;
     }
     if (isQ) { this.depthsCleared = 5; this.later(1500, () => this.win()); }
@@ -2037,9 +2038,10 @@ class MicrobeGame {
     const ov = el('div.mb-overlay.mb-res-ov');
     const gained = [...new Set(this.gained)];
     const kicker = cleared ? (last ? 'Journey complete' : L.isBoss ? 'Boss defeated' : 'Level complete') : this.abandoned ? 'Left the level' : this.lostLine();
-    const title = cleared && last ? 'You are the Progenitor now' : L.title;
+    const finale = last && C.LIVE_HABITATS === C.HABITATS.length - 1;
+    const title = cleared && last ? (finale ? 'The biggest fish in the sea' : `You are a ${C.STAGES[C.LIVE_STAGE].name.toLowerCase()} now`) : L.title;
     const nextL = !last ? C.levelConfig(L.c + 1) : null;
-    const sub = cleared ? (last ? 'From a single cell to a creature of the deep. Now the Open Ocean awaits.' : nextL.ocean ? (nextL.isBoss ? `Next: a rematch with the ${C.BOSSES[nextL.boss].name}` : `On to expedition ${nextL.ocean}`) : nextL.j === 1 ? `Next: ${nextL.name}` : `On to level ${L.c + 1}`) : 'You keep every mutation you earned. Try again!';
+    const sub = cleared ? (last ? (finale ? 'From a single cell to the biggest fish alive. And the ocean still has something bigger: a blue whale. Now the Open Ocean awaits.' : 'From a single cell to a creature of the open sea. Now the Open Ocean awaits.') : nextL.ocean ? (nextL.isBoss ? `Next: a rematch with the ${C.BOSSES[nextL.boss].name}` : `On to expedition ${nextL.ocean}`) : nextL.j === 1 ? `Next: ${nextL.name}` : `On to level ${L.c + 1}`) : 'You keep every mutation you earned. Try again!';
     const evoK = Math.round(100 * this.evo.xp / C.evoNeed(this.evo.level));
     const mainBtn = cleared
       ? (last ? null : el('button.btn.btn-primary.btn-lg.btn-block', { onclick: () => { this.sfx('click'); this.goNext(); } }, [icon('play'), nextL && nextL.ocean ? `Expedition ${nextL.ocean}` : `Level ${L.c + 1}`]))
