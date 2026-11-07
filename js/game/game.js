@@ -1666,7 +1666,7 @@ class MicrobeGame {
     for (const q of ps) { q.life -= dt; if (q.life <= 0) continue; q.vx *= dk; q.vy *= dk; q.x += q.vx * dt; q.y += q.vy * dt; ps[w++] = q; }
     ps.length = w;
     let wt = 0; for (const t of this.texts) { t.life -= dt * 0.9; t.y -= dt * 30; if (t.life > 0) this.texts[wt++] = t; } this.texts.length = wt;
-    if (this.rings) { for (const r of this.rings) { r.life -= dt; r.r = r.R * (1 - r.life / 0.6); } this.rings = this.rings.filter((r) => r.life > 0); }
+    if (this.rings) { for (const r of this.rings) { r.life -= dt; r.r = max(0, r.R * (1 - r.life / (r.max || 0.6))); } this.rings = this.rings.filter((r) => r.life > 0); }
   }
 
   // ---------- discovery & toasts ----------
@@ -2277,7 +2277,7 @@ class MicrobeGame {
       ctx.drawImage(glowSprite(q.c, 1), q.x - s, q.y - s, s * 2, s * 2);
     }
     if (this.rings) for (const r of this.rings) {
-      ctx.globalAlpha = r.life / 0.6; ctx.beginPath(); ctx.arc(r.x, r.y, r.r, 0, TAU);
+      ctx.globalAlpha = min(1, r.life / (r.max || 0.6)); ctx.beginPath(); ctx.arc(r.x, r.y, r.r, 0, TAU);
       ctx.strokeStyle = rgbStr(r.c); ctx.lineWidth = 6 / z + r.life * 20; ctx.stroke();
       if (r.bolt != null) {
         // electric shock: jagged bolts crackling out to the ring, redrawn a few times a second
