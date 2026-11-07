@@ -1,4 +1,4 @@
-// The evolution campaign: 10 habitats x 5 levels, a body stage every 10 levels, bosses, and the trait tiers.
+// The evolution campaign: habitats of 5 levels each, a body stage every 10 levels, bosses, and the trait tiers.
 import { SPECIES } from './ecology.js';
 
 // ---------- body stages ----------
@@ -9,16 +9,31 @@ export const STAGES = [
   { n: 3, name: 'Flatworm', size: '5 mm', blurb: 'Your first animal body: a head, eyespots, muscles and a gut. Single cells are specks now. New power: Toxin Nova. New traits: muscle, jaws, nerve cords, stinging cells. Four choices per evolution.' },
   { n: 4, name: 'Primordial Fish', size: '5 cm', blurb: 'A backbone, a fin fold and gill pores: one of the first fish. New power: Photophore Flash. New traits: fins, eyes, a bony head shield.' },
   { n: 5, name: 'Jawed Fish', size: '50 cm', blurb: 'Jaws, paired fins and a real tail: a sea predator. New power: Suction Feeding. New traits: barbels, bony scales, gills.' },
+  { n: 6, name: 'Pufferfish', size: '1 m', blurb: 'A round, beaked fish that nothing wants to swallow. Sardines and barracudas are small fry now. New power: Inflate, and Shoal Call for beating the Progenitor. New traits: a crushing beak, tetrodotoxin, hover fins.' },
 ];
 // which boss (by habitat index 1..8) evolves you to which stage
-export const EVOLVE_AFTER = { 2: 2, 4: 3, 6: 4, 8: 5 };
-// every new body brings one active power (a button), and finishing the journey brings the last one.
-// They are never offered as picks; once you have one, picks can level it up.
-export const STAGE_POWER = { 2: 'dash', 3: 'nova', 4: 'photo', 5: 'suction' };
+export const EVOLVE_AFTER = { 2: 2, 4: 3, 6: 4, 8: 5, 10: 6 };
+// every new body brings one active power (a button); beating the Progenitor (reaching the pufferfish) also
+// brings Shoal Call. They are never offered as picks; once you have one, picks can level it up.
+export const STAGE_POWER = { 2: 'dash', 3: 'nova', 4: 'photo', 5: 'suction', 6: 'puff' };
 export const FINAL_POWER = 'shoal';
-export const POWER_NAMES = { dash: 'Enzyme Burst', nova: 'Toxin Nova', photo: 'Photophore Flash', suction: 'Suction Feeding', shoal: 'Shoal Call' };
-// the powers a save should have: one per body reached, plus the last one once the journey is done
-export const powersFor = (stage, complete) => [...Object.entries(STAGE_POWER).filter(([s]) => stage >= +s).map(([, id]) => id), ...(complete ? [FINAL_POWER] : [])];
+export const SHOAL_STAGE = 6;
+export const POWER_NAMES = { dash: 'Enzyme Burst', nova: 'Toxin Nova', photo: 'Photophore Flash', suction: 'Suction Feeding', shoal: 'Shoal Call', puff: 'Inflate' };
+// the powers a save should have: one per body reached, plus Shoal Call from the pufferfish on
+export const powersFor = (stage, complete) => [...Object.entries(STAGE_POWER).filter(([s]) => stage >= +s).map(([, id]) => id), ...(complete || stage >= SHOAL_STAGE ? [FINAL_POWER] : [])];
+// You can take at most this many powers into a level. Your newest power always comes; the rest are your pick.
+export const LOADOUT_SIZE = 4;
+const POWER_PRIORITY = ['dash', 'nova', 'photo', 'suction', 'shoal', 'puff']; // default fill order after the newest
+export const newestPower = (stage) => { let id = null; for (const [s, p] of Object.entries(STAGE_POWER)) if (stage >= +s) id = p; return id; };
+// the powers to take into a level: owned = ids you have, chosen = your saved picks (may be stale)
+export function loadoutFor(owned, chosen, stage) {
+  if (owned.length <= LOADOUT_SIZE) return owned.slice();
+  const nw = newestPower(stage), out = [];
+  if (nw && owned.includes(nw)) out.push(nw);
+  for (const id of chosen || []) if (owned.includes(id) && !out.includes(id) && out.length < LOADOUT_SIZE) out.push(id);
+  for (const id of POWER_PRIORITY) if (owned.includes(id) && !out.includes(id) && out.length < LOADOUT_SIZE) out.push(id);
+  return out;
+}
 export const stageForCleared = (habitatsCleared) => {
   let s = 1;
   for (const [h, st] of Object.entries(EVOLVE_AFTER)) if (habitatsCleared >= +h) s = Math.max(s, st);
@@ -60,6 +75,14 @@ export const NEW_MUTATIONS = [
     desc: 'Overlapping bony scales armour your whole body.', lv: (l) => `-${10 * l}% damage taken` },
   { id: 'gills', stage: 5, name: 'Gills', rarity: 'common', maxLevel: 3, tags: ['sustain'],
     desc: 'Feathery gills pull energy from the water.', lv: (l) => `+${f1(0.8 * l)} HP/s regeneration` },
+  { id: 'puff', stage: 6, name: 'Inflate', rarity: 'rare', maxLevel: 3, tags: ['active', 'defense'], active: true,
+    desc: 'ACTIVE: gulp water and swell into a spiny ball. Nothing can swallow or grab you, biters are spiked and bounce off, and other damage is halved, but you are slow and cannot eat.', lv: (l) => `${f1(2.5 + 0.5 * l)}s puffed, ${f1(13 - 1.5 * (l - 1))}s cooldown` },
+  { id: 'beak', stage: 6, name: 'Crushing Beak', rarity: 'rare', maxLevel: 3, tags: ['offense'],
+    desc: 'Teeth fused into a beak strong enough to crack shells. Sea urchins and other armoured prey break open at a bite, and boss bites hit harder.', lv: (l) => `+${12 * l}% boss bites, cracks shells` },
+  { id: 'tetrodo', stage: 6, name: 'Tetrodotoxin', rarity: 'epic', maxLevel: 3, tags: ['defense', 'offense'],
+    desc: 'You carry one of the deadliest poisons in nature. Anything that bites you is poisoned and backs off.', lv: (l) => `biters lose ${10 + 8 * l}% of their health and are stunned` },
+  { id: 'hover', stage: 6, name: 'Hover Fins', rarity: 'common', maxLevel: 3, tags: ['speed'],
+    desc: 'Pufferfish row with small fluttering fins: slow, but they can stop dead, turn on the spot and reverse.', lv: (l) => `+${20 * l}% acceleration, sharper stops and turns` },
 ];
 export const NEW_MUT_BY_ID = Object.fromEntries(NEW_MUTATIONS.map((m) => [m.id, m]));
 
@@ -92,7 +115,11 @@ export const TRAIT_FORMS = {
   nerve: [[4, 'Spinal Cord', 'A spinal cord and a bigger brain. React faster: longer invulnerability after a hit and wider reach.']],
   cnido: [[4, 'Stinging Slime', 'Your skin oozes a stinging slime, like a soapfish’s. Everything touching you gets hurt, bosses included.']],
   jaws: [[4, 'Sucker Mouth', 'A round sucker ringed with horny teeth, like a lamprey’s. Bite bosses harder and swallow bigger prey.'],
-    [5, 'Jaws', 'Real hinged jaws lined with teeth. Bite bosses harder and swallow bigger prey.']],
+    [5, 'Jaws', 'Real hinged jaws lined with teeth. Bite bosses harder and swallow bigger prey.'],
+    [6, 'Jaw Muscles', 'Bulging muscles behind your beak. Bite bosses harder and swallow bigger prey.']],
+  // the pufferfish has no scales or barbels: its scales are prickles, and it smells through little tentacles
+  hide: [[6, 'Prickles', 'Your scales have become tiny prickles all over your skin. They stand straight up when you inflate.']],
+  tentacles: [[6, 'Nasal Tentacles', 'Pufferfish smell through tiny tentacles instead of nostrils. They find food from afar, and anything that touches you gets lashed.']],
 };
 // def (a mutation definition) as it appears on a body of this stage: { ...def, name, desc, lv, was }
 export function traitForm(def, stage) {
@@ -115,6 +142,7 @@ export const TRAIT_FROM = {
   muscle: 21, jaws: 22, nerve: 22, cnido: 24,
   fins: 31, shell: 31, eyes: 32, photo: 32, shoal: 34,
   tentacles: 41, hide: 41, gills: 42, suction: 41,
+  puff: 51, beak: 51, hover: 51, tetrodo: 52,
 };
 // How well a trait suits a level: [offer weight, reason shown on the card].
 export function traitFit(id, L) {
@@ -137,6 +165,9 @@ export function traitFit(id, L) {
     case 'suction': return (pop.krill | 0) + (pop.sardine | 0) + (pop.larvalfish | 0) >= 14 ? [1.5, 'shoals of prey'] : [1];
     case 'flagellum': case 'cilia': case 'fins': case 'muscle': return (hz.current | 0) >= 3 ? [1.4, 'strong currents'] : [1];
     case 'pseudopod': return (pop.diatom | 0) + (pop.ciliate | 0) + (pop.copepod | 0) >= 8 ? [1.4, 'plenty of prey'] : [1];
+    case 'beak': return (pop.seaurchin | 0) >= 3 ? [1.7, 'sea urchins to crack'] : bossNear ? [1.5, 'a boss ahead'] : [1];
+    case 'tetrodo': return hunters >= 9 ? [1.5, 'packs of predators'] : [1];
+    case 'hover': return (hz.current | 0) >= 3 ? [1.4, 'strong currents'] : [1];
     default: return [1];
   }
 }
@@ -154,6 +185,8 @@ export const BOSSES = {
   mantis: { id: 'mantis', name: 'Peacock Mantis Shrimp', art: 'mantis', logic: 'colossus', hp: 2700, speed: 62, minions: ['pistolshrimp', 'krill', 'krill'], tagline: 'Its punch boils the water', burst: true },
   abyssal: { id: 'abyssal', name: 'Abyssal Anglerfish', art: 'angler', logic: 'queen', hp: 3000, speed: 50, swarm: 'cookiecutter', tagline: 'A light in the dark, and then teeth', attacks: ['charge', 'burst', 'swarm'], phases: 2 },
   progenitor: { id: 'progenitor', name: 'The Progenitor', art: 'siphboss', logic: 'queen', hp: 2600, speed: 56, swarm: 'jellyfish', tagline: 'A colony forty metres long', attacks: ['burst', 'charge', 'swarm', 'burst'], phases: 3 },
+  grouper: { id: 'grouper', name: 'Goliath Grouper', art: 'grouper', logic: 'colossus', hp: 3200, speed: 52, minions: ['triggerfish', 'parrotfish'], tagline: 'It swallows its prey whole' },
+  squidpack: { id: 'squidpack', name: 'Humboldt Squid Pack', art: 'humboldt', logic: 'queen', hp: 3400, speed: 92, tagline: 'They hunt as one, talking in flashes', phases: 2 },
 };
 
 // ---------- habitats ----------
@@ -191,10 +224,17 @@ export const HABITATS = [
   { n: 10, tier: 5, name: 'Origin Trench', tag: 'The deepest water. Where it all began', boss: 'progenitor', sun: 0,
     pal: { bg: [36, 26, 16], edge: [6, 4, 2], caustic: [255, 210, 130], shaft: [255, 200, 120], plankton: [255, 220, 160], mote: [200, 255, 230], accent: [255, 200, 110] },
     pop: { krill: 10, larvalfish: 6, pistolshrimp: 4, anemone: 2, jellyfish: 2, sardine: 12, squid: 3, barracuda: 4, moray: 2, cookiecutter: 2, angler: 2, siphonophore: 2 }, hazards: { vortex: 2, vent: 2, toxic: 1 }, phage: 0, food: 1.0 },
+  // ---- the pufferfish (levels 51–60) ----
+  { n: 11, tier: 6, threat: 1.1, name: 'The Wreck', tag: 'A sunken ship, now a reef full of big fish', boss: 'grouper', sun: 0.5,
+    pal: { bg: [18, 74, 82], edge: [3, 17, 22], caustic: [160, 235, 225], shaft: [200, 240, 225], plankton: [195, 235, 220], mote: [255, 220, 150], accent: [255, 170, 110] },
+    pop: { parrotfish: 6, seaurchin: 5, triggerfish: 3, lionfish: 3, octopus: 2, reefshark: 2, seasnake: 2, seaturtle: 2, sardine: 10, barracuda: 3, moray: 2, squid: 3 }, hazards: { current: 2 }, phage: 0, food: 1.0 },
+  { n: 12, tier: 6, threat: 1.15, name: 'Humboldt Current', tag: 'Cold, green water rising from the deep, thick with anchovies', boss: 'squidpack', sun: 0.4,
+    pal: { bg: [14, 64, 72], edge: [2, 14, 20], caustic: [150, 235, 205], shaft: [175, 240, 215], plankton: [185, 245, 210], mote: [230, 255, 185], accent: [255, 120, 110] },
+    pop: { humboldt: 5, jellyfish: 3, octopus: 2, seaturtle: 2, seaurchin: 4, triggerfish: 1, reefshark: 1, sardine: 16, squid: 4, barracuda: 2 }, hazards: { current: 3 }, phage: 0, food: 1.05 },
 ];
 
 export const LEVELS_PER_HABITAT = 5;
-export const TOTAL_LEVELS = (HABITATS.length - 1) * LEVELS_PER_HABITAT; // 50
+export const TOTAL_LEVELS = (HABITATS.length - 1) * LEVELS_PER_HABITAT; // 60
 export const LAYOUT = 50; // saves from the 48-level journey are mapped onto this one
 
 // Balance knobs in one place (the automated playtester sweeps these).
@@ -219,9 +259,9 @@ export const TUNE = {
 };
 
 // ---------- the Open Ocean: endless expeditions once the journey is complete ----------
-// Levels past 50 are expeditions through the big-animal habitats, five at a time (the fifth is a boss
-// rematch that always teaches you a new trait). They keep getting harder, a little more gently than the journey.
-export const OCEAN_HABS = [7, 8, 9, 10];
+// Levels past the journey are expeditions through the habitats of your last body, five at a time (the fifth is a
+// boss rematch that always teaches you a new trait). They keep getting harder, a little more gently than the journey.
+export const OCEAN_HABS = [11, 12];
 export const isOcean = (c) => c > TOTAL_LEVELS;
 export const oceanIndex = (c) => c - TOTAL_LEVELS;
 
@@ -234,7 +274,7 @@ const scalePop = (out, src, k, ramp, threat) => {
   return out;
 };
 
-// Build the configuration for campaign level c (1..50, then the Open Ocean from 51).
+// Build the configuration for campaign level c (1..TOTAL_LEVELS, then the Open Ocean after it).
 export function levelConfig(c) {
   c = Math.max(1, c | 0);
   const ocean = isOcean(c), e = oceanIndex(c);

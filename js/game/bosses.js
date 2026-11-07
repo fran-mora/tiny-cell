@@ -2,7 +2,8 @@
 // a light-shy amoeba you lure into sunbeams, a virus you stop from infecting cells, a colony whose
 // daughters you eat, a rotifer you choke with spores, a comb jelly you flank, a worm you catch between
 // its chimneys, a cuttlefish you find among its ink decoys, a mantis shrimp you bait into missing,
-// an anglerfish you blind with a glowing shrimp, and a siphonophore colony you take apart polyp by polyp.
+// an anglerfish you blind with a glowing shrimp, a siphonophore colony you take apart polyp by polyp,
+// a grouper that chokes on an inflated pufferfish, and a squid pack whose flashing signals you scramble.
 //
 // A kit = { r(p) radius, chip (share of trait/aura damage that still lands), phaseAt [hp fractions],
 //           phaseText, hint [icon, text], spawn(g,b,k), tick(g,b,k,dt), eat?(g,b,k,e), under?, over?, screen?, die? }
@@ -1215,11 +1216,304 @@ BOSS_KIT.progenitor = {
   },
 };
 
+// ===================================================================================== Goliath Grouper
+// The giant grouper of wrecks and reefs ambushes its prey and inhales it whole: its huge mouth opens so fast
+// that it sucks in everything in front of it. But nothing can swallow a pufferfish that inflates in its mouth:
+// the grouper chokes, spits it out and is dazed for a while. Let it suck you in, inflate, then bite.
+const GULP_STATES = ['gape', 'suck', 'gulp', 'choke'];
+BOSS_KIT.grouper = {
+  r: (p) => 92 + p.r * 1.2,
+  chip: 0.06, phaseAt: [0.5], phaseText: ['Hungrier: it lunges before it gulps'],
+  hint: ['shield', 'It swallows prey whole! Let it suck you in, then Inflate inside its mouth so it chokes'],
+  spawn(g, b, k) {
+    k.wx = b.x; k.wy = b.y; k.wa = random() * TAU; // its wreck stays where it first appeared
+    k.state = 'lurk'; k.st = 0; k.gapeT = 3.2; k.bumpT = 0;
+    b.gapeK = 0; b.suckK = 0; b.chokeK = 0; b.stunK = 0;
+  },
+  tick(g, b, k, dt) {
+    const p = g.p, ps = g.pTop(), ph2 = b.phase >= 2;
+    const mx = b.x + cos(b.ang) * b.r * 0.95, my = b.y + sin(b.ang) * b.r * 0.95; // its mouth
+    const dx = p.x - b.x, dy = p.y - b.y, d = hypot(dx, dy) + 0.01;
+    const mdx = p.x - mx, mdy = p.y - my, md = hypot(mdx, mdy) + 0.01;
+    const reach = b.r * 4.2;
+    k.bumpT = max(0, k.bumpT - dt);
+    let tx = 0, ty = 0, sp = 0, sk = 1.4;
+    const spit = (hurt) => {
+      const a = b.ang + (random() - 0.5) * 0.7;
+      p.x = mx + cos(a) * (b.r * 0.3 + p.r); p.y = my + sin(a) * (b.r * 0.3 + p.r);
+      p.vx = cos(a) * 720; p.vy = sin(a) * 720; p.iframes = max(p.iframes, hurt ? p.iframes : 0.7);
+    };
+    switch (k.state) {
+      case 'lurk': {
+        b.ang = turn(b.ang, atan2(dy, dx), dt * 1.6);
+        const want = b.r * 2.6, kk = d > want + 60 ? 1 : d < want - 60 ? -0.5 : 0;
+        tx = dx / d * kk + -dy / d * 0.25; ty = dy / d * kk + dx / d * 0.25; sp = ps * 0.5;
+        k.gapeT -= dt;
+        if (k.gapeT <= 0 && d < reach + b.r && abs(ad(b.ang, atan2(dy, dx))) < 0.5 && !g.dead) {
+          if (ph2 && random() < 0.6) { k.state = 'lunge'; k.st = 0.45; g.sfx('dash', { vol: 0.4 }); }
+          else { k.state = 'gape'; k.st = ph2 ? 0.5 : 0.7; g.sfx('tick'); }
+        }
+        break;
+      }
+      case 'lunge': // a short rush to close the gap before it gulps
+        k.st -= dt; tx = cos(b.ang); ty = sin(b.ang); sp = ps * 1.6; sk = 5;
+        b.ang = turn(b.ang, atan2(dy, dx), dt * 1.5);
+        if (k.st <= 0) { k.state = 'gape'; k.st = 0.4; g.sfx('tick'); }
+        break;
+      case 'gape': // mouth opening and gill covers flaring: the suck is coming
+        k.st -= dt; b.vx *= exp(-dt * 4); b.vy *= exp(-dt * 4); b.tele = 1;
+        b.ang = turn(b.ang, atan2(dy, dx), dt * 2.2);
+        if (k.st <= 0) { k.state = 'suck'; k.st = ph2 ? 1.6 : 1.4; g.sfx('gulp', { pitch: 0.5 }); g.sfx('bubble'); g.shake = min(12, g.shake + 5); }
+        break;
+      case 'suck': {
+        k.st -= dt; b.vx *= exp(-dt * 4); b.vy *= exp(-dt * 4);
+        const inCone = (x, y) => { const ux = x - mx, uy = y - my, ud = hypot(ux, uy) + 0.01; return ud < reach && abs(ad(b.ang, atan2(uy, ux))) < 0.9 ? ud : 0; };
+        if (!g.dead && inCone(p.x, p.y)) {
+          const f = (1 - md / reach) * 1500 + 260;
+          p.vx -= mdx / md * f * dt; p.vy -= mdy / md * f * dt;
+          if (md < b.r * 0.35 + p.r * 0.6) {
+            k.state = 'gulp'; k.st = 1.15; g.sfx('gulp'); g.shake = 12; g.buzz([30, 30, 30]);
+            g.hint('boss_grouper2', 'Swallowed! Inflate now!', 'shield', 1800);
+          }
+        }
+        // small fish and food go in too
+        for (const e of g.ents) {
+          if (!e.alive || e.boss || e.ally) continue;
+          const ud = inCone(e.x, e.y); if (!ud) continue;
+          const kk = min(1, (420 + b.r) * dt / ud); e.x += (mx - e.x) * kk; e.y += (my - e.y) * kk; e.stun = max(e.stun || 0, 0.3);
+          if (ud < b.r * 0.4) { e.alive = false; if (e.latched) p.latched = max(0, p.latched - 1); }
+        }
+        for (const m of g.motes) { const ud = inCone(m.x, m.y); if (ud) { const kk = min(1, 700 * dt / ud); m.x += (mx - m.x) * kk; m.y += (my - m.y) * kk; } }
+        if (k.state === 'suck' && k.st <= 0) { k.state = 'snap'; k.st = 0.9; g.sfx('hit', { pitch: 0.6 }); } // missed
+        break;
+      }
+      case 'gulp': // you are in its mouth: inflate before it swallows
+        k.st -= dt; b.vx *= exp(-dt * 6); b.vy *= exp(-dt * 6);
+        p.x = mx; p.y = my; p.vx = 0; p.vy = 0;
+        if (p.puffK > 0.5) {
+          k.state = 'choke'; k.st = 0.7;
+          g.sfx('boss'); g.shake = 14; g.flash = 0.25; g.buzz([40, 30, 60]);
+          g.bossHit(0.06, mx, my, { raw: true, knock: false, text: 'Choking!', tc: '#ffd58a', c: [255, 230, 160] });
+          if (!b.alive) return;
+        } else if (p.dashT > 0) { spit(false); k.state = 'snap'; k.st = 0.9; } // burst out before it closes
+        else if (k.st <= 0) {
+          g.hurt(30, b, { why: 'Swallowed by the grouper', iframes: 1 });
+          spit(true); k.state = 'snap'; k.st = 1.0;
+          g.texts.push({ x: p.x, y: p.y - p.r * 1.5, s: 'Too big to swallow… just', life: 1.3, c: '#ffb0a0' });
+        }
+        break;
+      case 'choke': // it can't swallow a spiny ball: jammed open, then it spits you out
+        k.st -= dt; p.x = mx; p.y = my; p.vx = 0; p.vy = 0;
+        if (k.st <= 0) { spit(false); k.state = 'dazed'; k.st = ph2 ? 2.8 : 3.2; k.wb = 0; g.hint('boss_grouper3', 'It’s choking! Bite it now', 'target', 2400); }
+        break;
+      case 'dazed':
+        k.st -= dt; b.vx *= exp(-dt * 2); b.vy *= exp(-dt * 2); b.ang += sin(g.T * 2.2) * dt * 0.3;
+        if (k.st <= 0) { k.state = 'lurk'; k.gapeT = ph2 ? 2.0 : 2.6; }
+        break;
+      case 'snap': // the mouth slams shut; a moment to recover
+        k.st -= dt; b.vx *= exp(-dt * 3); b.vy *= exp(-dt * 3);
+        if (k.st <= 0) { k.state = 'lurk'; k.gapeT = ph2 ? 1.8 : 2.4; }
+        break;
+    }
+    if (k.state === 'lurk' || k.state === 'lunge') steer(b, tx, ty, sp, sk, dt);
+    const ap = (v, to, rate) => v + (to - v) * min(1, dt * rate);
+    b.gapeK = ap(b.gapeK, GULP_STATES.includes(k.state) ? (k.state === 'gape' ? 0.55 : 1) : 0, k.state === 'snap' ? 14 : 7);
+    b.suckK = ap(b.suckK, k.state === 'suck' ? 1 : 0, 8);
+    b.chokeK = ap(b.chokeK, k.state === 'choke' ? 1 : 0, 10);
+    b.stunK = ap(b.stunK, k.state === 'dazed' ? 1 : 0, 5);
+    if (g.dead || k.state === 'gulp' || k.state === 'choke') return;
+    // its body: bites land only while it is dazed
+    if (d < b.r * 0.9 + p.r * 0.8) {
+      if (k.state === 'dazed') { if (winBite(b, k, 3, 0.5)) g.bossHit(0.075, (p.x + b.x) / 2, (p.y + b.y) / 2); }
+      else {
+        const pen = b.r * 0.9 + p.r * 0.8 - d; p.x += dx / d * pen; p.y += dy / d * pen;
+        if (k.bumpT <= 0) { k.bumpT = 1.6; g.texts.push({ x: p.x, y: p.y - p.r * 1.5, s: 'Too big to bite!', life: 0.9, c: '#cfd8e8' }); }
+        if (g.hurt(12, b, { why: 'Goliath grouper', iframes: 0.6 })) { p.vx = dx / d * 380; p.vy = dy / d * 380; }
+      }
+    }
+  },
+  under(g, ctx, z, inView, sc) {
+    const b = g.boss, k = b.k, art = CREATURE_ART.grouper;
+    if (art && art.wreck && inView(k.wx, k.wy, b.r * 5)) drawPart(ctx, art.wreck, k.wx, k.wy, k.wa, b.r * 0.9, sc, g.T, art.col);
+  },
+  over(g, ctx, z) {
+    const b = g.boss, k = b.k, T = g.T;
+    if (k.state === 'gape' || k.state === 'suck') {
+      const mx = b.x + cos(b.ang) * b.r * 0.95, my = b.y + sin(b.ang) * b.r * 0.95, reach = b.r * 4.2;
+      ctx.beginPath(); ctx.moveTo(mx, my); ctx.arc(mx, my, reach, b.ang - 0.9, b.ang + 0.9); ctx.closePath();
+      ctx.fillStyle = k.state === 'gape' ? `rgba(255,120,110,${0.1 + 0.08 * sin(T * 24)})` : 'rgba(200,240,255,0.08)'; ctx.fill();
+      ctx.strokeStyle = k.state === 'gape' ? 'rgba(255,150,130,0.55)' : 'rgba(210,245,255,0.35)'; ctx.lineWidth = 2 / z; ctx.stroke();
+    }
+    if (k.state === 'gulp') {
+      const p = g.p;
+      ctx.font = `800 ${Math.round(22 / z)}px system-ui, sans-serif`; ctx.textAlign = 'center';
+      ctx.fillStyle = `rgba(255,225,150,${0.75 + 0.25 * sin(T * 20)})`; ctx.fillText('INFLATE!', p.x, p.y - p.r * 2.2);
+    }
+    if (k.state === 'dazed') glow(ctx, b.x, b.y, b.r * 1.3, [150, 255, 200], 0.22 + 0.12 * sin(T * 9));
+  },
+};
+
+// ===================================================================================== Humboldt Squid Pack
+// Jumbo squid hunt in packs in the cold Pacific, talking in waves of red and white flickering across their
+// skin. The pack circles you, flushes red all together, then attacks at once. After every attack the squid
+// are spent for a moment: bite them then. Inflate and the grabbers get a mouthful of spines; a Photophore
+// Flash scrambles their signals and they turn on each other, as these cannibal squid really do.
+const PACK = 5, SQ_HITS = 6;
+const sqSteer = (q, tx, ty, sp, k, dt) => { const a = 1 - exp(-dt * k); q.vx += (tx * sp - q.vx) * a; q.vy += (ty * sp - q.vy) * a; };
+BOSS_KIT.squidpack = {
+  r: (p) => 40 + p.r * 0.8,
+  fixed: true, chip: 0.08, phaseAt: [0.5], phaseText: ['They attack in waves'],
+  hint: ['bolt', 'When the pack flushes red, they all attack at once. Inflate or Flash, then bite the tired squid'],
+  spawn(g, b, k) {
+    const p = g.p;
+    k.sq = [b];
+    for (let i = 1; i < PACK; i++) {
+      const a = atan2(b.y - p.y, b.x - p.x) + (i - 2) * 0.5, R = hypot(b.x - p.x, b.y - p.y);
+      k.sq.push({ kind: 'humboldt', x: p.x + cos(a) * R, y: p.y + sin(a) * R, vx: 0, vy: 0, ang: a + PI, r: b.r * (0.86 + random() * 0.18), seed: random() * 10, t: random() * 5, alive: true });
+    }
+    k.total = PACK * SQ_HITS;
+    for (const q of k.sq) Object.assign(q, { hits: SQ_HITS, st: 'circle', stT: 0, orb: atan2(q.y - p.y, q.x - p.x), flashK: 0.5, redK: 0, grabK: 0, inkK: 0, biteCd: 0, wb: 0, hit: false, flash: 0 });
+    k.mode = 'circle'; k.signalT = 4.5; k.wave = 0; k.bumpT = 0;
+  },
+  tick(g, b, k, dt) {
+    const p = g.p, ps = g.pTop(), ph2 = b.phase >= 2, T = g.T;
+    k.bumpT = max(0, k.bumpT - dt);
+    const live = k.sq.filter((q) => q.alive !== false);
+    // the pack's signal: everyone circling flushes red, then they all attack (in two waves once desperate)
+    k.signalT -= dt;
+    if (k.signalT <= 0 && !g.dead) {
+      const ready = live.filter((q) => q.st === 'circle');
+      const wave = ph2 ? ready.filter((q, i) => (i + k.wave) % 2 === 0) : ready;
+      for (const q of wave) { q.st = 'signal'; q.stT = ph2 ? 0.7 : 0.9; }
+      if (wave.length) { g.sfx('tick'); g.sfx('boss', { vol: 0.25 }); }
+      k.wave++; k.signalT = ph2 ? 2.3 : 3.8;
+    }
+    for (const q of live) {
+      q.t = (q.t || 0) + dt; q.biteCd = max(0, q.biteCd - dt); q.flash = max(0, (q.flash || 0) - dt * 4);
+      const dx = p.x - q.x, dy = p.y - q.y, d = hypot(dx, dy) + 0.01;
+      let tx = 0, ty = 0, sp = 0, sk = 2.2, red = 0, fl = 0.55 + 0.25 * sin(T * 3 + q.seed);
+      switch (q.st) {
+        case 'circle': { // orbit you, flickering to each other
+          q.orb += dt * (0.55 + 0.1 * sin(q.seed)) * (q.seed > 5 ? 1 : -1);
+          const R = 250 + q.r * 2.2 + 30 * sin(T * 0.7 + q.seed);
+          const gx = p.x + cos(q.orb) * R - q.x, gy = p.y + sin(q.orb) * R - q.y, gd = hypot(gx, gy) + 0.01;
+          tx = gx / gd; ty = gy / gd; sp = min(ps * 1.25, gd * 3);
+          q.ang = turn(q.ang, atan2(dy, dx), dt * 3);
+          break;
+        }
+        case 'signal': // flushed red: the attack is coming
+          q.stT -= dt; red = 1; fl = 0; q.vx *= exp(-dt * 3); q.vy *= exp(-dt * 3);
+          q.ang = turn(q.ang, atan2(dy, dx), dt * 5);
+          if (q.stT <= 0) { q.st = 'attack'; q.stT = 0.6; q.hit = false; q.aa = atan2(dy + p.vy * 0.25, dx + p.vx * 0.25); g.sfx('dash', { vol: 0.3 }); }
+          break;
+        case 'attack': { // a jet straight at you, tentacles out
+          q.stT -= dt; red = 1; fl = 0; tx = cos(q.aa); ty = sin(q.aa); sp = ps * 2.5; sk = 7; q.ang = turn(q.ang, q.aa, dt * 6);
+          q.grabK = min(1, q.grabK + dt * 6);
+          if (!q.hit && !g.dead && d < q.r * 1.7 + p.r) {
+            q.hit = true;
+            if (p.puffK > 0.5) { // a mouthful of spines
+              q.st = 'tired'; q.stT = 1.6; q.wb = 0; q.flash = 1;
+              this.hitSquid(g, b, k, q, 0.35, 'Spiked!');
+              continue;
+            }
+            if (g.hurt(20, q, { why: 'Humboldt squid', iframes: 0.45 })) { p.vx += cos(q.aa) * 260; p.vy += sin(q.aa) * 260; }
+          }
+          if (q.stT <= 0) { q.st = 'tired'; q.stT = ph2 ? 0.85 : 1.0; q.wb = 0; }
+          break;
+        }
+        case 'tired': // spent after the attack: pale and slow. Bite now
+          q.stT -= dt; fl = 0; q.vx *= exp(-dt * 2.2); q.vy *= exp(-dt * 2.2);
+          if (q.stT <= 0) { q.st = 'circle'; q.orb = atan2(q.y - p.y, q.x - p.x); }
+          break;
+        case 'confused': { // signals scrambled: they flicker madly, blunder about and bite each other
+          q.stT -= dt; fl = 0.6 + 0.4 * sin(T * 31 + q.seed * 7);
+          q.wa = (q.wa ?? random() * TAU) + (random() - 0.5) * dt * 4; tx = cos(q.wa); ty = sin(q.wa); sp = ps * 0.45;
+          q.ang = turn(q.ang, atan2(q.vy, q.vx), dt * 3);
+          if (q.stT <= 0) { q.st = 'circle'; q.orb = atan2(q.y - p.y, q.x - p.x); }
+          break;
+        }
+      }
+      if (q.st !== 'tired' && q.st !== 'signal') sqSteer(q, tx, ty, sp, sk, dt);
+      if (q.st !== 'attack') q.grabK = max(0, q.grabK - dt * 3);
+      q.redK += (red - q.redK) * min(1, dt * 6); q.flashK += (fl - q.flashK) * min(1, dt * 6);
+      q.inkK = max(0, q.inkK - dt * 0.8);
+      q.x += q.vx * dt; q.y += q.vy * dt;
+      if (!Number.isFinite(q.x) || hypot(q.x - p.x, q.y - p.y) > 2000) { const a = random() * TAU; q.x = p.x + cos(a) * 600; q.y = p.y + sin(a) * 600; q.vx = q.vy = 0; }
+      if (g.dead || !b.alive) continue;
+      // your bite
+      if (d < q.r * 0.95 + p.r * 0.8) {
+        if (q.st === 'tired' || q.st === 'confused') {
+          if (q.biteCd <= 0 && q.wb < 1) { q.biteCd = 0.5; q.wb++; this.hitSquid(g, b, k, q, g.biteK(), null); }
+        } else if (q.st === 'circle' && k.bumpT <= 0) {
+          k.bumpT = 1.2; g.texts.push({ x: p.x, y: p.y - p.r * 1.5, s: 'Too quick!', life: 0.8, c: '#cfd8e8' });
+          if (g.hurt(12, q, { why: 'Humboldt squid', iframes: 0.5 })) { p.vx = dx / d * 320; p.vy = dy / d * 320; }
+        }
+      }
+    }
+    if (!b.alive) return;
+    // scrambled squid bite each other
+    for (let i = 0; i < live.length; i++) for (let j = i + 1; j < live.length; j++) {
+      const a = live[i], c = live[j];
+      if (a.st !== 'confused' && c.st !== 'confused') continue;
+      if (hypot(a.x - c.x, a.y - c.y) > (a.r + c.r) * 0.9 || (a.cannT || 0) > T) continue;
+      a.cannT = c.cannT = T + 0.9;
+      const v = a.st === 'confused' ? c : a; v.flash = 1;
+      g.texts.push({ x: v.x, y: v.y - v.r, s: 'Cannibal!', life: 1, c: '#ffb3a8' });
+      this.hitSquid(g, b, k, v, 0.5, null, true);
+      if (!b.alive) return;
+    }
+    // keep the boss entity's fields in step for its art
+    if (b.st === 'tired' || b.st === 'confused') b.tele = 0;
+  },
+  // one squid takes a bite: the boss bar drops by its share, and a squid that has had enough flees in ink
+  hitSquid(g, b, k, q, n, text, raw) {
+    const frac = n / k.total;
+    const ox = q.x, oy = q.y;
+    g.bossHit(frac, q.x, q.y, { raw: true, knock: !raw, text, tc: '#ffd0c0', c: [255, 190, 170] });
+    q.hits -= n; q.flash = 1;
+    if (!b.alive) return;
+    if (q.hits <= 0.01) {
+      (g.inks = g.inks || []).push({ x: ox, y: oy, r: q.r * 1.4, grow: q.r * 3, life: 2.5, max: 2.5, seed: random() * 10 });
+      g.sfx('bubble'); g.texts.push({ x: ox, y: oy - q.r, s: 'Fled!', life: 1, c: '#e8d8ff' });
+      if (q === b) { // the boss entity takes over the nearest squid still fighting
+        const rest = k.sq.filter((o) => o !== b && o.alive !== false);
+        if (!rest.length) return;
+        const o = rest.reduce((a, c) => (hypot(c.x - ox, c.y - oy) < hypot(a.x - ox, a.y - oy) ? c : a));
+        for (const key of ['x', 'y', 'vx', 'vy', 'ang', 'r', 'seed', 't', 'hits', 'st', 'stT', 'orb', 'flashK', 'redK', 'grabK', 'inkK', 'biteCd', 'wb', 'hit', 'aa', 'wa']) b[key] = o[key];
+        o.alive = false;
+      } else q.alive = false;
+      k.sq = k.sq.filter((o) => o.alive !== false);
+    }
+  },
+  // a photophore flash scrambles the signals of every squid it reaches
+  flashAny(g, b, k, R) {
+    const p = g.p; let n = 0;
+    for (const q of k.sq) {
+      if (q.alive === false || hypot(q.x - p.x, q.y - p.y) > R + q.r) continue;
+      q.st = 'confused'; q.stT = 3 + 0.4 * (p.muts.photo | 0); q.redK = 0; q.wb = 0; n++;
+    }
+    if (n) { g.texts.push({ x: p.x, y: p.y - p.r * 2, s: 'Signals scrambled!', life: 1.4, c: '#bfe6ff' }); g.hint('boss_squid2', 'Scrambled! They bite each other. Bite them too', 'target', 2600); }
+  },
+  over(g, ctx, z, inView, sc) {
+    const b = g.boss, k = b.k, T = g.T;
+    for (const q of k.sq) {
+      if (q === b || q.alive === false || !inView(q.x, q.y, q.r * 4)) continue;
+      drawFake(ctx, q, T, sc);
+    }
+    for (const q of k.sq) {
+      if (q.alive === false || !inView(q.x, q.y, q.r * 3)) continue;
+      if (q.st === 'signal') glow(ctx, q.x, q.y, q.r * 2.2, [255, 70, 60], 0.3 + 0.2 * sin(T * 26));
+      else if (q.st === 'tired') glow(ctx, q.x, q.y, q.r * 1.6, [150, 255, 200], 0.2 + 0.1 * sin(T * 9));
+      else if (q.st === 'confused') glow(ctx, q.x, q.y, q.r * 1.5, [190, 225, 255], 0.18 + 0.12 * sin(T * 17 + q.seed));
+    }
+  },
+};
+
 // ===================================================================================== engine glue (mixin)
 export const Bosses = {
   pTop() { return D.baseSpeed(this.p.r) * this.speedMult; },
   // how hard your bites land on a boss: jaws, eyes, enzymes and a dash all help
-  biteK() { const p = this.p; return (1 + 0.1 * (p.muts.lysosome | 0)) * Math.pow(this.biteMult || 1, 0.35) * (p.dashT > 0 ? 1.25 : 1); },
+  biteK() { const p = this.p; return (1 + 0.1 * (p.muts.lysosome | 0)) * (1 + 0.12 * (p.muts.beak | 0)) * Math.pow(this.biteMult || 1, 0.35) * (p.dashT > 0 ? 1.25 : 1); },
   kitSpawn(b) {
     const K = b.kit, p = this.p;
     b.k = {}; b.ax = p.x; b.ay = p.y; b.biteCd = 0; b.phase = 1; b.tele = 0;

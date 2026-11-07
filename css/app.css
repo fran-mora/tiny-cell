@@ -70,3 +70,18 @@
 .jr-dots i.boss.on { background: #ff8a6a; box-shadow: 0 0 8px #ff8a6a; }
 .jr-dots i.boss.cur { background: transparent; box-shadow: 0 0 0 2px #ff8a6a; }
 .hub-tile span { font-size: 12px; }
+
+/* powers you take into a level (shown once you own more than four) */
+.hub-powers { appearance: none; display: flex; align-items: center; gap: 10px; justify-content: center; border: 1px solid var(--line); background: var(--panel); color: var(--text); border-radius: 16px; padding: 7px 12px; cursor: pointer; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-weight: 750; font-size: 13px; }
+.hub-powers:active { transform: scale(.97); }
+.hub-powers .hp-k { color: var(--text-dim); }
+.hub-powers .hp-row { display: flex; gap: 4px; }
+.hub-powers .hp-ic { width: 34px; height: 34px; border-radius: 50%; background: rgba(255,255,255,.06); display: grid; place-items: center; overflow: hidden; }
+.hub-powers .hp-ic canvas { width: 100% !important; height: 100% !important; }
+.hub-powers .hp-ch { color: var(--dna); text-decoration: underline; text-underline-offset: 3px; }
+.lo-card { appearance: none; width: 100%; text-align: left; color: var(--text); cursor: pointer; border: 1px solid var(--line); }
+.lo-card.on { border-color: var(--dna); box-shadow: 0 0 0 1px var(--dna) inset; }
+.lo-card:not(.on) .thumb { filter: grayscale(.7) brightness(.7); }
+.lo-card .lo-check { width: 26px; height: 26px; flex: none; border-radius: 50%; border: 2px solid var(--line); display: grid; place-items: center; font-weight: 900; color: #04121a; }
+.lo-card.on .lo-check { background: var(--dna); border-color: var(--dna); }
+.lo-card .lo-tag { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--o2); }

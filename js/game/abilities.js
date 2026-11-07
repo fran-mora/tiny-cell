@@ -1,5 +1,6 @@
 // Abilities you trigger with a button. The cell has two (Enzyme Burst, Toxin Nova); the fish bodies add
-// three that real fish use: a photophore flash that blinds, a shoal of decoys, and suction feeding.
+// what real fish use: a photophore flash that blinds, a shoal of decoys, suction feeding, and the
+// pufferfish's trick of inflating into a spiny ball.
 import { SP } from './ecology.js';
 import { glowSprite } from './art.js';
 
@@ -14,6 +15,7 @@ export const ABILITIES = [
   { id: 'photo', cdKey: 'photoCd', cd: (l) => 14 - 2 * (l - 1), col: '#9fdcff', key: 'q', use: 'usePhoto' },
   { id: 'shoal', cdKey: 'shoalCd', cd: (l) => 18 - 2 * (l - 1), col: '#ffd79a', key: 'r', use: 'useShoal' },
   { id: 'suction', cdKey: 'suckCd', cd: (l) => 10 - 1.5 * (l - 1), col: '#a8ffd8', key: 'f', use: 'useSuction' },
+  { id: 'puff', cdKey: 'puffCd', cd: (l) => 13 - 1.5 * (l - 1), col: '#ffd58a', key: 'g', use: 'usePuff' },
 ];
 export const ABILITY_BY_ID = Object.fromEntries(ABILITIES.map((a) => [a.id, a]));
 
@@ -42,7 +44,8 @@ export const Abilities = {
     }
     p.latched = max(0, p.latched);
     const b = this.boss;
-    if (b && b.alive && b.kit && b.kit.flash && hypot(b.x - p.x, b.y - p.y) < R + b.r) b.kit.flash(this, b, b.k);
+    if (b && b.alive && b.kit && b.kit.flashAny) b.kit.flashAny(this, b, b.k, R); // a pack checks each member itself
+    else if (b && b.alive && b.kit && b.kit.flash && hypot(b.x - p.x, b.y - p.y) < R + b.r) b.kit.flash(this, b, b.k);
     this.sfx('event'); this.sfx('boss', { vol: 0.2 }); this.buzz([15, 20, 15]);
     this.abFlash('photo');
     once(this, 'photo', 'Flash! Nearby animals are dazzled and lose track of you', 'eye');
@@ -78,6 +81,26 @@ export const Abilities = {
     once(this, 'suction', 'Gulp! Everything small in front of you gets sucked in', 'fish');
   },
 
+  // Inflate: a pufferfish gulps water and swells into a spiny ball. Nothing can swallow, grab or latch onto it,
+  // biters are spiked, other damage is halved; but it can barely swim and can't eat until it deflates.
+  usePuff() {
+    const p = this.p, lv = p.muts.puff | 0;
+    if (!lv || p.puffCd > 0 || this.dead || this.modal) return;
+    p.puffCd = ABILITY_BY_ID.puff.cd(lv); p.puffT = 2.5 + 0.5 * lv;
+    // whatever was holding on is pushed off as you swell
+    for (const e of this.ents) {
+      if (!e.alive || e.ally || e.boss) continue;
+      if (e.latched) { e.latched = false; const a = atan2(e.y - p.y, e.x - p.x); e.vx = cos(a) * 300; e.vy = sin(a) * 300; e.stun = max(e.stun || 0, 0.6); }
+    }
+    p.latched = 0;
+    const b = this.boss;
+    if (b && b.alive && b.kit && b.kit.puff) b.kit.puff(this, b, b.k);
+    this.sparkle(p.x, p.y, [255, 235, 170], 10);
+    this.sfx('gulp'); this.sfx('bubble', { vol: 0.8 }); this.buzz([10, 30, 20]);
+    this.abFlash('puff');
+    once(this, 'puff', 'Puffed up! Biters get spiked and nothing can swallow you, but you can\u2019t eat', 'shield');
+  },
+
   // a predator prefers a nearby decoy fish to you
   lureFor(e, pd) {
     let best = null, bd = 520;
@@ -87,6 +110,12 @@ export const Abilities = {
 
   updateActives(dt) {
     const p = this.p;
+    // inflation: swell fast, deflate a little slower; your collision size follows the balloon
+    if (p.puffT > 0) p.puffT -= dt;
+    const want = p.puffT > 0 ? 1 : 0, wasK = p.puffK || 0;
+    p.puffK = wasK + (want - wasK) * (1 - exp(-dt * (want ? 9 : 5)));
+    if (p.puffK < 0.002 && !want) p.puffK = 0;
+    if (p.r0) p.r = p.r0 * (1 + 0.55 * p.puffK);
     // decoy school: swirls around you, then scatters away when its time is up
     let decoys = null;
     for (const e of this.ents) {

@@ -38,6 +38,8 @@ export const MICROBE_SPECIES = [
   { id: 'mantis', name: 'Peacock Mantis Shrimp', firstEra: 1, role: 'boss', desc: 'Its club strikes as fast as a bullet, boiling the water with the shock. How to beat it: make its punch miss, then bite while it re-cocks its clubs.' },
   { id: 'abyssal', name: 'Abyssal Anglerfish', firstEra: 1, role: 'boss', desc: 'Queen of the dark: a glowing lure, a huge mouth and needle teeth. How to beat it: eat a glowing seed shrimp in front of her eyes to blind her, then bite.' },
   { id: 'progenitor', name: 'The Progenitor', firstEra: 1, role: 'boss', desc: 'A siphonophore colony forty metres long: thousands of specialised animals acting as one. How to beat it: destroy the feeding polyps, then the swimming bells, then the core.' },
+  { id: 'grouper', name: 'Goliath Grouper', firstEra: 1, role: 'boss', desc: 'A 2.5-metre grouper that lurks in wrecks and inhales its prey whole, sometimes small sharks. How to beat it: let it suck you in, then Inflate inside its mouth. It chokes, spits you out and is dazed: bite it then.' },
+  { id: 'squidpack', name: 'Humboldt Squid Pack', firstEra: 1, role: 'boss', desc: 'Jumbo squid that hunt in packs, talking in flickers of red and white. How to beat it: when they flush red they all attack at once. Inflate to spike them or Flash to scramble their signals, then bite the tired squid.' },
 ];
 export const SPECIES_BY_ID = Object.fromEntries(MICROBE_SPECIES.map((s) => [s.id, s]));
 

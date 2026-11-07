@@ -4,7 +4,10 @@ import { MICROBE_SPECIES as SPECIES, MUTATIONS as MUTS, GENOME_UPGRADES as GENOM
 import { portrait as drawPortrait } from './art.js';
 import { startGame } from './game.js';
 import * as C from './campaign.js';
-export { STAGES, HABITATS, BOSSES, levelConfig, TOTAL_LEVELS, LEVELS_PER_HABITAT, EVOLVE_AFTER, stageForCleared, evoNeed, TRAIT_FROM, OCEAN_HABS, STAGE_POWER, FINAL_POWER, POWER_NAMES, powersFor, traitForm } from './campaign.js';
+import { ABILITIES } from './abilities.js';
+// active powers in button order
+export const ABILITY_IDS = ABILITIES.map((a) => a.id);
+export { STAGES, HABITATS, BOSSES, levelConfig, TOTAL_LEVELS, LEVELS_PER_HABITAT, EVOLVE_AFTER, stageForCleared, evoNeed, TRAIT_FROM, OCEAN_HABS, STAGE_POWER, FINAL_POWER, SHOAL_STAGE, POWER_NAMES, powersFor, traitForm, loadoutFor, LOADOUT_SIZE, newestPower } from './campaign.js';
 
 // Codex entries for every enemy / prey / boss: { id, name, desc, firstEra }
 export const MICROBE_SPECIES = SPECIES.map(({ id, name, desc, firstEra }) => ({ id, name, desc, firstEra }));

@@ -6,7 +6,7 @@ import * as D from './data.js';
 import * as C from './campaign.js';
 import { drawSpecies, drawPlayer, drawPilotFish, drawKin, glowSprite, makeCausticTile, makeShaft, portrait, mixRGB, rgbStr, WHITE, CREATURE_ART, BOSS_ART } from './art.js';
 // boss portraits for the codex and journey: which body each boss is drawn with
-Object.assign(BOSS_ART, { giantamoeba: { base: 'colossus', col: null }, virus: { base: 'queen', col: null }, abyssal: { base: 'angler', col: null }, progenitor: { base: 'siphboss', col: null } });
+Object.assign(BOSS_ART, { giantamoeba: { base: 'colossus', col: null }, virus: { base: 'queen', col: null }, abyssal: { base: 'angler', col: null }, progenitor: { base: 'siphboss', col: null }, grouper: { base: 'grouper', col: null }, squidpack: { base: 'humboldt', col: null } });
 import { injectStyle, releaseStyle } from './style.js';
 import { Cinematics } from './cinematics.js';
 import { Threats, THREAT_INFO } from './threats.js';
@@ -28,6 +28,8 @@ const LOOK = {
 const HOSTILE = Object.fromEntries(Object.keys(SP).filter((k) => SP[k].hostile && k !== 'mine').map((k) => [k, 1]));
 const isLatcher = (e) => !!(SP[e.kind] && SP[e.kind].latch);
 const isTiny = (e) => e.kind === 'phage' || e.kind === 'chytrid'; // viruses and spores: shredded on contact
+const PUFF_GROW = 0.55; // an inflated pufferfish is this much wider (art and collisions agree)
+const shelled = (e) => e.kind === 'diatom' || !!(SP[e.kind] && SP[e.kind].shell); // diatoms, sea urchins
 const KIND_XP = Object.fromEntries(Object.entries(SP).map(([k, v]) => [k, v.xp]));
 const TURNED = new Set(); // old predators you have met as prey this session
 const angDiff = (a, b) => { const d = b - a; if (!Number.isFinite(d)) return 0; return ((d + PI) % TAU + TAU) % TAU - PI; };
@@ -91,7 +93,7 @@ class MicrobeGame {
     this.p = {
       x: 0, y: 0, vx: 0, vy: 0, r: D.playerRadius(1), ang: -PI / 2, seed: 0.42,
       level: 1, xp: 0, hp: 100, maxHp: 100, muts: {}, iframes: 0, flashT: 0, dent: 0, dentA: 0, stretch: 0,
-      cyst: 0, cystUsed: false, dashT: 0, dashCd: 0, novaCd: 0, photoCd: 0, shoalCd: 0, suckCd: 0, suckT: 0, toxinT: 3, latched: 0, wiggle: 0, lastVA: 0, speedN: 0, wob: 0,
+      cyst: 0, cystUsed: false, dashT: 0, dashCd: 0, novaCd: 0, photoCd: 0, shoalCd: 0, suckCd: 0, suckT: 0, puffCd: 0, puffT: 0, puffK: 0, toxinT: 3, latched: 0, wiggle: 0, lastVA: 0, speedN: 0, wob: 0,
     };
     this.gained = [];
     if (this.camp) {
@@ -156,7 +158,7 @@ class MicrobeGame {
     const m = this.p.muts;
     return this.camp ? min(C.TUNE.engulfCap, 0.85 + 0.04 * (m.pseudopod | 0) + 0.02 * (m.jaws | 0)) : 0.85 + 0.07 * (m.pseudopod | 0) + 0.06 * (m.jaws | 0);
   }
-  canEat(e) { return !e.boss && !e.ally && e.kind !== 'colossus' && e.kind !== 'queen' && e.kind !== 'siphonophore' && !(SP[e.kind] && SP[e.kind].inedible) && !(e.kind === 'diatom' && e.armor > 0) && e.r < this.p.r * this.engulf; }
+  canEat(e) { return !e.boss && !e.ally && e.kind !== 'colossus' && e.kind !== 'queen' && e.kind !== 'siphonophore' && !(SP[e.kind] && SP[e.kind].inedible) && !(e.armor > 0 && shelled(e)) && e.r < this.p.r * this.engulf; }
 
   recalc() {
     const p = this.p, m = p.muts, g = this.genome;
@@ -165,11 +167,11 @@ class MicrobeGame {
     p.maxHp = Math.round(100 * stageHp * (1 + 0.15 * (g.hp | 0)) + 25 * (m.membrane | 0) + 40 * (m.shell | 0) + (this.boonHp | 0));
     if (p.maxHp > oldMax) p.hp += p.maxHp - oldMax;
     p.hp = min(p.hp, p.maxHp);
-    p.r = D.playerRadius(p.level);
+    p.r0 = D.playerRadius(p.level); p.r = p.r0 * (1 + PUFF_GROW * (p.puffK || 0)); // r0: your size; r: grows while inflated
     let sm = (1 + 0.06 * (g.motor | 0)) * (1 + 0.12 * (m.flagellum | 0)) * (1 + 0.1 * (m.muscle | 0)) * (1 + 0.12 * (m.fins | 0));
     if (this.camp && sm > C.TUNE.speedSoft) sm = C.TUNE.speedSoft + (sm - C.TUNE.speedSoft) * C.TUNE.speedK; // stacked speed has diminishing returns
     this.speedMult = sm * Math.min(1.5, this.boonMult || 1);
-    this.accel = 5.5 * (1 + 0.25 * (m.cilia | 0)) * (1 + 0.2 * (m.muscle | 0)) * (1 + 0.12 * (m.fins | 0));
+    this.accel = 5.5 * (1 + 0.25 * (m.cilia | 0)) * (1 + 0.2 * (m.muscle | 0)) * (1 + 0.12 * (m.fins | 0)) * (1 + 0.2 * (m.hover | 0));
     this.reach = (1 + 0.15 * (m.cilia | 0)) * (1 + 0.1 * (m.nerve | 0));
     let mg = (1 + 0.4 * (m.biolum | 0)) * (1 + 0.2 * (g.sensory | 0)) * (1 + 0.25 * (m.signal | 0)) * (1 + 0.3 * (m.eyes | 0)) * (1 + 0.3 * (m.tentacles | 0)) * this.reach;
     if (this.camp && mg > 2.2) mg = 2.2 + Math.log(mg / 2.2) * 0.55; // stacked lures have diminishing returns (x34 becomes about x3.7)
@@ -243,10 +245,11 @@ class MicrobeGame {
     if (this.destroyed) return;
     const k = e.key.toLowerCase();
     if (down && (k === 'p' || k === 'escape')) { e.preventDefault(); if (this.modal === 'pause') this.resume(); else if (!this.modal) this.pause(true); return; }
-    if (down && k === ' ') { e.preventDefault(); if (!this.modal) { const A = ABILITIES.find((a) => this.p.muts[a.id]); if (A) this[A.use](); } return; }
-    if (down && k === 'shift') { if (!this.modal && this.p.muts.nova) this.useNova(); return; }
+    // only the powers you brought into this level have keys (Space = your first button)
+    if (down && k === ' ') { e.preventDefault(); if (!this.modal) { const id = Object.keys(this.abBtns)[0]; if (id) this[ABILITY_BY_ID[id].use](); } return; }
+    if (down && k === 'shift') { if (!this.modal && this.abBtns.nova) this.useNova(); return; }
     const A = down && ABILITIES.find((a) => a.key === k && a.key !== ' ');
-    if (A) { if (!this.modal && this.p.muts[A.id]) this[A.use](); return; }
+    if (A) { if (!this.modal && this.abBtns[A.id]) this[A.use](); return; }
     if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) { e.preventDefault(); this.keys[k] = down; }
   }
   onDown(e) {
@@ -374,6 +377,7 @@ class MicrobeGame {
     e.hp = e.maxHp = (6 + r * r * 0.08 * (1 + 0.25 * (dp - 1))) * (this.L ? this.L.hpMult * this.stageThreat(C.TUNE.stageHp) : 1);
     if (this.L) e.spd *= this.L.spdMult;
     if (kind === 'diatom') { e.armor = e.armorMax = 2 + (dp >= 3 ? 1 : 0); }
+    else if (SP[kind] && SP[kind].shell) e.armor = e.armorMax = SP[kind].shell;
     if (kind === 'siphonophore') { e.segs = []; for (let i = 0; i < 4; i++) e.segs.push({ x: x - i * r * 1.8, y }); e.hp = e.maxHp = 40 + 25 * dp; }
     if (kind === 'phage' || kind === 'chytrid') { e.hp = e.maxHp = 3; }
     if (S.ai === 'anchored' || S.ai === 'den') { e.home = { x, y }; e.homeAng = R.float(0, TAU); }
@@ -509,7 +513,7 @@ class MicrobeGame {
     const p = this.p, m = p.muts;
     p.iframes = max(0, p.iframes - dt); p.flashT = max(0, p.flashT - dt); p.cyst = max(0, p.cyst - dt);
     p.dashCd = max(0, p.dashCd - dt); p.novaCd = max(0, p.novaCd - dt);
-    p.photoCd = max(0, p.photoCd - dt); p.shoalCd = max(0, p.shoalCd - dt); p.suckCd = max(0, p.suckCd - dt);
+    p.photoCd = max(0, p.photoCd - dt); p.shoalCd = max(0, p.shoalCd - dt); p.suckCd = max(0, p.suckCd - dt); p.puffCd = max(0, p.puffCd - dt);
     p.dent *= exp(-dt * 6);
     if (this.dead) { p.vx *= 0.9; p.vy *= 0.9; return; }
     if (this.cineLock()) { this.cineMove(dt); return; }
@@ -517,7 +521,7 @@ class MicrobeGame {
     if (mag > 0) this.hints.moved += dt;
     const latchSlow = 1 - min(0.45, p.latched * 0.07);
     const mucus = p.inMucus || p.inTrap ? min(0.85, 0.42 + 0.12 * (p.muts.osmo | 0)) : 1; // sticky slime and spines slow you right down
-    const top = D.baseSpeed(p.r) * this.speedMult * latchSlow * mucus;
+    const top = D.baseSpeed(p.r0 || p.r) * this.speedMult * latchSlow * mucus * (1 - 0.55 * (p.puffK || 0)); // a puffed-up pufferfish can barely swim
     if (p.dashT > 0) {
       p.dashT -= dt;
     } else if (mag > 0) {
@@ -525,7 +529,7 @@ class MicrobeGame {
       const a = 1 - exp(-dt * this.accel);
       p.vx += (tx - p.vx) * a; p.vy += (ty - p.vy) * a;
     } else {
-      const d = exp(-dt * 1.6); p.vx *= d; p.vy *= d;
+      const d = exp(-dt * (1.6 + 1.4 * (m.hover | 0))); p.vx *= d; p.vy *= d; // hover fins stop you dead
     }
     // currents
     for (const h of this.hazards) if (h.type === 'current') {
@@ -551,6 +555,15 @@ class MicrobeGame {
     if (p.latched > 0 && p.wiggle > 5) { p.wiggle -= 2.5; this.detachPhages(1); }
     this.updateAbilitiesUI();
   }
+  // Tetrodotoxin: whatever bit you is poisoned, stunned and backs off
+  poisonBiter(e) {
+    const lv = this.p.muts.tetrodo | 0;
+    this.damage(e, e.maxHp * (0.1 + 0.08 * lv) / this.stageHit(), this.p, true);
+    e.stun = max(e.stun || 0, 0.7 + 0.2 * lv); e.scared = 2.5;
+    const a = atan2(e.y - this.p.y, e.x - this.p.x); e.vx += cos(a) * 260; e.vy += sin(a) * 260;
+    this.sparkle(e.x, e.y, [210, 255, 120], 6);
+    if (!this.hints.shown.tetrodo) this.hint('tetrodo', 'Your poison bit back! Biters are poisoned and back off', 'shield', 3000);
+  }
   stageThreat(k) { return 1 + k * max(0, (this.p.stage | 0 || 1) - 2); }
   heal(n) { const p = this.p; if (p.hp < p.maxHp) p.hp = min(p.maxHp, p.hp + n); }
   hurt(n, src = null, opts = {}) {
@@ -559,7 +572,9 @@ class MicrobeGame {
     if (!opts.dot && (p.iframes > 0 || p.cyst > 0)) return false;
     if (opts.dot && p.cyst > 0) return false;
     n *= (this.L ? (opts.env ? this.L.envMult : this.L.dmgMult * this.stageThreat(C.TUNE.stageDmg)) : 1) * (1 - (this.armor || 0));
+    if (p.puffK > 0.5) n *= 0.5; // puffed up: spines and a body full of water
     p.hp -= n;
+    if (!opts.dot && src && src.kind && !src.boss && !src.ally && src.alive && src.hp !== undefined && (p.muts.tetrodo | 0)) this.poisonBiter(src);
     // make every source of damage readable: red screen edge, HP pulse, and what hurt you
     this.hurtWhy = opts.why || this.hurtWhy || 'Taking damage';
     this.hurtT = this.T;
@@ -702,6 +717,7 @@ class MicrobeGame {
       let lure = null;
       if (this.decoys && !e.ally && HOSTILE[e.kind] && !isLatcher(e) && !(e.blind > 0)) { lure = this.lureFor(e, d); if (lure) { dx = lure.x - e.x; dy = lure.y - e.y; d = hypot(dx, dy) + 0.0001; } }
       if (e.blind > 0) { e.blind -= dt; wander(); sp *= 0.3; steer = 1.2; } // dazzled by a flash: it has lost track of you
+      else if (e.scared > 0 && !e.ctl) { e.scared -= dt; flee(0.9); steer = 3; } // poisoned by you: it backs off
       else if (e.ctl) { tx = e.ctl.tx; ty = e.ctl.ty; sp = e.ctl.sp; steer = e.ctl.steer ?? 2.2; } // steered by a boss fight or an ability
       else switch ((SP[e.kind] && SP[e.kind].ai) || e.kind) {
         case 'drifter': if (d < 150 + p.r * 2 && !this.dead) flee(2.0); else { wander(); sp *= 0.5; } break;
@@ -712,9 +728,10 @@ class MicrobeGame {
           else {
             e.chasing = false;
             if (!e.tm || e.timer < 0 || !this.motes.includes(e.tm)) { e.timer = 1.5 + random() * 2; e.tm = this.nearestMote(e.x, e.y, 260); }
-            if (e.tm) { const mx = e.tm.x - e.x, my = e.tm.y - e.y, md = hypot(mx, my) + 0.01; tx = mx / md; ty = my / md; sp *= 0.8; if (md < e.r) { this.removeMote(e.tm); e.tm = null; } }
+            if (e.tm) { const mx = e.tm.x - e.x, my = e.tm.y - e.y, md = hypot(mx, my) + 0.01; tx = mx / md; ty = my / md; sp *= 0.8; if (md < e.r) { this.removeMote(e.tm); e.tm = null; e.biteK = 1; } }
             else { wander(); sp *= 0.5; }
           }
+          if (e.biteK) e.biteK = max(0, e.biteK - dt * 3);
           break;
         }
         case 'diatom': wander(); sp *= 0.6; break;
@@ -723,6 +740,7 @@ class MicrobeGame {
           if (!this.dead && !this.victory && bigger && d < (e.chasing ? sight * 1.5 : sight)) { chase(1); e.chasing = true; steer = 2.6; }
           else if (edible && d < 220) { flee(1.15); e.chasing = false; }
           else { e.chasing = false; wander(); sp *= 0.45; }
+          e.biteK = e.chasing && d < e.r + p.r + 40 ? min(1, (e.biteK || 0) + dt * 6) : max(0, (e.biteK || 0) - dt * 3);
           if (this.firstRun && e.chasing && !this.hints.shown.hunter) this.hint('hunter', 'Red spiky cells hunt you — stay away until you’re bigger', 'shield', 5000, false, 'warn');
           break;
         }
@@ -873,6 +891,7 @@ class MicrobeGame {
           // squid: small ones vanish behind a cloud of ink; big ones hunt and shoot out their tentacles
           e.icd = (e.icd || 0) - dt; e.gcd = (e.gcd || 0) - dt;
           e.inkK = max(0, (e.inkK || 0) - dt * 0.7); e.grabK = max(0, (e.grabK || 0) - dt * 2.5);
+          if (e.kind === 'humboldt') { e.flashK = lerp(e.flashK || 0, e.chasing ? 1 : 0.25, 1 - exp(-dt * 3)); e.redK = e.grabT > 0 || e.grabK > 0.4 ? 1 : max(0, (e.redK || 0) - dt * 1.5); }
           if (e.jet > 0) { e.jet -= dt; tx = cos(e.ja); ty = sin(e.ja); sp *= 3.4; steer = 9; break; }
           if (!bigger) {
             if (!this.dead && e.icd <= 0 && d < 150 + p.r * 2) { this.inkCloud(e); e.icd = 5 + random() * 3; e.jet = 0.55; e.inkK = 1; e.ja = atan2(-dy, -dx) + (random() - 0.5) * 0.6; }
@@ -889,6 +908,7 @@ class MicrobeGame {
           e.scd = (e.scd ?? 1) - dt;
           if (e.sprint > 0) { e.sprint -= dt; tx = cos(e.sa); ty = sin(e.sa); sp *= 3.2; steer = 6; e.sprintK = 1; break; }
           e.sprintK = max(0, (e.sprintK || 0) - dt * 3);
+          e.biteK = !edible && d < e.r + p.r + 40 ? min(1, (e.biteK || 0) + dt * 6) : max(0, (e.biteK || 0) - dt * 3);
           if (!this.dead && !this.victory && bigger && d < sightBase * 1.3) {
             chase(0.55); steer = 1.8; e.chasing = true;
             if (d < 330 && e.scd <= 0) { e.sprint = 0.55; e.sa = atan2(dy, dx); e.scd = 2.6 + random(); this.sfx('dash', { vol: 0.25 }); }
@@ -1053,7 +1073,7 @@ class MicrobeGame {
   cloneEat(c) {
     for (const e of this.ents) {
       if (e === c || !e.alive || e.ally || e.boss) continue;
-      if (e.r < c.r * 0.8 && !isTiny(e) && this.canEat(e) && !(e.kind === 'diatom' && e.armor > 0)) {
+      if (e.r < c.r * 0.8 && !isTiny(e) && this.canEat(e)) {
         const dx = e.x - c.x, dy = e.y - c.y;
         if (dx * dx + dy * dy < (c.r + e.r * 0.3) ** 2) { this.eat(e, 0.5); }
       }
@@ -1062,8 +1082,10 @@ class MicrobeGame {
 
   interact(e, d, dx, dy, dt, edible) {
     const p = this.p, S = SP[e.kind] || {};
+    const puffed = p.puffK > 0.5;
     if (S.latch && !(edible && !isTiny(e))) {
       if (d < p.r + e.r * 0.8) {
+        if (puffed) { this.spikeOff(e, -dx / d, -dy / d); return; } // nothing can latch onto a spiny ball
         if (isTiny(e) && (p.muts.spikes || p.dashT > 0)) { this.kill(e, false); this.sparkle(e.x, e.y, [220, 180, 255], 5); this.sfx('hit'); return; }
         if (p.dashT > 0) { this.damage(e, 25 + 10 * (p.muts.dash | 0), p); return; }
         if (p.iframes > 0 && p.cyst > 0) return;
@@ -1078,6 +1100,7 @@ class MicrobeGame {
     const touch = p.r + e.r;
     if (d > touch) return;
     if (edible) {
+      if (p.puffK > 0.3) { if (d < touch) { const k = (touch - d) / d; e.x -= dx * k; e.y -= dy * k; } return; } // a mouth full of water can't eat
       if (d < p.r + e.r * 0.25 || (d < touch && e.r < p.r * 0.5)) this.eat(e, 1);
       return;
     }
@@ -1089,13 +1112,17 @@ class MicrobeGame {
       p.x -= nx * overlap * (massE / tot); p.y -= ny * overlap * (massE / tot);
       e.x += nx * overlap * (massP / tot); e.y += ny * overlap * (massP / tot);
     }
-    if (e.kind === 'diatom') {
-      if ((relV > 70 || p.dashT > 0) && e.hitCd <= 0) {
-        e.hitCd = 0.35; e.armor -= p.dashT > 0 ? 2 : 1; e.flash = 1; e.dent = 0.3; e.dentA = atan2(-ny, -nx) - e.ang;
+    if (shelled(e)) {
+      // a crushing beak cracks a shell at a touch; otherwise ram it
+      const beak = p.muts.beak | 0;
+      if (S.spiny && e.armor > 0 && !beak && p.puffK < 0.5 && e.hitCd <= 0) this.hurt((S.spiny[0] + S.spiny[1] * this.depth) * this.biteScale(e), e, { why: S.name + ' spines', iframes: 0.4 });
+      if ((relV > 70 || p.dashT > 0 || beak) && e.hitCd <= 0 && e.armor > 0) {
+        e.hitCd = 0.35; e.armor -= beak ? e.armor : p.dashT > 0 ? 2 : 1; e.flash = 1; e.dent = 0.3; e.dentA = atan2(-ny, -nx) - e.ang;
         this.sfx('hit', { pitch: 2 }); this.buzz(12); this.shake = min(10, this.shake + 3);
         this.burst(e.x - nx * e.r, e.y - ny * e.r, [255, 245, 215], 8, 160);
         if (e.armor <= 0) { e.armor = 0; this.sfx('pop'); this.texts.push({ x: e.x, y: e.y - e.r, s: 'Cracked!', life: 1, c: '#ffe7a8' }); }
         if (this.firstRun && !this.hints.shown.diatom) this.hint('diatom', 'Keep ramming the glass shell to crack it open', 'target', 3500);
+        if (S.spiny && !beak && !this.hints.shown.urchin) this.hint('urchin', 'Ram the urchin to snap its spines off, then eat it. A beak cracks it in one bite', 'target', 4000);
       }
       p.vx -= nx * 160; p.vy -= ny * 160; e.vx += nx * 80; e.vy += ny * 80;
       return;
@@ -1109,6 +1136,7 @@ class MicrobeGame {
     if (S.ai === 'anchored' || S.ai === 'trap' || S.ai === 'jelly') return; // they hurt with tentacles and spines, not by bumping
     if (!S.hostile && !S.bite) { p.vx -= nx * 60; p.vy -= ny * 60; return; } // a bigger harmless animal just bumps you aside
     // hostile contact
+    if (puffed) { this.spikeOff(e, nx, ny); return; } // biters get a mouthful of spines
     if (p.dashT > 0) { this.damage(e, 25 + 10 * (p.muts.dash | 0), p); e.vx += nx * 300; e.vy += ny * 300; e.stun = 0.8; return; }
     if (p.muts.spikes) this.damage(e, 10 * p.muts.spikes * dt * 2, p, true);
     if (S.engulf) {
@@ -1120,6 +1148,16 @@ class MicrobeGame {
     let dmg = S.bite ? S.bite[0] + S.bite[1] * this.depth : 5 + 2 * this.depth;
     if (this.camp) dmg *= this.biteScale(e);
     if (this.hurt(dmg, e, { why: e.kind === 'grazer' ? 'Bumped a bigger cell' : S.name || 'Hit' })) { e.vx += nx * 140; e.vy += ny * 140; e.stun = 0.4; }
+  }
+  // an attacker hits an inflated pufferfish: spined, stunned and bounced off
+  spikeOff(e, nx, ny) {
+    const p = this.p, lv = p.muts.puff | 0 || 1;
+    if (e.hitCd > 0) return;
+    e.hitCd = 0.5;
+    this.damage(e, e.maxHp * (0.1 + 0.04 * lv) / this.stageHit(), p, true);
+    e.vx += nx * 420; e.vy += ny * 420; e.stun = max(e.stun || 0, 0.7);
+    if (e.latched) { e.latched = false; p.latched = max(0, p.latched - 1); }
+    this.sparkle(e.x - nx * e.r, e.y - ny * e.r, [255, 235, 170], 5); this.sfx('hit', { pitch: 1.6 }); this.buzz(10);
   }
   // a small animal nips, one your size hurts, a big one bites hard
   biteScale(e) { const k = e.r / this.p.r; return k < 1 ? Math.pow(k, 2.5) : min(C.TUNE.biteCap, k); }
@@ -1186,7 +1224,7 @@ class MicrobeGame {
     if (this.boss) this.kitEat(e);
     if (SP[e.kind] && SP[e.kind].ai === 'glowbomb') this.glowAlarm(e);
     e.alive = false; if (e.latched) { this.p.latched--; }
-    const v = (KIND_XP[e.kind] || 2) * (e.r / 6) * this.df() * (e.kind === 'diatom' ? 1.3 : 1) * mult;
+    const v = (KIND_XP[e.kind] || 2) * (e.r / 6) * this.df() * (shelled(e) ? 1.3 : 1) * mult;
     this.gainXP(v, true);
     this.stats.eaten++; this.stats.kills++;
     this.combo++; this.comboT = 1.0;
@@ -1199,8 +1237,9 @@ class MicrobeGame {
     if (this.firstRun && !this.hints.shown.eat2 && this.stats.eaten === 1) this.hint('eat2', 'Smaller cells are food too — engulf them!', 'microbe', 3000);
   }
   colorOf(e) { return (SP[e.kind] && SP[e.kind].pcol) || [200, 255, 240]; }
+  stageHit() { return this.camp ? 1 + 0.3 * ((this.p.stage | 0 || 1) - 1) : 1; } // bigger bodies hit harder
   damage(e, n, src, quiet = false) {
-    if (this.camp && !e.boss) n *= 1 + 0.3 * ((this.p.stage | 0 || 1) - 1); // bigger bodies hit harder
+    if (!e.boss) n *= this.stageHit();
     if (!e.alive || e.ally) return;
     if (e.boss) { this.bossDamage(n, quiet); return; } // before the volvox check: the Volvox Titan must never split
     if (SP[e.kind] && SP[e.kind].armor) n *= 1 - SP[e.kind].armor;
@@ -1351,8 +1390,10 @@ class MicrobeGame {
     if (!knockOnly && this.boss && hypot(this.boss.x - x, this.boss.y - y) < R + this.boss.r) this.bossDamage(dmg * 0.8);
   }
   buildAbilities() {
-    // one button per active ability, in a fixed order: the first is big, the rest small
-    const want = ABILITIES.filter((a) => this.p.muts[a.id]).map((a) => a.id);
+    // one button per active ability you brought (at most four), in a fixed order: the first is big, the rest small
+    const owned = ABILITIES.filter((a) => this.p.muts[a.id]).map((a) => a.id);
+    const pick = this.camp ? C.loadoutFor(owned, this.camp.loadout, this.p.stage | 0) : owned;
+    const want = owned.filter((id) => pick.includes(id));
     if (want.join() === Object.keys(this.abBtns).join()) return;
     this.abBox.innerHTML = ''; this.abBtns = {};
     want.forEach((id, i) => {
@@ -2048,7 +2089,7 @@ class MicrobeGame {
   render(dt) {
     const ctx = this.ctx, W = this.W, H = this.H, dpr = this.dpr, p = this.p, T = this.T;
     // camera
-    const tz = clamp(min(W, H) * 0.06 / p.r, 0.32, 1.45) * (this.boss ? 0.8 : 1);
+    const tz = clamp(min(W, H) * 0.06 / (p.r0 || p.r), 0.32, 1.45) * (this.boss ? 0.8 : 1);
     this.zoomV = this.zoomV ? lerp(this.zoomV, tz, 1 - exp(-dt * 1.5)) : tz;
     const z = this.zoomV * this.cineZoom(); // cinematic push-ins sit on top of the gameplay zoom
     this.camX = this.camX === undefined ? p.x : lerp(this.camX, p.x + p.vx * 0.15, 1 - exp(-dt * 5));
@@ -2184,11 +2225,12 @@ class MicrobeGame {
     this.cineBack(ctx);
     const pv = this.cinePlayer();
     if (pv) {
-      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.ang); ctx.scale(p.r * pv.s, p.r * pv.s);
+      const pr = p.r0 || p.r; // the art draws the inflated balloon itself (p.puffK)
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.ang); ctx.scale(pr * pv.s, pr * pv.s);
       if (p.iframes > 0 && p.cyst <= 0 && !this.trans && !this.intro && !this.victory && floor(T * 20) % 2 === 0) ctx.globalAlpha = 0.55;
       if (p.muts.mimicry) ctx.globalAlpha *= 1 - 0.12 * p.muts.mimicry;
       ctx.globalAlpha *= pv.a;
-      drawPlayer(ctx, p, T, p.r * sc * pv.s);
+      drawPlayer(ctx, p, T, pr * sc * pv.s);
       if (p.flashT > 0) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = p.flashT * 2.5; ctx.drawImage(glowSprite([255, 80, 100]), -1.3, -1.3, 2.6, 2.6); ctx.globalCompositeOperation = 'source-over'; }
       ctx.restore(); ctx.globalAlpha = 1;
     }

@@ -1,6 +1,6 @@
 # Tiny Cell
 
-You are a single cell in a young ocean. Drag to swim, eat what is smaller and flee what is bigger. Cross 50 levels in 10 habitats and pick a permanent trait every time your evolution bar fills. Every 10 levels you evolve and the world changes scale around you: a single cell, a colony, a flatworm, a primordial fish and finally a jawed fish, each with its own cast of real creatures. Each habitat ends with a boss you beat its own way, from luring a giant amoeba into sunlight to blinding an anglerfish with a glowing shrimp. After the journey, the Open Ocean offers endless expeditions and boss rematches. Die and you retry the same level, keeping everything you have earned.
+You are a single cell in a young ocean. Drag to swim, eat what is smaller and flee what is bigger. Cross 60 levels in 12 habitats and pick a permanent trait every time your evolution bar fills. Every 10 levels you evolve and the world changes scale around you: a single cell, a colony, a flatworm, a primordial fish, a jawed fish and a pufferfish, each with its own cast of real creatures and its own power. Each habitat ends with a boss you beat its own way, from luring a giant amoeba into sunlight to choking a giant grouper by inflating in its mouth. After the journey, the Open Ocean offers endless expeditions and boss rematches. Die and you retry the same level, keeping everything you have earned.
 
 **Play:** https://fran-mora.github.io/tiny-cell/
 
@@ -8,7 +8,7 @@ Works offline: open it once while online, then add it to your Home Screen (iPhon
 
 ## Build
 Plain ES modules, no build step, no dependencies.
-- `js/game/` the game itself (Canvas 2D): `game.js` engine, `campaign.js` levels, habitats, bosses, stages and the Open Ocean, `ecology.js` every creature and the size tier it lives at, `bosses.js` the ten boss fights, `threats.js` threat intros and ranged attacks, `cinematics.js` death, level-clear, evolution and level transitions, `art.js` drawing (microbes and the player)
+- `js/game/` the game itself (Canvas 2D): `game.js` engine, `campaign.js` levels, habitats, bosses, stages and the Open Ocean, `ecology.js` every creature and the size tier it lives at, `bosses.js` the boss fights, `threats.js` threat intros and ranged attacks, `cinematics.js` death, level-clear, evolution and level transitions, `art.js` drawing (microbes and the player)
 - `js/game/creatures/` art for the bigger creatures, one module per size tier (see the README there); `dev/creatures.html` previews them
 - `js/main.js` home screen, journey, traits, codex, records
 - `tools/build_sw.py` regenerates `sw.js` and the build number; run it after changing files

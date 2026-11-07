@@ -3,6 +3,7 @@
 // two scales down is too small to see (it is simply not spawned).
 //
 // tier: 1 microbial (single cell) · 2 colony (0.1–1 mm) · 3 first animals (mm) · 4 reef (cm) · 5 sea (10 cm+)
+//       · 6 pufferfish scale (0.5–3 m)
 // ai:   behaviour used in game.js (updateEnts)
 // size: radius range as a multiple of the level's reference size
 // spd:  base speed · xp: biomass per unit radius · bite: [base, per habitat level] contact damage
@@ -60,7 +61,7 @@ export const SPECIES = {
     desc: 'Tiny shrimp that swarm by the thousand, glowing blue. Food for almost everything in the sea.' },
   larvalfish: { tier: 4, ai: 'school', size: [0.55, 0.8], spd: 85, xp: 3.2, pcol: [210, 230, 255], name: 'Larval Fish', role: 'prey',
     desc: 'Glassy baby fish with huge eyes. They school together and scatter when you charge.' },
-  jellyfish: { tier: 4, maxTier: 5, ai: 'jelly', size: [1.1, 1.6], spd: 26, xp: 2.5, hostile: true, sting: [10, 2.5], pcol: [255, 170, 230], name: 'Jellyfish', role: 'predator',
+  jellyfish: { tier: 4, maxTier: 7, ai: 'jelly', size: [1.1, 1.6], spd: 26, xp: 2.5, hostile: true, sting: [10, 2.5], pcol: [255, 170, 230], name: 'Jellyfish', role: 'predator',
     desc: 'A pulsing medusa. Its bell is harmless; its long trailing tentacles are not.' },
   pistolshrimp: { tier: 4, ai: 'spitter', size: [0.8, 1.1], spd: 40, xp: 3.5, hostile: true, bite: [6, 2], pcol: [255, 140, 110], name: 'Pistol Shrimp', role: 'predator',
     desc: 'It snaps its giant claw so fast it fires a bubble shock wave, one of the loudest sounds in the sea.' },
@@ -82,6 +83,26 @@ export const SPECIES = {
     desc: 'A small glowing shark that latches on with sucker lips and spins to cut out a round bite.' },
   angler: { tier: 5, ai: 'angler', cap: 5, size: [1.2, 1.7], spd: 22, xp: 4.5, hostile: true, bite: [18, 4], pcol: [140, 220, 255], name: 'Anglerfish', role: 'predator',
     desc: 'In the dark, her glowing lure looks like a meal. Get close to the light and the jaws snap shut.' },
+
+  // ---------------- T6: pufferfish scale (0.5–3 m) ----------------
+  parrotfish: { tier: 6, ai: 'grazer', size: [0.9, 1.3], spd: 62, xp: 3, pcol: [110, 220, 200], name: 'Parrotfish', role: 'neutral',
+    desc: 'It bites chunks off the coral with a parrot-like beak and grinds them into sand. Much of the white sand on tropical beaches came out of a parrotfish.' },
+  seaurchin: { tier: 6, ai: 'diatom', shell: 3, spiny: [9, 2], size: [0.6, 0.85], spd: 10, xp: 4.5, pcol: [170, 110, 220], name: 'Sea Urchin', role: 'prey',
+    desc: 'A ball of needle-sharp spines. Ram it to snap them off, or crack it straight open with a beak, as pufferfish and triggerfish do.' },
+  triggerfish: { tier: 6, ai: 'hunter', size: [0.9, 1.35], spd: 86, xp: 3.5, hostile: true, bite: [12, 3.5], pcol: [170, 180, 120], name: 'Titan Triggerfish', role: 'predator',
+    desc: 'A grumpy reef fish with shell-cracking teeth. It guards its patch of sand fiercely; divers fear its bite.' },
+  lionfish: { tier: 6, ai: 'tough', size: [0.85, 1.25], spd: 48, xp: 3.6, hostile: true, armor: 0.25, bite: [11, 3], pcol: [255, 140, 120], name: 'Lionfish', role: 'predator',
+    desc: 'Striped red and white, with fan-like fins and venomous spines. It corners prey with its fins spread wide, then gulps.' },
+  octopus: { tier: 6, ai: 'inker', size: [0.9, 1.35], spd: 78, xp: 3.8, hostile: true, bite: [11, 3], pcol: [230, 140, 110], name: 'Day Octopus', role: 'predator',
+    desc: 'Eight arms, three hearts and skin that changes colour in a blink. It grabs with its suckers and escapes in a cloud of ink.' },
+  reefshark: { tier: 6, ai: 'sprinter', size: [1.05, 1.5], spd: 96, xp: 3.8, hostile: true, bite: [14, 4], pcol: [170, 190, 205], name: 'Blacktip Reef Shark', role: 'predator',
+    desc: 'A small shark with black-tipped fins that patrols the reef edge, then rushes in.' },
+  seasnake: { tier: 6, ai: 'hunter', size: [0.8, 1.15], spd: 92, xp: 3.4, hostile: true, bite: [13, 3], pcol: [200, 215, 235], name: 'Banded Sea Krait', role: 'predator',
+    desc: 'A venomous sea snake with a paddle-shaped tail. It hunts eels in the reef, and has to surface to breathe.' },
+  seaturtle: { tier: 6, ai: 'volvox', size: [1.7, 2.2], spd: 30, xp: 2.5, inedible: true, pcol: [150, 200, 140], name: 'Green Sea Turtle', role: 'neutral',
+    desc: 'A gentle grazer that can live for 80 years. Far too big and armoured to eat; it just shoulders you aside.' },
+  humboldt: { tier: 6, ai: 'inker', size: [0.9, 1.3], spd: 98, xp: 3.6, hostile: true, bite: [12, 3.5], pcol: [255, 110, 100], name: 'Humboldt Squid', role: 'predator',
+    desc: 'The jumbo squid of the cold Pacific. Packs hunt together, talking in flickers of red and white across their skin.' },
 };
 
 // legacy kinds from earlier builds (still understood if an old level spawns them)

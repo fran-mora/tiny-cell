@@ -44,6 +44,8 @@ class App {
     window.addEventListener('pagehide', () => { audio.suspend(); store.save(); });
     document.addEventListener('freeze', () => audio.suspend());
     window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !this.run) closeTopModal(); });
+    // a save that just grew a new body (the journey got longer) sees its evolution once
+    if (st.flags.evolvedTo) { const to = st.flags.evolvedTo; delete st.flags.evolvedTo; store.save(); setTimeout(() => this.evolveDialog(to, false), 900); }
     if (store.migratedFromV1) { store.save(); setTimeout(() => toast('Tiny Cell is now a <b>50-level evolution journey</b>. Your codex and records came with you.', { icon: 'star', ms: 6500 }), 900); }
     window.__tc = this;
     this.registerSW();
@@ -64,12 +66,14 @@ class App {
     const codexBtn = el('button.hub-tile', { onclick: () => this.openCodex() }, [icon('book'), el('span', {}, 'Codex')]);
     const recBtn = el('button.hub-tile', { onclick: () => this.openRecords() }, [icon('chart'), el('span', {}, 'Records')]);
     this.lastRunEl = el('div.hub-last');
+    this.powersBtn = el('button.hub-powers', { onclick: () => { audio.sfx('click'); this.openLoadout(); } });
     this.hub.append(
       this.canvas,
       el('div.hub-top', {}, [this.dnaChip, el('div.grow'), menuBtn]),
       el('div.hub-title', {}, [el('h1', {}, ['Tiny', el('br'), 'Cell']), this.ageEl]),
       el('div.hub-bottom', {}, [
         this.lastRunEl,
+        this.powersBtn,
         this.diveBtn,
         el('div.hub-tiles', {}, [journeyBtn, this.genomeBtn, codexBtn, recBtn]),
         el('button.build-tag', { onclick: () => this.whatsNew() }, [`Build ${BUILD} · ${BUILD_TIME} · `, el('u', {}, 'What’s new')]),
@@ -93,7 +97,44 @@ class App {
     this.diveBtn.classList.toggle('boss', L.isBoss);
     const last = st.history[0];
     const tries = c.attempts[lv] | 0, name = (n) => (n > Game.TOTAL_LEVELS ? `expedition ${n - Game.TOTAL_LEVELS}` : `level ${n}`);
+    this.refreshPowers();
     this.lastRunEl.textContent = last ? (last.cleared ? `Cleared ${name(last.level)} \u00b7 +${last.gained} new trait${last.gained === 1 ? '' : 's'}` : `${name(lv).replace(/^./, (x) => x.toUpperCase())}: ${tries} attempt${tries === 1 ? '' : 's'} so far \u00b7 your traits stay with you`) : 'Drag anywhere to swim. Eat what is smaller, flee what is bigger.';
+  }
+
+  // ---------------------------------------------------------------- powers you take into a level
+  ownedPowers() { const c = C(); return Game.ABILITY_IDS.filter((id) => c.muts[id] > 0); }
+  refreshPowers() {
+    const c = C(), owned = this.ownedPowers();
+    if (owned.length <= Game.LOADOUT_SIZE) { this.powersBtn.style.display = 'none'; return; }
+    const pick = Game.loadoutFor(owned, c.loadout, c.stage);
+    const icons = pick.map((id) => { let p = null; try { p = Game.portrait('mutation', id, 64, c.stage); } catch (e) {} return el('span.hp-ic', {}, p); });
+    this.powersBtn.style.display = '';
+    this.powersBtn.replaceChildren(el('span.hp-k', {}, 'Powers'), el('span.hp-row', {}, icons), el('span.hp-ch', {}, 'Change'));
+  }
+  openLoadout() {
+    const c = C(), newest = Game.newestPower(c.stage), owned = this.ownedPowers().sort((a, b) => (b === newest) - (a === newest)); // newest first
+    let pick = Game.loadoutFor(owned, c.loadout, c.stage);
+    const list = el('div.list');
+    const draw = () => {
+      list.replaceChildren(...owned.map((id) => {
+        const d = Game.traitForm(Game.MUTATIONS.find((m) => m.id === id), c.stage), on = pick.includes(id), locked = id === newest;
+        let p = null; try { p = Game.portrait('mutation', id, 96, c.stage); p.style.width = p.style.height = '100%'; } catch (e) {}
+        return el('button.card.res-card.lo-card', { class: (on ? 'on' : '') + (locked ? ' locked' : ''), onclick: () => {
+          if (locked) { toast('Your newest power always comes with you', { icon: 'bolt', ms: 2200 }); return; }
+          audio.sfx('click');
+          if (on) pick = pick.filter((x) => x !== id);
+          else if (pick.length < Game.LOADOUT_SIZE) pick = [...pick, id];
+          else { toast(`You can take ${Game.LOADOUT_SIZE} powers. Tap one to leave it behind first`, { icon: 'bolt', ms: 2400 }); return; }
+          c.loadout = pick.filter((x) => x !== newest); store.save(); draw(); this.refreshPowers();
+        } }, [
+          el('div.thumb', {}, p || icon('bolt')),
+          el('div.info', {}, [el('div.nm', {}, [d ? d.name : id, locked ? el('span.lo-tag', {}, 'Always') : null]), el('div.ds', {}, d ? d.desc.replace(/^ACTIVE:\s*(.)/, (_, ch) => ch.toUpperCase()) : '')]),
+          el('div.lo-check', {}, on ? '\u2713' : ''),
+        ]);
+      }));
+    };
+    draw();
+    sheet({ title: 'Powers', body: [el('p.dim', { style: { margin: '0 0 12px', fontSize: '14px' } }, `Take up to ${Game.LOADOUT_SIZE} powers into each level. Your newest power always comes; pick the others. You can change them here between levels.`), list] });
   }
 
   startHubAnim() {
@@ -171,7 +212,7 @@ class App {
     audio.music('microbe');
     this.run = Game.startMicrobeRun({
       host: this.host,
-      campaign: { level: lv, stage: c.stage, evo: { ...c.evo }, muts: { ...c.muts }, mutOrder: [...c.mutOrder], attempts: c.attempts[lv] | 0, newPower: st.flags.newPower || null },
+      campaign: { level: lv, stage: c.stage, evo: { ...c.evo }, muts: { ...c.muts }, mutOrder: [...c.mutOrder], attempts: c.attempts[lv] | 0, newPower: st.flags.newPower || null, loadout: [...(c.loadout || [])] },
       codex: { microbes: { ...st.codex.microbes }, mutations: { ...st.codex.mutations } },
       settings: { ...st.settings }, debug: location.search.includes('debug'), intro,
       onExit: (res) => this.endRun(res),
@@ -260,8 +301,8 @@ class App {
       body: el('div.center', {}, [
         el('div.era-kicker', {}, 'Journey complete'),
         el('div.era-big', {}, 'From a single cell'),
-        el('p.dim', { style: { margin: '0 0 10px' } }, `You crossed ${Game.HABITATS.length - 1} habitats, beat ${Game.HABITATS.length - 1} bosses and evolved from a single cell into a jawed fish.`),
-        el('p', { style: { margin: '0 0 12px', fontWeight: 700 } }, 'The Open Ocean is open: endless expeditions, boss rematches that teach you new traits, and every trait you are still missing. New power: Shoal Call, a school of decoy fish.'),
+        el('p.dim', { style: { margin: '0 0 10px' } }, `You crossed ${Game.HABITATS.length - 1} habitats, beat ${Game.HABITATS.length - 1} bosses and evolved from a single cell into a ${Game.STAGES[Game.STAGES.length - 1].name.toLowerCase()}.`),
+        el('p', { style: { margin: '0 0 12px', fontWeight: 700 } }, 'Bigger fish are on their way in future updates. Until then the Open Ocean is open: endless expeditions, boss rematches that teach you new traits, and every trait you are still missing.'),
         el('div.stat-grid', {}, [
           el('div.stat', {}, [el('div.v', {}, fmt(st.totals.attempts)), el('div.k', {}, 'Attempts')]),
           el('div.stat', {}, [el('div.v', {}, duration(st.totals.playTimeSec)), el('div.k', {}, 'Time underwater')]),
@@ -297,7 +338,7 @@ class App {
         ]),
       ]));
     }
-    let oPic = null; if (c.complete) { try { oPic = Game.portrait('stage', 5, 88); oPic.style.width = oPic.style.height = '100%'; } catch (e) {} }
+    let oPic = null; if (c.complete) { try { oPic = Game.portrait('stage', c.stage, 88); oPic.style.width = oPic.style.height = '100%'; } catch (e) {} }
     items.push(el('div.card.jr-card', { class: c.complete ? 'cur' : 'locked' }, [
       el('div.thumb', {}, oPic || icon('lock', 'lg')),
       el('div.grow', {}, [
@@ -329,7 +370,7 @@ class App {
     const missing = Game.MUTATIONS.filter((m) => !c.muts[m.id]).map((m) => defs[m.id]).map((m) => {
       const from = Game.TRAIT_FROM[m.id] || 1;
       const pst = Object.entries(Game.STAGE_POWER).find(([, id]) => id === m.id);
-      const where = m.active ? (pst ? `Power: comes with the ${Game.STAGES[+pst[0]].name} body` : 'Power: yours when you finish the journey') : c.stage < m.stage ? `Unlocks with the ${Game.STAGES[m.stage].name} body` : !c.complete && from > c.level ? `Offered from level ${from}` : c.complete ? 'Can turn up any time. Open Ocean rematches teach new traits' : 'Can turn up at your next evolutions';
+      const where = m.active ? (pst ? `Power: comes with the ${Game.STAGES[+pst[0]].name} body` : `Power: yours for beating the Progenitor`) : c.stage < m.stage ? `Unlocks with the ${Game.STAGES[m.stage].name} body` : !c.complete && from > c.level ? `Offered from level ${from}` : c.complete ? 'Can turn up any time. Open Ocean rematches teach new traits' : 'Can turn up at your next evolutions';
       let p = null; try { p = Game.portrait('mutation', m.id, 96, c.stage); p.style.width = p.style.height = '100%'; p.style.filter = 'grayscale(1) brightness(0.55)'; } catch (e) {}
       return el('div.card.res-card', { style: { opacity: 0.85 } }, [
         el('div.thumb', {}, p || icon('lock')),
@@ -431,7 +472,8 @@ class App {
       p('<b style="color:var(--text)">The journey:</b> 48 levels across 8 habitats. Survive the timer to clear a level. Every sixth level is a boss: bite its glowing weak spots and avoid its body.'),
       p('<b style="color:var(--text)">Dying</b> sends you back to the start of the same level. You never lose traits or evolution progress.'),
       p('<b style="color:var(--dna)">Evolution:</b> eating fills your evolution bar. When it fills, pick a trait. Traits stay for the whole journey and stack when picked again.'),
-      p('<b style="color:var(--text)">Body stages:</b> some bosses evolve you: Colony, Multicellular, Swimmer, Sea Creature. Each stage unlocks a new family of traits. There is no limit: every trait you pick stays with you, so you can collect them all.'),
+      p('<b style="color:var(--text)">Bodies:</b> every 10 levels a boss evolves you into a new body: colony, flatworm, primordial fish, jawed fish, pufferfish. Each body brings a power and a new family of traits. There is no limit: every trait you pick stays with you, so you can collect them all.'),
+      p('<b style="color:var(--text)">Powers:</b> you can take up to 4 powers into a level. Your newest always comes; choose the rest with the Powers button on the home screen.'),
     ] });
   }
 

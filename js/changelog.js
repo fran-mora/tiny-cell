@@ -1,5 +1,13 @@
 // Player-facing release notes, newest first.
 export const CHANGELOG = [
+  { build: 21, title: 'The pufferfish', notes: [
+    'The journey goes on past the jawed fish: levels 51 to 60, with a new body, the Pufferfish (about 1 m). If you had finished the journey, you carry on at level 51 straight away.',
+    'New power, Inflate: gulp water and swell into a spiny ball. Nothing can swallow or grab you, anything that bites you gets a mouthful of spines, and other damage is halved. But you can barely swim and you can’t eat until you deflate.',
+    'Two new habitats with a new cast at the pufferfish’s scale: The Wreck (parrotfish, sea urchins, titan triggerfish, lionfish, octopuses, blacktip reef sharks, sea kraits and green sea turtles) and the cold Humboldt Current (packs of Humboldt squid). Sardines, barracudas and morays are small fry now. Jellyfish stay big: their turn comes later.',
+    'Two new bosses. The Goliath Grouper swallows prey whole: let it suck you in, then inflate inside its mouth so it chokes. The Humboldt Squid Pack talks in flashes of red and white and attacks all at once: inflate to spike them, or flash to scramble their signals, then bite the tired ones.',
+    'Three new traits: Crushing Beak (crack sea urchins at a bite), Tetrodotoxin (anything that bites you is poisoned) and Hover Fins (stop dead and turn on the spot). On the pufferfish your scales become prickles and your barbels become the little nasal tentacles real pufferfish have.',
+    'Powers: you can now take up to 4 powers into a level. Your newest power always comes; pick the rest with the new Powers button on the home screen.',
+  ] },
   { build: 20, title: 'Your young keep their distance', notes: [
     'Fixed: with two or more young following you (Binary Fission / Offspring), they swam on top of each other. Now each one keeps its own spot behind you, they go after different bits of food, and they never overlap each other or you.',
   ] },
