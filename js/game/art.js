@@ -949,6 +949,20 @@ function w6(x) {
   const q = min(1, (F6M - x) / (F6M - F6.xr));
   return 0.085 + 0.665 * Math.pow(1 - Math.pow(q, 1.9), 1.25);
 }
+// ocean sunfish, basking on its side (its side profile seen from above; its back towards rest -v): a tall, round disc
+// (widest at F8M) with a blunt, tapering head; no tail: the back is a flattened superelliptic arc (exponent F8P) edged
+// by the clavus. Its tall dorsal and anal fins rise from the top and bottom edges far back (MFIN_X; see molaFin)
+const F8 = { xf: 1.0, xr: -0.9 }, F8M = -0.12, F8W = 0.85, F8P = 2.6;
+function w8(x) {
+  if (x >= F8M) {
+    const q = (x - F8M) / (F8.xf - F8M); if (q >= 1) return 0;
+    const w = F8W * Math.pow(1 - Math.pow(q, 1.9), 0.62);
+    if (!AN.chk) return w;
+    const d = (x - 0.82) / 0.09; return w + AN.chk * exp(-d * d); // Jaw Muscles: cheeks bulging behind the beak
+  }
+  const q = min(1, (F8M - x) / (F8M - F8.xr));
+  return F8W * Math.pow(1 - Math.pow(q, F8P), 1 / F8P);
+}
 // flatworm: broad leaf, a neck, then a spade-shaped head with two ear-like auricles
 function w3(x) {
   const u = (x - F3.xr) / (F3.xf - F3.xr);
@@ -1011,6 +1025,7 @@ function setupAnimal(p, m, stage, t, ph) {
     AN.rip = 0.042 + 0.03 * (m.pseudopod || 0) + 0.012 * (m.cilia || 0); AN.ripK = m.pseudopod ? 10 : 15;
   } else if (stage === 4) { f = F4; AN.W = w4; x1 = f.xr - 0.78; AN.hw = 0.33; AN.tip = f.xr; }
   else if (stage === 7) { f = F7; AN.W = w7; x1 = f.xr - 0.12; AN.hw = 0.42; AN.tip = f.xr - 0.02; } // (the rigid bill follows the head: skin() extends the spine)
+  else if (stage === 8) { f = F8; AN.W = w8; x1 = f.xr - 0.36; AN.hw = F8W; AN.tip = f.xr; AN.chk = m.jaws ? 0.03 + 0.016 * min(3, m.jaws) : 0; } // (the spine runs on through the clavus)
   else { f = F5; AN.W = w5; x1 = f.xr - 0.08; AN.hw = 0.48; AN.tip = f.xr - 0.03; }
   AN.xf = f.xf; AN.xr = f.xr; AN.cx = (f.xf + f.xr) / 2; AN.hl = (f.xf - f.xr) / 2;
   // (the pufferfish's spine runs along its current, possibly inflated, length and on past the beak)
@@ -1036,6 +1051,10 @@ function setupAnimal(p, m, stage, t, ph) {
       // thunniform: a stiff torpedo, only the narrow peduncle and the crescent tail beat
       const q = max(0, (0.1 - x) / 1.5);
       th = (0.22 + 0.1 * sp) * (0.03 + Math.pow(q, 2.2)) * sin(ph + 2.1 * x);
+    } else if (stage === 8) {
+      // a sunfish beats its tall fins and holds its body rigid: only the clavus sculls a little, like a rudder
+      const q = max(0, (-0.45 - x) / 0.8);
+      th = (0.06 + 0.03 * sp) * q * q * sin(ph * 0.55 + 0.6);
     } else {
       // carangiform: a stiff front, the tail sweeps
       const q = max(0, (0.45 - x) / 1.45);
@@ -1127,7 +1146,7 @@ function outlineXs(st, lite) {
     for (let i = 1; i <= n1; i++) a.push(F3.xf - (i / n1) * (F3.xf - 0.55));
     for (let i = 1; i < n2; i++) a.push(0.55 - (i / n2) * (0.55 - F3.xr));
   } else {
-    const f = st === 4 ? F4 : st === 6 ? F6 : st === 7 ? F7 : F5, n = st === 7 ? (lite ? 18 : 40) : lite ? 16 : 34;
+    const f = st === 4 ? F4 : st === 6 ? F6 : st === 7 ? F7 : st === 8 ? F8 : F5, n = st >= 7 ? (lite ? 18 : 40) : lite ? 16 : 34;
     for (let i = 1; i < n; i++) a.push(f.xf - ((f.xf - f.xr) * (1 - cos((PI * i) / n))) / 2);
     if (st >= 5) a.push(f.xr);
   }
@@ -1216,9 +1235,15 @@ function pairedFin(ctx, x, side, L, C, falc, sweep, rays, inset = 0.04) {
 }
 // a lobe fin (lobe-finned fish): a fleshy, scaled stalk fringed with rays
 function lobeFin(ctx, x, side, L, sweep) {
-  const body = AN.body, mem = AN.mem, lw = AN.lw, t = AN.t;
+  const t = AN.t;
   skin(x, side * (AN.W(x) - 0.05));
   ctx.save(); ctx.translate(SK[0], SK[1]); ctx.rotate(SK[2] + side * (PI / 2 + sweep + 0.12 * sin(t * 2.6 + side))); ctx.scale(1, side);
+  lobeShape(ctx, L);
+  ctx.restore();
+}
+// the lobe fin itself, in its own frame (stalk along +x)
+function lobeShape(ctx, L) {
+  const body = AN.body, mem = AN.mem, lw = AN.lw;
   // the fin-ray fringe around the outer half of the lobe
   ctx.beginPath(); ctx.moveTo(L * 0.25, -L * 0.13);
   ctx.bezierCurveTo(L * 0.55, -L * 0.42, L * 1.2, -L * 0.34, L * 1.16, 0.0);
@@ -1242,7 +1267,6 @@ function lobeFin(ctx, x, side, L, sweep) {
     for (let k = 1; k <= 4; k++) { const xx = L * (0.08 + k * 0.17), h = L * 0.17 * (1 - k * 0.17); ctx.moveTo(xx, -h); ctx.quadraticCurveTo(xx - L * 0.07, 0, xx, h); }
     ctx.strokeStyle = rgbStr(AN.pale, 0.4); ctx.lineWidth = lw(0.9); ctx.stroke();
   }
-  ctx.restore();
 }
 // forked tail fin in its own frame (+x backward)
 function caudalPath(ctx, L, S, f, streamer) {
@@ -1320,7 +1344,7 @@ function animalCnido(ctx, lv) {
 function caeca(ctx, lv) {
   // pyloric caeca (Feeding Polyps on a fish): finger-like blind pouches off the end of the stomach that soak up
   // more from every meal, seen through the body wall
-  const st = AN.st, t = AN.t, x0 = st === 4 ? 0.42 : st === 6 ? 0.34 : st === 7 ? 0.3 : 0.4, n = 4 + 2 * lv, nk = n >> 1, L0 = (st === 4 ? 0.18 : 0.22) + 0.03 * lv;
+  const st = AN.st, t = AN.t, x0 = st === 4 ? 0.42 : st === 6 ? 0.34 : st === 7 ? 0.3 : st === 8 ? 0.26 : 0.4, n = 4 + 2 * lv, nk = n >> 1, L0 = (st === 4 ? 0.18 : 0.22) + 0.03 * lv;
   skin(x0 + 0.03, 0); ctx.beginPath(); ctx.ellipse(SK[0], SK[1], st === 4 ? 0.08 : 0.11, st === 4 ? 0.05 : 0.075, SK[2], 0, TAU);
   ctx.fillStyle = rgbStr(POLYP_C, 0.38); ctx.fill();
   for (let pass = 0; pass < 2; pass++) {
@@ -1407,7 +1431,7 @@ function dashMuscle(ctx, lv) {
 function dashWake(ctx, lv) {
   // the fast-start wake: a burst of bubbles and two spinning vortices shed by the tail
   const p = AN.p, k = min(1, p.dashT / 0.28), lw = AN.lw;
-  skin(AN.st === 5 ? AN.xr - 0.15 : AN.st === 6 ? AN.xr - 0.12 : AN.st === 7 ? AN.xr - 0.32 : AN.xr, 0);
+  skin(AN.st === 5 ? AN.xr - 0.15 : AN.st === 6 ? AN.xr - 0.12 : AN.st === 7 ? AN.xr - 0.32 : AN.st === 8 ? AN.xr - 0.2 : AN.xr, 0);
   ctx.save(); ctx.translate(SK[0], SK[1]); ctx.rotate(SK[2] + PI);
   ctx.globalCompositeOperation = 'lighter';
   const g = glowSprite([200, 240, 255], 1);
@@ -1463,7 +1487,7 @@ function mitoGlow(ctx, lv) {
 }
 function novaOrgan(ctx, lv) {
   // electric organ: stacks of electrocytes along the rear flanks, flickering as they charge
-  const st = AN.st, t = AN.t, x0 = st === 3 ? -0.3 : st === 4 ? -0.3 : st === 6 ? -0.02 : st === 7 ? -0.22 : -0.2, x1 = st === 3 ? -1.0 : st === 4 ? -1.15 : st === 6 ? -0.74 : st === 7 ? -1.24 : -0.9;
+  const st = AN.st, t = AN.t, x0 = st === 3 ? -0.3 : st === 4 ? -0.3 : st === 6 ? -0.02 : st === 7 ? -0.22 : st === 8 ? 0.06 : -0.2, x1 = st === 3 ? -1.0 : st === 4 ? -1.15 : st === 6 ? -0.74 : st === 7 ? -1.24 : st === 8 ? -0.72 : -0.9;
   const v0 = 0.22, v1 = 0.82;
   ctx.beginPath();
   for (const sd of SIDES) {
@@ -1489,7 +1513,7 @@ function novaOrgan(ctx, lv) {
 }
 function biolumSpots(ctx, lv) {
   const st = AN.st, t = AN.t, n = st === 3 ? 3 + lv : 4 + 2 * lv;
-  const x0 = st === 3 ? 0.45 : st === 4 ? 0.55 : st === 6 ? 0.5 : st === 7 ? 0.62 : 0.5, x1 = st === 3 ? -0.95 : st === 4 ? -1.1 : st === 6 ? -0.66 : st === 7 ? -1.18 : -0.88, vk = st === 3 ? 0.72 : st === 6 ? 0.78 : 0.8;
+  const x0 = st === 3 ? 0.45 : st === 4 ? 0.55 : st === 6 ? 0.5 : st === 7 ? 0.62 : st === 8 ? 0.62 : 0.5, x1 = st === 3 ? -0.95 : st === 4 ? -1.1 : st === 6 ? -0.66 : st === 7 ? -1.18 : st === 8 ? -0.74 : -0.88, vk = st === 3 ? 0.72 : st === 6 ? 0.78 : 0.8;
   ctx.globalCompositeOperation = 'lighter';
   for (const sd of SIDES) for (let i = 0; i < n; i++) {
     const x = x0 + (x1 - x0) * (i / (n - 1)), pulse = 0.5 + 0.5 * sin(t * 3 - i * 0.8 + sd);
@@ -1513,7 +1537,7 @@ function nerveSys(ctx, lv) {
     for (const sd of SIDES) { sm(ctx, 0.72, sd * 0.05); sl(ctx, 0.8, sd * 0.115); sm(ctx, 0.73, sd * 0.1); sl(ctx, 0.83, sd * 0.32); }
   } else {
     // spinal cord down the back with a nerve to every muscle block
-    const x0 = st === 4 ? 0.8 : st === 6 ? 0.56 : st === 7 ? 0.7 : 0.66, x1 = st === 4 ? -1.35 : st === 6 ? -0.8 : st === 7 ? -1.32 : -0.98, step = st === 4 ? 0.105 : st === 7 ? 0.13 : 0.12;
+    const x0 = st === 4 ? 0.8 : st === 6 ? 0.56 : st === 7 ? 0.7 : st === 8 ? 0.5 : 0.66, x1 = st === 4 ? -1.35 : st === 6 ? -0.8 : st === 7 ? -1.32 : st === 8 ? -0.74 : -0.98, step = st === 4 ? 0.105 : st === 7 ? 0.13 : 0.12;
     sm(ctx, x0, 0); for (let k = 1; k <= 12; k++) sl(ctx, x0 + (x1 - x0) * (k / 12), 0);
     if (lv >= 2 || st === 4) for (let x = x0 - 0.1; x > x1 + 0.05; x -= step) for (const sd of SIDES) { sm(ctx, x, 0); sl(ctx, x - 0.05, sd * AN.W(x) * 0.6); }
   }
@@ -1523,7 +1547,7 @@ function nerveSys(ctx, lv) {
   const g = glowSprite(NERVE_C, 1);
   for (let i = 0; i < 2 + lv; i++) {
     let f = t * 0.7 + i / (2 + lv); f -= Math.floor(f);
-    const x = st === 3 ? 0.7 - f * 1.75 : (st === 4 ? 0.8 : st === 6 ? 0.56 : st === 7 ? 0.7 : 0.66) - f * (st === 4 ? 2.1 : st === 6 ? 1.36 : st === 7 ? 2.02 : 1.6), sz = 0.07 + 0.015 * lv;
+    const x = st === 3 ? 0.7 - f * 1.75 : (st === 4 ? 0.8 : st === 6 ? 0.56 : st === 7 ? 0.7 : st === 8 ? 0.5 : 0.66) - f * (st === 4 ? 2.1 : st === 6 ? 1.36 : st === 7 ? 2.02 : st === 8 ? 1.24 : 1.6), sz = 0.07 + 0.015 * lv;
     for (const sd of st === 3 ? SIDES : [0]) { skin(x, sd * (st === 3 ? cordV(x) : 0)); ctx.globalAlpha = AN.A0 * (0.5 + 0.3 * sin(f * PI)); ctx.drawImage(g, SK[0] - sz, SK[1] - sz, sz * 2, sz * 2); }
   }
   ctx.globalAlpha = AN.A0; ctx.globalCompositeOperation = 'source-over';
@@ -1536,7 +1560,7 @@ function brain(ctx, a, lit, c = NERVE_C) {
   ctx.beginPath();
   if (st === 3) { for (const sd of SIDES) { skin(0.72, sd * 0.055); ctx.moveTo(SK[0] + 0.09, SK[1]); ctx.ellipse(SK[0], SK[1], 0.085, 0.06, SK[2], 0, TAU); } }
   else {
-    const bx = st === 4 ? 0.82 : st === 6 ? 0.6 : st === 7 ? 0.72 : 0.7, k = st === 4 ? 1 : st === 6 ? 1.45 : st === 7 ? 1.12 : 1.25;
+    const bx = st === 4 ? 0.82 : st === 6 ? 0.6 : st === 7 ? 0.72 : st === 8 ? 0.5 : 0.7, k = st === 4 ? 1 : st === 6 ? 1.45 : st === 7 ? 1.12 : st === 8 ? 1.3 : 1.25;
     for (const sd of SIDES) {
       skin(bx + 0.13 * k, sd * 0.03 * k); ctx.moveTo(SK[0] + 0.035 * k, SK[1]); ctx.ellipse(SK[0], SK[1], 0.035 * k, 0.026 * k, SK[2], 0, TAU);
       skin(bx + 0.05 * k, sd * 0.045 * k); ctx.moveTo(SK[0] + 0.05 * k, SK[1]); ctx.ellipse(SK[0], SK[1], 0.05 * k, 0.038 * k, SK[2], 0, TAU);
@@ -1554,6 +1578,7 @@ function cystShell(ctx, t, lw) {
   let cx = AN.st === 5 ? -0.22 : AN.st === 4 ? -0.18 : -0.05, rx = AN.st === 5 ? 1.72 : AN.st === 4 ? 1.62 : 1.45, ry = AN.st === 3 ? 0.78 : AN.st === 4 ? 0.66 : 0.86;
   if (AN.st === 6) { const k = AN.pk; cx = 0.08 * (1 - k); rx = 1.52 + 0.58 * k; ry = 1.08 + 1.02 * k; } // round, and rounder still inflated
   else if (AN.st === 7) { cx = 0.14; rx = 2.32; ry = 1.08; } // long enough for the bill and the tail
+  else if (AN.st === 8) { cx = -0.04; rx = 1.38; ry = 1.4; } // (the sunfish folds its tall fins in: molaFin)
   if (AN.st >= 4) {
     // a fish seals itself in a glossy mucus cocoon (like a lungfish's, or a sleeping parrotfish's bubble)
     const k = 1 + 0.02 * sin(t * 2.2);
@@ -1891,7 +1916,7 @@ function swimBladder(ctx, lv) {
     return;
   }
   for (let k = 0; k < (s5 ? 2 : 1); k++) {
-    const s6 = AN.st === 6; // (a pufferfish's bladder is one round chamber)
+    const s6 = AN.st === 6 || AN.st === 8; // (a pufferfish's or a sunfish's bladder is one round chamber)
     const x = s5 ? (k ? 0.22 : -0.04) : s6 ? 0.0 : 0.02, rx = (s5 ? (k ? 0.12 : 0.19) : s6 ? 0.22 : 0.2) + 0.02 * lv, ry = (s5 ? (k ? 0.085 : 0.11) : s6 ? 0.15 : 0.07) + (s6 ? 0.014 : 0.008) * lv;
     at(ctx, x, 0);
     ctx.beginPath(); ctx.ellipse(0, 0, rx, ry, 0, 0, TAU);
@@ -1921,7 +1946,7 @@ function lateralLine(ctx, lv) {
 }
 function scutes(ctx, lv) {
   // bony scutes in rows along the flanks (and down the back at higher levels), like a sturgeon's
-  const st = AN.st, n = (st === 7 ? 5 : 4) + 2 * lv, x0 = st === 7 ? 0.48 : 0.4, x1 = st === 4 ? -1.0 : st === 6 ? -0.68 : st === 7 ? -1.22 : -0.85, sz = 0.058 + 0.012 * lv, t = AN.t;
+  const st = AN.st, n = (st === 7 ? 5 : 4) + 2 * lv, x0 = st === 7 ? 0.48 : st === 8 ? 0.36 : 0.4, x1 = st === 4 ? -1.0 : st === 6 ? -0.68 : st === 7 ? -1.22 : st === 8 ? -0.66 : -0.85, sz = 0.058 + 0.012 * lv, t = AN.t;
   ctx.beginPath();
   for (let row = 0; row < (lv >= 2 ? 3 : 2); row++) {
     const vk = row === 2 ? 0 : row ? 0.62 : -0.62, nn = row === 2 ? n - 1 : n;

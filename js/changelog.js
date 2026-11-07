@@ -1,5 +1,13 @@
 // Player-facing release notes, newest first.
 export const CHANGELOG = [
+  { build: 23, title: 'The ocean sunfish', notes: [
+    'Levels 71 to 80, with a new body: the Ocean Sunfish, the heaviest bony fish in the world (3 m tall and two tonnes). You see it basking on its side at the surface, the way it got its name. If you had finished the journey, you carry on at level 71 straight away.',
+    'New power, Breach: leap clear of the water and crash back down, as sunfish really do. Nothing can touch you in the air, and the landing stuns and hurts everything around.',
+    'Two new habitats: the Jelly Bloom (Nomura\u2019s jellyfish, salps, glowing pyrosomes, leatherback turtles, blue sharks and sea lions) and the Cleaning Station, a reef where big fish queue to be cleaned. Small jellyfish are food now.',
+    'Two new bosses. The Lion\u2019s Mane Jellyfish trails stinging strands longer than a blue whale: bite through them to reach its bell, or Breach next to it to tear them all and stun it. The Sea Lion Gang darts in to nip your fins: bite one as it rolls away, or stun the whole gang with a Breach, Spread Fins or a slash.',
+    'Three new traits: Gelatinous Skin (more health, less damage), Jelly-eater\u2019s Mouth (stings barely hurt, and jellies are extra filling) and Cleaner Fish (little wrasses heal you and pick off anything latched on).',
+    'On the sunfish your old powers and traits take sunfish forms: Fin Slap, Spread Fins, Silver Flash, a crushing beak, rough skin and fluttering fins.',
+  ] },
   { build: 22, title: 'The sailfish', notes: [
     'Levels 61 to 70, with a new body: the Sailfish (about 3 m), the fastest fish in the sea. If you had finished the journey, you carry on at level 61 straight away.',
     'New power, Bill Slash: whip your bill sideways through everything in front of you. Whatever it hits is stunned and hurt, as sailfish really do to sardines.',

@@ -1729,7 +1729,8 @@ BOSS_KIT.lionsmane = {
       for (let j = 1; j <= LM_SEGS; j++) {
         const q = S.pts[j], pr = S.pts[j - 1];
         // rest direction: outwards, bent by the sway and by the bell's motion
-        const tx = pr.x + cos(a + sway * j * 0.08) * segL - b.vx * 0.04 * j, ty = pr.y + sin(a + sway * j * 0.08) * segL - b.vy * 0.04 * j;
+        const wa = a + sway * j * 0.16 + 0.14 * sin(T * 0.7 + j * 0.6 + S.a * 2); // swaying, with a slow wave down each strand
+        const tx = pr.x + cos(wa) * segL - b.vx * 0.06 * j, ty = pr.y + sin(wa) * segL - b.vy * 0.06 * j;
         q.x += (tx - q.x) * min(1, dt * 4); q.y += (ty - q.y) * min(1, dt * 4);
         const ux = q.x - pr.x, uy = q.y - pr.y, ud = hypot(ux, uy) + 0.01; q.x = pr.x + ux / ud * segL; q.y = pr.y + uy / ud * segL;
       }
