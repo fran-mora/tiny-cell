@@ -709,7 +709,10 @@ const G = { st: 1, cx: 0, ax: 1, ay: 1 };
 const SATS = [0, 1, 2, 3].map(() => ({ x: 0, y: 0, a: 0, r: 0.4 }));
 const RIM = [0, 0, 0, 0];
 
-function clampStage(s) { s = s | 0; return s < 1 ? 1 : s > 7 ? 7 : s; }
+function clampStage(s) { s = s | 0; return s < 1 ? 1 : s > 10 ? 10 : s; }
+// the bodies drawn so far: a later stage not drawn yet borrows the last one's body
+const DRAWN_STAGES = 8;
+function bodyStage(s) { s = clampStage(s); return s > DRAWN_STAGES ? DRAWN_STAGES : s; }
 
 // Swim phase, integrated over time so a changing speed never makes the tail jump. Rate = 6 + 6·speedN rad/s.
 // Stateless callers (portraits, fresh objects) get exactly T·rate.
@@ -956,7 +959,7 @@ const F8 = { xf: 1.0, xr: -0.9 }, F8M = -0.12, F8W = 0.85, F8P = 2.6;
 function w8(x) {
   if (x >= F8M) {
     const q = (x - F8M) / (F8.xf - F8M); if (q >= 1) return 0;
-    const w = F8W * Math.pow(1 - Math.pow(q, 1.9), 0.62);
+    const w = F8W * Math.pow(1 - Math.pow(q, 2.15), 0.56);
     if (!AN.chk) return w;
     const d = (x - 0.82) / 0.09; return w + AN.chk * exp(-d * d); // Jaw Muscles: cheeks bulging behind the beak
   }
@@ -1487,7 +1490,7 @@ function mitoGlow(ctx, lv) {
 }
 function novaOrgan(ctx, lv) {
   // electric organ: stacks of electrocytes along the rear flanks, flickering as they charge
-  const st = AN.st, t = AN.t, x0 = st === 3 ? -0.3 : st === 4 ? -0.3 : st === 6 ? -0.02 : st === 7 ? -0.22 : st === 8 ? 0.06 : -0.2, x1 = st === 3 ? -1.0 : st === 4 ? -1.15 : st === 6 ? -0.74 : st === 7 ? -1.24 : st === 8 ? -0.72 : -0.9;
+  const st = AN.st, t = AN.t, x0 = st === 3 ? -0.3 : st === 4 ? -0.3 : st === 6 ? -0.02 : st === 7 ? -0.22 : st === 8 ? -0.1 : -0.2, x1 = st === 3 ? -1.0 : st === 4 ? -1.15 : st === 6 ? -0.74 : st === 7 ? -1.24 : st === 8 ? -0.72 : -0.9;
   const v0 = 0.22, v1 = 0.82;
   ctx.beginPath();
   for (const sd of SIDES) {
@@ -3287,6 +3290,731 @@ function sailFront(ctx, m) {
   sailBill(ctx, m);
 }
 
+// ============================ stage 8: ocean sunfish ============================
+// Drawn the way it is famous for: basking on its side at the surface, so its side profile is seen from above (its
+// back towards rest -v, its belly towards +v, one eye showing). A tall, round, silvery disc (F8, w8) with a blunt head
+// and a small beaked mouth, and no tail: the body stops short in the clavus, a scalloped rudder of a frill. The tall
+// dorsal (-v) and anal (+v) fins, set far back, beat together like a pair of wings (sweeping fore and aft); a small
+// pectoral fin flutters behind the eye. Thick, rough, silvery-grey skin, mottled pale and dark, translucent at the edge.
+// Hooks: puffK = Spread Fins (the fins held rigid and spread wide, their rays standing up), slashK + slashDir = Fin Slap
+// (both fins swept round together, the one on the slashDir side forward through the water in front, leaving an arc),
+// sailK = the fins raised taller, stripeK = Colour Flash (the blotches turn stark), breachK = Breach (water streaming
+// off, the fins and clavus flung back).
+const MOLA_SILVER = [158, 174, 182], MOLA_DARK = [52, 64, 76], MOLA_PALE = [230, 238, 240], MOLA_DEEP = [24, 34, 44];
+const JELLY_C = [210, 238, 255], LINING_C = [255, 150, 178], WRASSE_B = [70, 150, 255], WRASSE_F = [214, 236, 255];
+const MFIN_X = -0.48, MFIN_C = 0.21, EYE8_X = 0.6, EYE8_V = -0.13, PEC8_X = 0.4, PEC8_V = -0.02, GILL8_X = 0.47;
+// this frame's sunfish colours (the player's, pulled towards a sunfish's) and state: sk = Colour Flash 0…1, sp = Spread
+// Fins, sl = Fin Slap (dir = its side), up = fins raised, br = in the air, cy = sealed in the cocoon, fp = fin-beat phase
+const S8 = { body: [0, 0, 0], dark: [0, 0, 0], pale: [0, 0, 0], fin: [0, 0, 0], frill: [0, 0, 0], sk: 0, sp: 0, sl: 0, dir: 1, up: 0, br: 0, cy: 0, fp: 0, fa: 0 };
+function molaPalette(m) {
+  const b = AN.body, p = AN.p;
+  mixRGB(b, MOLA_SILVER, 0.74, S8.body); mixRGB(b, MOLA_DARK, 0.8, S8.dark); mixRGB(b, MOLA_PALE, 0.72, S8.pale);
+  mixRGB(S8.body, MOLA_DARK, 0.55, S8.fin); mixRGB(S8.fin, S8.pale, 0.32, S8.frill);
+  // Colour Flash: the game's p.stripeK, always partly on with the Colour Flash trait
+  S8.sk = min(1, max(p.stripeK || 0, m.stripes ? 0.2 + 0.15 * min(3, m.stripes) : 0));
+  S8.sp = smooth01(min(1, max(0, p.puffK || 0)));
+  S8.sl = smooth01(min(1, max(0, p.slashK || 0))); S8.dir = p.slashDir < 0 ? -1 : 1;
+  S8.up = smooth01(min(1, max(p.sailK || 0, m.sail ? 0.2 + 0.1 * min(3, m.sail) : 0)));
+  S8.br = min(1, max(0, p.breachK || 0));
+  S8.cy = p.cyst > 0 ? 1 : 0;
+  // the fins beat slowly (about once a second), a little faster with Fluttering Fins; held still when spread, slapping,
+  // airborne or cocooned
+  S8.fp = AN.ph * (0.5 + 0.06 * min(3, m.hover || 0));
+  S8.fa = (0.3 + 0.05 * min(3, m.hover || 0)) * (1 - S8.sp) * (1 - S8.sl) * (1 - 0.75 * S8.br) * (1 - S8.cy);
+}
+
+// ----- the dorsal and anal fins -----
+// a fin in its own frame (+x forward along the body, +y out from the body edge): a tall blade raked back, a convex
+// leading edge, a rounded tip and a slightly concave trailing edge. It bends from its root: a point at height y is
+// turned back by d·bend(y), so the root stays put while the blade sweeps.
+const FNX = new Float32Array(48), FNY = new Float32Array(48), FUX = new Float32Array(48), FUY = new Float32Array(48), BNT = [0, 0];
+let FN_D = 0, FN_S = 0, FN_H = 1, FN_K = 1;
+function finBend(x, y) {
+  // (FN_D, the rake and the beat, bends it near the root; FN_S, a big stroke, curves the whole blade like a paddle)
+  let u = (y + 0.04) / (0.34 * FN_H); u = u < 0 ? 0 : u > 1 ? 1 : u;
+  let w = (y + 0.04) / (0.75 * FN_H); w = w < 0 ? 0 : w > 1 ? 1 : w;
+  const a = FN_D * u * u * (3 - 2 * u) + FN_S * w * (2 - w), ca = cos(a), sa = sin(a), yy = y * FN_K;
+  BNT[0] = x * ca - yy * sa; BNT[1] = x * sa + yy * ca;
+  return BNT;
+}
+function bz3(a, b, c, d, u) { const v = 1 - u; return v * v * v * a + 3 * v * v * u * b + 3 * v * u * u * c + u * u * u * d; }
+// fills FNX/FNY with the (bent) outline from the leading root round the tip to the trailing root; returns the count
+// and leaves the tip's index in FN_TIP
+let FN_TIP = 0;
+function finOutline(C, H, N, sp = 0) {
+  // (sp: Spread Fins opens the blade into a broad fan, its rays standing straight out)
+  const rk = (0.2 - 0.14 * sp) * H, tw = 0.11 + 0.3 * sp; let n = 0;
+  const put = (x, y) => { finBend(x, y); FNX[n] = BNT[0]; FNY[n] = BNT[1]; FUX[n] = x; FUY[n] = y; n++; };
+  for (let i = 0; i <= N; i++) { const u = i / N; put(bz3(C, C * 0.62, -rk + 0.08 + 0.05 * H, -rk, u), bz3(-0.05, 0.4 * H, 0.9 * H, H, u)); }
+  FN_TIP = n - 1;
+  for (let i = 1; i <= 3; i++) { const u = i / 3, v = 1 - u; put(v * v * -rk + 2 * v * u * (-rk - tw * 0.45) + u * u * (-rk - tw), v * v * H + 2 * v * u * 1.025 * H + u * u * (0.93 - 0.05 * sp) * H); }
+  for (let i = 1; i <= N; i++) { const u = i / N; put(bz3(-rk - tw, -rk * 0.5 - tw - 0.1 * sp, -C * (0.86 + 0.5 * sp), -C, u), bz3((0.93 - 0.05 * sp) * H, (0.6 + 0.1 * sp) * H, 0.22 * H, -0.05, u)); }
+  return n;
+}
+// the outline point a ray ends at (u = 0 front … 1 back): spread over the outer margin, from part-way up the leading
+// edge, over the tip, to part-way down the trailing edge
+function rayEnd(u, n, N) { const a = Math.round(FN_TIP * 0.35), b = n - 1 - Math.round(N * 0.4); return a + Math.round(u * (b - a)); }
+function finSmooth(ctx, n) {
+  ctx.beginPath(); ctx.moveTo(FNX[0], FNY[0]);
+  for (let i = 1; i < n - 1; i++) ctx.quadraticCurveTo(FNX[i], FNY[i], (FNX[i] + FNX[i + 1]) / 2, (FNY[i] + FNY[i + 1]) / 2);
+  ctx.lineTo(FNX[n - 1], FNY[n - 1]);
+  // (round under the body edge back to the start)
+  finBend(0, -0.14); ctx.quadraticCurveTo(BNT[0], BNT[1], FNX[0], FNY[0]);
+  ctx.closePath();
+}
+// the fin's height and sweep (positive = tip back) for this frame
+function finH(m) {
+  return (1.0 + 0.08 * (m.fins || 0) + 0.11 * min(3, m.sail || 0)) * (1 + 0.18 * S8.up) * (1 + 0.1 * S8.sp) * (1 - 0.52 * S8.cy);
+}
+function finSweep(side, rest) {
+  const d0 = 0.08 + 0.14 * min(1, AN.sp);
+  if (rest) return d0;
+  let d = d0 + S8.fa * sin(S8.fp);
+  return d + (-0.1 - d) * S8.sp; // Spread Fins: straight out, a touch forward
+}
+// the big strokes, bending the whole blade: flung back in the air, folded back in the cocoon, and the Fin Slap (both
+// swing round the same way, the leading one hard)
+function finStroke(side) { return 0.62 * S8.br + 0.8 * S8.cy - side * S8.dir * (side === S8.dir ? 1.1 : 0.45) * S8.sl; }
+function molaFin(ctx, m, side) {
+  const lw = AN.lw, fins = m.fins || 0, spn = (m.spikes || 0) + (m.toxin ? 1 : 0), sp = S8.sp;
+  const H = finH(m), C = MFIN_C * (1 + 0.06 * fins + 0.14 * sp), N = AN.lo ? 5 : 8;
+  // out of the picture plane the beating fin looks shorter at the ends of each stroke
+  const fs = sin(S8.fp + 1.2);
+  FN_D = finSweep(side, false); FN_S = finStroke(side); FN_H = H; FN_K = 1 - 0.3 * S8.fa * fs * fs;
+  at(ctx, MFIN_X, side * (AN.W(MFIN_X) - 0.07), side);
+  const n = finOutline(C, H, N, sp);
+  finSmooth(ctx, n);
+  ctx.fillStyle = rgbStr(mixRGB(S8.fin, S8.pale, 0.3 * sp, TMPC), 0.94); ctx.fill();
+  if (!AN.lo) {
+    ctx.save(); ctx.clip();
+    // darker towards the tip; catching the light as it tilts through each beat
+    const tx = FNX[FN_TIP], ty = FNY[FN_TIP];
+    ctx.beginPath(); ctx.arc(tx, ty, H * 0.5, 0, TAU); ctx.fillStyle = rgbStr(MOLA_DEEP, 0.2 * (1 - 0.8 * sp)); ctx.fill();
+    const lit = 0.13 * fs * S8.fa / 0.3;
+    if (lit > 0.01) { ctx.fillStyle = rgbStr(S8.pale, lit); ctx.fillRect(-2, -1, 4, 4); }
+    ctx.restore();
+  }
+  // the rays, fanning from the root to the margin (standing up stiff and bold when spread)
+  const nr = 6 + min(4, fins) + (AN.fine ? 2 : 0);
+  if (!AN.lo || sp > 0.3) {
+    ctx.beginPath();
+    for (let k = 0; k < nr; k++) {
+      const u = (k + 0.5) / nr, j = rayEnd(u, n, N), bx = C * (0.78 - 1.56 * u);
+      finBend(bx, 0); const sx = BNT[0], sy = BNT[1];
+      finBend((bx + FUX[j]) / 2, FUY[j] / 2); // (the ray's middle, bent with the blade)
+      ctx.moveTo(sx, sy); ctx.quadraticCurveTo(BNT[0], BNT[1], FNX[j], FNY[j]);
+    }
+    ctx.strokeStyle = rgbStr(sp > 0.3 ? mixRGB(AN.mem, WHITE, 0.4, TMPC) : AN.mem, 0.26 + 0.4 * sp); ctx.lineWidth = lw(0.8 + 0.7 * sp); ctx.lineCap = 'round'; ctx.stroke();
+  }
+  finSmooth(ctx, n);
+  ctx.strokeStyle = rgbStr(AN.mem, 0.8); ctx.lineWidth = lw(1.2); ctx.lineJoin = 'round'; ctx.stroke();
+  if (!AN.lo) {
+    // the paler, thick leading edge
+    ctx.beginPath(); ctx.moveTo(FNX[0], FNY[0]); for (let i = 1; i <= FN_TIP; i++) ctx.lineTo(FNX[i], FNY[i]);
+    ctx.strokeStyle = rgbStr(S8.pale, 0.4); ctx.lineWidth = lw(1.8); ctx.stroke();
+  }
+  // Fin Spines / Spread Fins: the rays run out past the margin as stiff spines, and a stout spine leads the fin
+  if (spn || sp > 0.05) {
+    const L = 0.04 + 0.03 * min(4, spn) + 0.1 * sp, b = 0.016 + 0.003 * min(4, spn) + 0.006 * sp;
+    ctx.beginPath();
+    for (let k = 0; k < nr; k++) {
+      const u = (k + 0.5) / nr, j = rayEnd(u, n, N), ex = FNX[j], ey = FNY[j];
+      finBend(C * (0.78 - 1.56 * u), 0); let dx = ex - BNT[0], dy = ey - BNT[1]; const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
+      ctx.moveTo(ex - dy * b, ey + dx * b); ctx.lineTo(ex + dx * L, ey + dy * L); ctx.lineTo(ex + dy * b, ey - dx * b); ctx.closePath();
+    }
+    if (spn) {
+      // the leading spine: a white blade along the front edge
+      finBend(C + 0.02, -0.04); ctx.moveTo(BNT[0], BNT[1]);
+      for (let i = 1; i <= FN_TIP; i++) ctx.lineTo(FNX[i] + 0.012 * (1 - i / FN_TIP), FNY[i]);
+      ctx.lineTo(FNX[FN_TIP] + 0.03, FNY[FN_TIP] + L * 0.8);
+      for (let i = FN_TIP; i >= 1; i--) ctx.lineTo(FNX[i] - 0.03 * (1 - i / FN_TIP) - 0.01, FNY[i] - 0.01);
+      ctx.closePath();
+    }
+    ctx.globalAlpha = AN.A0 * (spn ? 1 : min(1, sp * 3));
+    ctx.fillStyle = 'rgba(240,255,250,0.96)'; ctx.fill(); ctx.strokeStyle = 'rgba(20,60,65,0.7)'; ctx.lineWidth = lw(0.8); ctx.stroke();
+    ctx.globalAlpha = AN.A0;
+  }
+  ctx.restore();
+}
+// Fin Slap: the arcs the two fin tips have just swept through (the leading one through the water in front)
+function molaSlapArc(ctx, m) {
+  const k = S8.sl, lw = AN.lw, H = finH(m);
+  for (const side of SIDES) {
+    const lead = side === S8.dir, R = H * 0.98 + 0.04;
+    const d0 = finSweep(side, true), d1 = d0 - side * S8.dir * (lead ? 1.1 : 0.45) * k, a0 = PI / 2 + d0, a1 = PI / 2 + d1, ccw = a1 < a0;
+    at(ctx, MFIN_X, side * (AN.W(MFIN_X) - 0.07), side);
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.beginPath(); ctx.arc(0, 0, R * 1.05, a0, a1, ccw); ctx.arc(0, 0, R * 0.42, a1, a0, !ccw); ctx.closePath();
+    ctx.fillStyle = rgbStr(SLASH_C, (lead ? 0.16 : 0.07) * k); ctx.fill();
+    ctx.lineCap = 'round';
+    for (let j = 0; j < 6; j++) {
+      const f0 = j / 6, f1 = (j + 1) / 6;
+      ctx.beginPath(); ctx.arc(0, 0, R, a0 + (a1 - a0) * f0, a0 + (a1 - a0) * f1, ccw);
+      ctx.strokeStyle = rgbStr([215, 240, 255], k * (lead ? 1 : 0.45) * (0.12 + 0.75 * f1 * f1)); ctx.lineWidth = lw(1.2 + (lead ? 4.5 : 2) * f1 * k); ctx.stroke();
+    }
+    if (lead && !AN.lo) {
+      // churned water and bubbles left in the fin's wake
+      ctx.beginPath();
+      for (let j = 0; j < 3; j++) { const r = R * (0.62 + 0.12 * j), b0 = a0 + (a1 - a0) * (0.25 + 0.15 * j); ctx.moveTo(cos(b0) * r, sin(b0) * r); ctx.arc(0, 0, r, b0, a1, ccw); }
+      for (let j = 0; j < 7; j++) { const f = 0.15 + 0.12 * j, a = a0 + (a1 - a0) * f, r = R * (0.55 + 0.4 * ((j * 0.618) % 1)), rr = 0.02 + 0.015 * (j % 3); ctx.moveTo(cos(a) * r + rr, sin(a) * r); ctx.arc(cos(a) * r, sin(a) * r, rr, 0, TAU); }
+      ctx.strokeStyle = rgbStr([200, 235, 255], 0.4 * k); ctx.lineWidth = lw(1.1); ctx.stroke();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.restore();
+  }
+}
+
+// ----- the clavus: the scalloped, rudder-like frill that ends the body -----
+const CLV_E = 2 / F8P, CLV_PHI = 1.02, CE = [0, 0, 0, 0];
+// rest point on the rear edge at superelliptic angle phi (0 = straight back, ±π/2 = top / bottom) pushed d out along
+// the outline's normal → CE [x, v, nx, nv]
+function clavEdge(phi, d) {
+  const a = phi < 0 ? -phi : phi, sg = phi < 0 ? -1 : 1, X = Math.pow(cos(a), CLV_E), Y = Math.pow(sin(a), CLV_E), ax = F8M - F8.xr;
+  let nx = -Math.pow(X, F8P - 1) / ax, ny = sg * Math.pow(Y, F8P - 1) / F8W; const l = Math.hypot(nx, ny) || 1; nx /= l; ny /= l;
+  CE[0] = F8M - ax * X + nx * d; CE[1] = sg * F8W * Y + ny * d; CE[2] = nx; CE[3] = ny;
+  return CE;
+}
+function clavLobes(m) { return 9 + min(4, m.flagellum || 0); }
+function clavDepth(m) { return (0.1 + 0.03 * min(5, m.flagellum || 0) + 0.012 * (m.fins || 0)) * (1 + 0.3 * S8.sp) * (1 - 0.3 * S8.cy); }
+function molaClavus(ctx, m) {
+  const lw = AN.lw, NL = clavLobes(m), D = clavDepth(m), per = AN.lo ? 3 : 6, M = NL * per, ph = S8.fp * 1.1, br = S8.br;
+  // the frill: rounded lobes edged with little bony ossicles, rippling as it sculls; flung back in a breach
+  ctx.beginPath();
+  for (let j = 0; j <= M; j++) {
+    const u = j / M, phi = -CLV_PHI + 2 * CLV_PHI * u, fr = (u * NL) % 1, g = Math.pow(sin(PI * fr), 0.6);
+    const d = D * (0.32 + 0.68 * g) * (1 + 0.14 * sin(ph - 6 * u)) * (1 + 0.5 * br);
+    clavEdge(phi, d); let x = CE[0] - br * (0.1 + 0.08 * g) - 0.02 * sin(ph - 6 * u + 0.8); const v = CE[1];
+    skin(x, v); j ? ctx.lineTo(SK[0], SK[1]) : ctx.moveTo(SK[0], SK[1]);
+  }
+  for (let j = 8; j >= 0; j--) { clavEdge(-CLV_PHI + 2 * CLV_PHI * (j / 8), -0.08); sl(ctx, CE[0], CE[1]); }
+  ctx.closePath();
+  ctx.fillStyle = rgbStr(S8.frill, 0.9); ctx.fill();
+  ctx.strokeStyle = rgbStr(AN.mem, 0.72); ctx.lineWidth = lw(1.1); ctx.lineJoin = 'round'; ctx.stroke();
+  if (AN.lo) return;
+  // a ray to each lobe and its ossicle at the margin
+  ctx.beginPath();
+  for (let i = 0; i < NL; i++) {
+    const u = (i + 0.5) / NL, phi = -CLV_PHI + 2 * CLV_PHI * u, d = D * (1 + 0.14 * sin(ph - 6 * u)) * (1 + 0.5 * br);
+    clavEdge(phi, -0.03); sm(ctx, CE[0], CE[1]);
+    clavEdge(phi, d * 0.78); sl(ctx, CE[0] - br * 0.15 - 0.02 * sin(ph - 6 * u + 0.8), CE[1]);
+  }
+  ctx.strokeStyle = rgbStr(AN.mem, 0.3 + 0.35 * S8.sp); ctx.lineWidth = lw(0.9 + 0.5 * S8.sp); ctx.stroke();
+  ctx.beginPath();
+  for (let i = 0; i < NL; i++) {
+    const u = (i + 0.5) / NL, phi = -CLV_PHI + 2 * CLV_PHI * u, d = D * (1 + 0.14 * sin(ph - 6 * u)) * (1 + 0.5 * br), r = 0.016 + 0.003 * min(4, m.flagellum || 0);
+    clavEdge(phi, d * 0.8); skin(CE[0] - br * 0.15 - 0.02 * sin(ph - 6 * u + 0.8), CE[1]); ctx.moveTo(SK[0] + r, SK[1]); ctx.arc(SK[0], SK[1], r, 0, TAU);
+  }
+  ctx.fillStyle = rgbStr(S8.pale, 0.75); ctx.fill();
+}
+// the clavus band inside the body: a paler, ray-lined band along the rear edge running into the frill
+function clavusBand(ctx, m) {
+  const lw = AN.lw, NL = clavLobes(m), w = 0.17 + 0.02 * min(5, m.flagellum || 0);
+  ctx.beginPath();
+  for (let j = 0; j <= 14; j++) { clavEdge(-CLV_PHI + 2 * CLV_PHI * (j / 14), 0.02); j ? sl(ctx, CE[0], CE[1]) : sm(ctx, CE[0], CE[1]); }
+  for (let j = 14; j >= 0; j--) { clavEdge(-CLV_PHI + 2 * CLV_PHI * (j / 14), -w); sl(ctx, CE[0], CE[1]); }
+  ctx.closePath();
+  ctx.fillStyle = rgbStr(S8.frill, 0.34); ctx.fill();
+  if (AN.lo) return;
+  ctx.beginPath();
+  for (let j = 0; j <= 14; j++) { clavEdge(-CLV_PHI + 2 * CLV_PHI * (j / 14), -w); j ? sl(ctx, CE[0], CE[1]) : sm(ctx, CE[0], CE[1]); }
+  ctx.strokeStyle = rgbStr(S8.dark, 0.4); ctx.lineWidth = lw(1.2); ctx.stroke();
+  ctx.beginPath();
+  for (let i = 0; i < NL; i++) { const phi = -CLV_PHI + 2 * CLV_PHI * ((i + 0.5) / NL); clavEdge(phi, -w * 0.92); sm(ctx, CE[0], CE[1]); clavEdge(phi, 0.01); sl(ctx, CE[0], CE[1]); }
+  ctx.strokeStyle = rgbStr(AN.mem, 0.24); ctx.lineWidth = lw(0.9); ctx.stroke();
+}
+
+// ----- skin -----
+// the blotches: [x, v (fraction of the half-height), radius, aspect, rotation, pale?]
+const BLOT = [];
+{ let sd = 4211; const r = () => ((sd = (sd * 16807) % 2147483647) / 2147483647); for (let i = 0; i < 26; i++) BLOT.push(0.74 - r() * 1.5, (r() * 2 - 1) * 0.86, 0.07 + 0.07 * r(), 0.55 + 0.6 * r(), r() * PI, i & 1); }
+function sideGrad(ctx, dk, pl) {
+  const g0 = grads(ctx), key = 's8' + dk.join(',') + pl.join(',');
+  let g = g0.get(key);
+  if (!g) {
+    g = ctx.createLinearGradient(0, -1, 0, 1);
+    g.addColorStop(0, rgbStr(dk, 0.8)); g.addColorStop(0.32, rgbStr(dk, 0.34)); g.addColorStop(0.58, rgbStr(dk, 0));
+    g.addColorStop(0.8, rgbStr(pl, 0.24)); g.addColorStop(1, rgbStr(pl, 0.55));
+    g0.set(key, g);
+  }
+  return g;
+}
+function molaBody(ctx, n) {
+  const sk = S8.sk, t = AN.t;
+  ctx.fillStyle = rgbStr(S8.body, 0.96); ctx.fill();
+  // countershading seen from the side: a darker back (-v) over a pale, silvery belly (+v); a cached gradient across
+  // the body (which never bends)
+  skin(0, 0);
+  ctx.save(); ctx.translate(SK[0], SK[1]); ctx.rotate(SK[2]); ctx.scale(1, F8W); ctx.fillStyle = sideGrad(ctx, S8.dark, S8.pale); ctx.fill(); ctx.restore();
+  ctx.save(); emitPath(ctx, n); ctx.clip();
+  if (sk > 0.02) { ctx.fillStyle = rgbStr(S8.pale, 0.14 * sk); ctx.fill(); } // (a flash pales the whole body)
+  // the mottling: soft dark and pale blotches, gone stark black-and-white in a Colour Flash
+  const fl = 0.86 + 0.14 * sin(t * 7.5);
+  for (let pass = 0; pass < 2; pass++) {
+    ctx.beginPath();
+    for (let i = pass; i * 6 < BLOT.length; i += AN.lo ? 4 : 2) {
+      const o = i * 6;
+      const x = BLOT[o], v = BLOT[o + 1] * AN.W(x), r = BLOT[o + 2], ax = BLOT[o + 3], ro = BLOT[o + 4];
+      skin(x, v); const cx = SK[0], cy = SK[1], a = SK[2] + ro;
+      ctx.moveTo(cx + cos(a) * r * ax, cy + sin(a) * r * ax); ctx.ellipse(cx, cy, r * ax, r, a, 0, TAU);
+      const ox = cx + cos(a + 1.7) * r * 0.7, oy = cy + sin(a + 1.7) * r * 0.7; // a lobe off to one side: irregular
+      ctx.moveTo(ox + r * 0.55, oy); ctx.arc(ox, oy, r * 0.55, 0, TAU);
+    }
+    if (pass === 0) ctx.fillStyle = rgbStr(mixRGB(S8.dark, MOLA_DEEP, 0.7 * sk, TMPC), (0.2 + 0.58 * sk * fl));
+    else ctx.fillStyle = rgbStr(mixRGB(S8.pale, WHITE, 0.7 * sk, TMPC), (0.22 + 0.62 * sk * fl));
+    ctx.fill();
+  }
+  // thick, rough skin: a fine speckle
+  if (AN.fine) { ctx.beginPath(); scatter(ctx, 30, 41, 0.04, 0.96, 0.9, 0.007, 0.013); ctx.fillStyle = rgbStr(S8.dark, 0.32); ctx.fill(); }
+  // the translucent pale edge all round
+  emitPath(ctx, n);
+  for (let i = 0; i < 3; i++) { ctx.strokeStyle = rgbStr(S8.pale, 0.1 + 0.06 * i); ctx.lineWidth = 0.2 - 0.06 * i; ctx.stroke(); }
+  ctx.restore();
+  emitPath(ctx, n);
+}
+// Rough Skin (hide): skin as rough as sandpaper, set with tiny tooth-like scales
+function roughSkin(ctx, lv) {
+  insetFill(ctx, 1, rgbStr(HIDE_C, 0.06 + 0.04 * lv));
+  if (AN.lo) return;
+  const d = AN.fine ? 0.056 : 0.078, r = 0.009 + 0.0025 * lv;
+  ctx.beginPath();
+  let row = 0;
+  for (let x = AN.xf - d * 0.7; x > AN.xr + 0.02; x -= d * 0.87, row++) {
+    const w = AN.W(x) - 0.02;
+    for (let v = -w + (row & 1 ? d * 0.5 : d * 0.15); v < w; v += d) {
+      skin(x, v); const c = cos(SK[2]), s = sin(SK[2]), px = SK[0], py = SK[1];
+      // a little denticle pointing back
+      ctx.moveTo(px + c * r - s * r, py + s * r + c * r); ctx.lineTo(px - c * r * 1.7, py - s * r * 1.7); ctx.lineTo(px + c * r + s * r, py + s * r - c * r); ctx.closePath();
+    }
+  }
+  ctx.fillStyle = rgbStr(HIDE_EDGE, 0.3 + 0.1 * lv); ctx.fill();
+}
+// Silver Flash (Photophore Flash on this body): mirror-bright skin, a silvery sheen with a glint sliding over it
+function silverSheen(ctx, lv) {
+  const t = AN.t;
+  insetFill(ctx, 0.9, rgbStr([235, 248, 255], 0.08 + 0.04 * lv));
+  let f = t * 0.3; f -= Math.floor(f);
+  ctx.globalCompositeOperation = 'lighter';
+  glowAt(ctx, [230, 245, 255], AN.xf - 0.15 - f * 1.6, -0.25 + 0.5 * f, 0.38 + 0.05 * lv, (0.1 + 0.05 * lv) * sin(f * PI), 1);
+  ctx.globalAlpha = AN.A0; ctx.globalCompositeOperation = 'source-over';
+  if (!AN.lo) { ctx.beginPath(); scatter(ctx, 6 + 3 * lv, 70, 0.08, 0.86, 0.8, 0.012, 0.02); ctx.fillStyle = 'rgba(250,253,255,0.85)'; ctx.fill(); }
+}
+// the big muscles that beat the dorsal and anal fins (Muscle; Red Muscle runs warm through them): a fan running in
+// from each fin root towards the backbone, pulsing with every beat
+function molaMuscle(ctx, m) {
+  const mu = m.muscle || 0, mi = m.mito || 0, lw = AN.lw, t = AN.t, beat = 0.5 + 0.5 * sin(S8.fp + 0.4);
+  const c = mu ? MUSCLE_C : MITO_C, lv = max(mu, mi);
+  ctx.beginPath();
+  for (const sd of SIDES) {
+    sm(ctx, MFIN_X + 0.2, sd * AN.W(MFIN_X + 0.2) * 0.9);
+    skin(0.05, sd * 0.3); let cx = SK[0], cy = SK[1]; skin(0.12, sd * 0.1); ctx.quadraticCurveTo(cx, cy, SK[0], SK[1]);
+    skin(-0.25, sd * 0.06); cx = SK[0]; cy = SK[1]; skin(MFIN_X - 0.2, sd * AN.W(MFIN_X - 0.2) * 0.9); ctx.quadraticCurveTo(cx, cy, SK[0], SK[1]);
+    ctx.closePath();
+  }
+  ctx.fillStyle = rgbStr(c, (0.12 + 0.04 * lv) * (0.8 + 0.4 * beat)); ctx.fill();
+  if (!AN.lo) {
+    ctx.beginPath();
+    for (const sd of SIDES) for (let k = 0; k <= 6; k++) { const u = k / 6, x = MFIN_X + 0.18 - 0.36 * u; sm(ctx, 0.1 - 0.3 * u, sd * 0.1); sl(ctx, x, sd * AN.W(x) * 0.86); }
+    ctx.strokeStyle = rgbStr(c, 0.3 + 0.08 * lv); ctx.lineWidth = lw(mu ? 1.1 + 0.25 * mu : 1); ctx.lineCap = 'round'; ctx.stroke();
+  }
+  if (mi) {
+    ctx.globalCompositeOperation = 'lighter';
+    for (const sd of SIDES) for (let i = 0; i < 2 + mi; i++) {
+      const u = (i + 0.5) / (2 + mi), x = -0.05 + (MFIN_X + 0.05) * u, pulse = 0.5 + 0.5 * sin(t * 2.6 - i * 0.9 + sd);
+      glowAt(ctx, MITO_C, x, sd * (0.15 + 0.5 * u), 0.2 + 0.03 * mi, 0.12 + 0.035 * mi + 0.08 * pulse);
+    }
+    ctx.globalAlpha = AN.A0; ctx.globalCompositeOperation = 'source-over';
+  }
+}
+// Jelly-eater's Mouth: the throat lined pink with rows of tooth-like papillae, seen through the skin behind the mouth
+function jellyThroat(ctx, lv) {
+  const lw = AN.lw;
+  ctx.beginPath(); sm(ctx, 0.98, 0);
+  for (let k = 1; k <= 6; k++) sl(ctx, 0.98 - k * 0.07, 0.01 * sin(k * 1.3));
+  ctx.strokeStyle = rgbStr(LINING_C, 0.32 + 0.08 * lv); ctx.lineWidth = 0.1 + 0.02 * lv; ctx.lineCap = 'round'; ctx.stroke();
+  if (AN.lo) return;
+  ctx.beginPath();
+  for (let k = 0; k < 6 + 2 * lv; k++) { const x = 0.95 - k * (0.42 / (6 + 2 * lv)); for (const sd of SIDES) { skin(x, sd * (0.03 + 0.008 * lv)); ctx.moveTo(SK[0] + 0.011, SK[1]); ctx.arc(SK[0], SK[1], 0.011, 0, TAU); } }
+  ctx.fillStyle = 'rgba(255,246,248,0.85)'; ctx.fill();
+}
+function molaInside(ctx, m) {
+  if (m.mimicry) mottle(ctx, m.mimicry);
+  if (m.chloro) sunBask(ctx, m.chloro);
+  if (m.vacuole) swimBladder(ctx, m.vacuole);
+  if (m.lysosome) fishGut(ctx, m.lysosome);
+  if (m.polyps) caeca(ctx, m.polyps);
+  if (m.stingproof) jellyThroat(ctx, m.stingproof);
+  if (m.muscle || m.mito) molaMuscle(ctx, m);
+  if (m.hide) roughSkin(ctx, m.hide);
+  clavusBand(ctx, m);
+  if (m.nova) novaOrgan(ctx, m.nova);
+  if (m.tetrodo) sailMucus(ctx, m.tetrodo);
+  if (m.photo) silverSheen(ctx, m.photo);
+  if (m.nerve) nerveSys(ctx, m.nerve);
+}
+
+// ----- head -----
+function molaEye(ctx, m) {
+  // a small, round eye with a silvery iris, set in a pale ring
+  const lv = m.eyes || 0, r = 0.062 + 0.02 * lv, lw = AN.lw;
+  skin(EYE8_X, EYE8_V);
+  ctx.beginPath(); ctx.arc(SK[0], SK[1], r * 1.45, 0, TAU); ctx.fillStyle = rgbStr(mixRGB(S8.body, S8.pale, 0.45, TMPD), 0.9); ctx.fill();
+  if (!AN.lo) { ctx.strokeStyle = rgbStr(S8.dark, 0.35); ctx.lineWidth = lw(0.9); ctx.stroke(); }
+  fishEye(ctx, EYE8_X, EYE8_V, r, lv, rgbStr(lv ? mixRGB([196, 210, 216], EYE_GLOW, 0.2 + 0.1 * lv, TMPC) : [196, 210, 216], 0.97));
+}
+function molaWarmEyes(ctx, lv) {
+  // Warm Eyes: the heater tissue tucked behind and below the eye, a warm orange glow round it, the brain warmed too
+  const t = AN.t, lw = AN.lw, pulse = 0.5 + 0.5 * sin(t * 2.1), r = 0.062 + 0.02 * (AN.m.eyes || 0);
+  skin(EYE8_X - 0.04, EYE8_V + r * 1.6); const rx = 0.09 + 0.012 * lv, ry = 0.05 + 0.007 * lv;
+  ctx.beginPath(); ctx.ellipse(SK[0], SK[1], rx, ry, SK[2] - 0.5, 0, TAU); ctx.fillStyle = rgbStr([176, 72, 40], 0.5 + 0.08 * lv); ctx.fill();
+  if (!AN.lo) {
+    ctx.beginPath();
+    for (let i = -2; i <= 2; i++) { const x = EYE8_X - 0.04 + i * 0.03; sm(ctx, x + 0.015, EYE8_V + r * 1.6 - 0.035); sl(ctx, x - 0.015, EYE8_V + r * 1.6 + 0.035); }
+    ctx.strokeStyle = rgbStr([255, 196, 140], 0.45 + 0.1 * lv); ctx.lineWidth = lw(0.8); ctx.stroke();
+  }
+  brain(ctx, 0.16 + 0.07 * lv, true, WARM_C);
+  ctx.globalCompositeOperation = 'lighter';
+  glowAt(ctx, WARM_C, EYE8_X, EYE8_V, r * (3.4 + 0.6 * lv), 0.26 + 0.1 * lv + 0.12 * pulse);
+  glowAt(ctx, WARM_C, 0.5, 0, 0.17 + 0.03 * lv, 0.18 + 0.08 * lv + 0.1 * pulse);
+  ctx.globalAlpha = AN.A0; ctx.globalCompositeOperation = 'source-over';
+}
+// Sensory Pores (tentacles): pores dotted over the head, round the eye and along the snout
+const PORE8 = [0.72, -0.24, 0.68, -0.05, 0.53, -0.27, 0.5, -0.03, 0.62, 0.02, 0.76, -0.14, 0.84, -0.3, 0.86, 0.05, 0.78, 0.2, 0.9, -0.16,
+  0.66, -0.4, 0.56, 0.16, 0.7, 0.32, 0.92, 0.18, 0.46, -0.42, 0.82, 0.38, 0.6, 0.42, 0.94, -0.04, 0.42, 0.25, 0.75, -0.5];
+function molaPores(ctx, lv) {
+  const t = AN.t, n = min(PORE8.length >> 1, 8 + 6 * lv), r = 0.016 + 0.003 * lv;
+  if (lv >= 2) {
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < n; i += 2) { const f = 0.5 + 0.5 * sin(t * 3.2 - i * 0.7); glowAt(ctx, PORE_C, PORE8[i * 2], PORE8[i * 2 + 1], 0.05 + 0.012 * lv + 0.02 * f, 0.3 + 0.3 * f, 1); }
+    ctx.globalAlpha = AN.A0; ctx.globalCompositeOperation = 'source-over';
+  }
+  ctx.beginPath();
+  for (let i = 0; i < n; i++) { skin(PORE8[i * 2], PORE8[i * 2 + 1]); ctx.moveTo(SK[0] + r * 1.6, SK[1]); ctx.arc(SK[0], SK[1], r * 1.6, 0, TAU); }
+  ctx.fillStyle = rgbStr(lv >= 2 ? PORE_C : S8.pale, 0.75); ctx.fill();
+  ctx.beginPath();
+  for (let i = 0; i < n; i++) { skin(PORE8[i * 2], PORE8[i * 2 + 1]); ctx.moveTo(SK[0] + r, SK[1]); ctx.arc(SK[0], SK[1], r, 0, TAU); }
+  ctx.fillStyle = 'rgba(8,30,40,0.85)'; ctx.fill();
+}
+// Jaw Muscles: the bite muscles bulge out of the cheeks behind the little beak (the bulge is also in the outline: w8)
+function molaCheeks(ctx, lv) {
+  const s = sin(AN.t * 3.1), bite = s > 0 ? s * s : 0, lw = AN.lw, x = 0.8, v = 0.1, rx = 0.1 + 0.02 * lv, ry = 0.13 + 0.03 * lv;
+  skin(x, v); const cx = SK[0], cy = SK[1], a = SK[2];
+  ctx.beginPath(); ctx.ellipse(cx, cy, rx * (1 + 0.06 * bite), ry * (1 + 0.06 * bite), a, 0, TAU);
+  ctx.fillStyle = rgbStr(MUSCLE_C, 0.1 + 0.04 * lv + 0.08 * bite); ctx.fill();
+  if (AN.lo) return;
+  ctx.strokeStyle = rgbStr(S8.pale, 0.4); ctx.lineWidth = lw(1); ctx.stroke();
+  ctx.beginPath();
+  const qx = cx + cos(a) * rx * 1.1, qy = cy + sin(a) * rx * 1.1; // the fibres fan back from the jaw
+  for (let k = -2; k <= 2; k++) { const b = a + PI + k * 0.38; ctx.moveTo(qx, qy); ctx.quadraticCurveTo(cx + cos(b + 0.2) * rx * 0.3, cy + sin(b + 0.2) * ry * 0.3, cx + cos(b) * rx * 0.95, cy + sin(b) * ry * 0.95); }
+  ctx.strokeStyle = rgbStr(mixRGB(MUSCLE_C, [120, 20, 40], 0.3, TMPC), 0.5 + 0.25 * bite); ctx.lineWidth = lw(1.1); ctx.lineCap = 'round'; ctx.stroke();
+}
+// the mouth: a small, round, puckered mouth at the very front, always a little open (it sucks in jellies), with the
+// fused, beak-like teeth showing. Crushing Beak: a big parrot-like beak; Jelly-eater's Mouth: lined pink, a ring of
+// papillae round it and scraps of jelly tentacles trailing from it
+function molaMouth(ctx, m) {
+  const t = AN.t, lw = AN.lw, bk = min(3, m.beak || 0), jp = min(3, m.stingproof || 0), jw = m.jaws || 0;
+  const s = sin(t * (jw || bk >= 2 ? 3.1 : 1.7)), open = 0.35 + 0.65 * (s > 0 ? s * s : 0), sz = 1 + 0.12 * bk + 0.06 * jp;
+  if (jp) {
+    // jelly tentacle scraps streaming back from the corners of the mouth
+    const N = 7;
+    ctx.beginPath();
+    for (let i = 0; i < min(3, jp + 0); i++) {
+      const sd = i === 1 ? 1 : -1, L = 0.42 + 0.14 * i;
+      skin(1.0, sd * 0.04); let px = SK[0], py = SK[1], a = SK[2] + PI - sd * (0.5 + 0.15 * i);
+      ctx.moveTo(px, py);
+      for (let k = 1; k <= N; k++) { const u = k / N; a += sd * 0.16 * u + 0.22 * sin(t * 2.3 + i * 1.7 - u * 5) * u; px += cos(a) * L / N; py += sin(a) * L / N; ctx.lineTo(px, py); }
+    }
+    ctx.strokeStyle = rgbStr(JELLY_C, 0.45); ctx.lineWidth = lw(2.4); ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,190,225,0.75)'; ctx.lineWidth = lw(0.9); ctx.stroke();
+  }
+  at(ctx, F8.xf - 0.04, 0);
+  ctx.scale(sz, sz);
+  // the puckered lips, a short round tube at the tip of the snout
+  ctx.beginPath(); ctx.ellipse(0.0, 0, 0.066, 0.08, 0, 0, TAU);
+  ctx.fillStyle = rgbStr(jp ? mixRGB(S8.pale, LINING_C, 0.35, TMPC) : mixRGB(S8.body, S8.pale, 0.3, TMPC), 0.97); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(0.0, 0, 0.066, 0.08, 0, -1.25, 1.25); ctx.strokeStyle = rgbStr(AN.mem, 0.6); ctx.lineWidth = lw(0.9 / sz); ctx.stroke();
+  if (!AN.lo) { ctx.beginPath(); ctx.ellipse(-0.01, 0, 0.05, 0.07, 0, 1.9, 4.4); ctx.strokeStyle = rgbStr(S8.dark, 0.3); ctx.lineWidth = lw(1 / sz); ctx.stroke(); }
+  // the opening, seen side-on: a dark (or pink-lined) oval at the front
+  const oh = 0.03 + 0.016 * open, ow = 0.014 + 0.01 * open;
+  ctx.beginPath(); ctx.ellipse(0.05, 0, ow, oh, 0, 0, TAU);
+  ctx.fillStyle = jp ? rgbStr(LINING_C, 0.95) : 'rgba(30,8,20,0.9)'; ctx.fill();
+  if (jp) { ctx.beginPath(); ctx.ellipse(0.054, 0, ow * 0.55, oh * 0.6, 0, 0, TAU); ctx.fillStyle = 'rgba(70,12,34,0.9)'; ctx.fill(); }
+  // the beak: an upper and a lower ivory plate meeting at the opening (hooked like a parrot's with Crushing Beak)
+  const bl = 0.034 + 0.026 * bk, bh = 0.022 + 0.008 * bk, gap = oh * 0.75;
+  ctx.beginPath();
+  for (const sd of SIDES) {
+    ctx.moveTo(0.02, sd * (gap + bh));
+    ctx.quadraticCurveTo(0.03 + bl * 0.7, sd * (gap + bh * 1.05), 0.03 + bl, sd * (gap * (bk ? 0.15 : 0.55))); // (the hooked tip)
+    ctx.quadraticCurveTo(0.03 + bl * 0.45, sd * gap * 0.9, 0.024, sd * gap);
+    ctx.closePath();
+  }
+  ctx.fillStyle = bk ? '#fdf7e6' : 'rgba(240,232,210,0.9)'; ctx.fill();
+  ctx.strokeStyle = 'rgba(95,65,45,0.7)'; ctx.lineWidth = lw((0.8 + 0.2 * bk) / sz); ctx.stroke();
+  if (bk && !AN.lo) {
+    // the cutting edges: hard white rims
+    ctx.beginPath(); for (const sd of SIDES) { ctx.moveTo(0.024, sd * gap); ctx.quadraticCurveTo(0.03 + bl * 0.45, sd * gap * 0.9, 0.03 + bl, sd * gap * 0.15); }
+    ctx.strokeStyle = 'rgba(255,255,255,0.95)'; ctx.lineWidth = lw((1 + 0.4 * bk) / sz); ctx.lineCap = 'round'; ctx.stroke();
+  }
+  if (jp && !AN.lo) {
+    // the ring of tooth-like papillae round the opening
+    ctx.beginPath();
+    for (let i = 0; i < 8 + 2 * jp; i++) { const a = (i / (8 + 2 * jp)) * TAU, x = 0.046 + cos(a) * ow * 1.05, y = sin(a) * oh * 1.05, r = 0.006; ctx.moveTo(x + r, y); ctx.arc(x, y, r, 0, TAU); }
+    ctx.fillStyle = 'rgba(255,252,246,0.95)'; ctx.fill();
+  }
+  ctx.restore();
+}
+// the gill opening: a small round hole just in front of the pectoral fin (lit by Salt Pumps); Gills: crimson
+// filaments fanning out of it with every breath
+function molaGill(ctx, m) {
+  const os = m.osmo || 0, gl = m.gills || 0, lw = AN.lw, t = AN.t, br = 0.5 + 0.5 * sin(t * 2.2);
+  if (gl) {
+    const L = (0.1 + 0.045 * gl) * (0.7 + 0.3 * br);
+    ctx.globalCompositeOperation = 'lighter'; glowAt(ctx, GILL_C, GILL8_X - 0.06, 0.02, L * 2.4, 0.25 + 0.08 * gl + 0.15 * br);
+    ctx.globalAlpha = AN.A0; ctx.globalCompositeOperation = 'source-over';
+    for (let pass = 0; pass < 2; pass++) {
+      ctx.beginPath();
+      for (let k = 0; k < 5; k++) {
+        skin(GILL8_X, 0.01 + (k - 2) * 0.012); const bx = SK[0], by = SK[1], a = SK[2] + PI + (k - 2) * 0.32 + 0.1 * sin(t * 2.3 + k), len = L * (1 - 0.12 * abs(k - 2)), ca = cos(a), sa = sin(a);
+        if (!pass) { ctx.moveTo(bx, by); ctx.lineTo(bx + ca * len, by + sa * len); }
+        else for (let j = 1; j <= 4; j++) { const u = j / 5, x2 = bx + ca * len * u, y2 = by + sa * len * u, l = 0.028 * (1.1 - 0.5 * u); for (const s2 of SIDES) { ctx.moveTo(x2, y2); ctx.lineTo(x2 + cos(a + s2 * 1.1) * l, y2 + sin(a + s2 * 1.1) * l); } }
+      }
+      ctx.strokeStyle = pass ? 'rgba(255,170,190,0.85)' : 'rgba(255,90,120,0.95)'; ctx.lineWidth = lw(pass ? 1 : 2.2); ctx.lineCap = 'round'; ctx.stroke();
+    }
+  }
+  skin(GILL8_X, 0.01);
+  const rx = 0.022 + 0.004 * gl, ry = 0.042 + 0.008 * gl;
+  ctx.beginPath(); ctx.ellipse(SK[0], SK[1], rx, ry, SK[2], 0, TAU);
+  ctx.fillStyle = 'rgba(8,28,38,0.7)'; ctx.fill();
+  ctx.strokeStyle = rgbStr(os ? OSMO_C : S8.pale, os ? 0.8 : 0.5); ctx.lineWidth = lw(1 + 0.3 * os); ctx.stroke();
+  if (os) { ctx.globalCompositeOperation = 'lighter'; glowAt(ctx, OSMO_C, GILL8_X, 0.01, 0.1 + 0.025 * os, 0.35 + 0.12 * os * (0.5 + 0.5 * sin(t * 3)), 1); ctx.globalAlpha = AN.A0; ctx.globalCompositeOperation = 'source-over'; }
+}
+// the pectoral fin: small and rounded, behind the eye, fluttering (Fluttering Fins: bigger and a blur of fast beats;
+// Lobe Fins: a fleshy lobe; Spread Fins: held out stiff)
+function molaPec(ctx, m) {
+  const t = AN.t, lw = AN.lw, fins = m.fins || 0, hv = min(3, m.hover || 0), pp = m.pseudopod || 0, sp = S8.sp, spn = (m.spikes || 0) + (m.toxin ? 1 : 0);
+  const k = (1 + 0.12 * fins + 0.3 * hv) * (1 + 0.15 * sp), L = 0.27 * k, C = 0.15 * k, fr = 8 + 3 * AN.sp + 5 * hv;
+  const sw = (g) => PI + 0.45 + (1 - sp) * ((0.28 + 0.1 * hv) * sin(t * fr - g) + 0.2 * S8.br) - 0.55 * sp;
+  const frame = (g) => { at(ctx, PEC8_X, PEC8_V); ctx.rotate(sw(g)); };
+  if (pp) { const b0 = AN.body; AN.body = S8.fin; frame(0); lobeShape(ctx, 0.3 + 0.06 * pp); ctx.restore(); AN.body = b0; return; } // (lobeShape takes its colour from AN.body)
+  // its shadow on the flank (the fin stands a little off the skin)
+  frame(0); ctx.translate(0.02, -0.025); finPath(ctx, L, C, 0.05); ctx.fillStyle = rgbStr(MOLA_DEEP, 0.22); ctx.fill(); ctx.restore();
+  for (let g = hv >= 2 ? 2 : hv ? 1 : 0; g >= 1; g--) {
+    frame(0.6 * g); finPath(ctx, L, C, 0.05); ctx.globalAlpha = AN.A0 * (0.24 - 0.07 * g); ctx.fillStyle = rgbStr(S8.fin, 0.8); ctx.fill(); ctx.globalAlpha = AN.A0; ctx.restore();
+  }
+  frame(0);
+  finPath(ctx, L, C, 0.05);
+  ctx.fillStyle = rgbStr(mixRGB(S8.fin, MOLA_DEEP, 0.15, TMPC), 0.94); ctx.fill();
+  ctx.strokeStyle = rgbStr(mixRGB(AN.mem, S8.fin, 0.45, TMPC), 0.85); ctx.lineWidth = lw(1); ctx.stroke();
+  if (!AN.lo) { finRays(ctx, L, C, 0.05, AN.fine ? 6 : 4); ctx.strokeStyle = rgbStr(AN.mem, 0.3 + 0.3 * sp); ctx.lineWidth = lw(0.8); ctx.stroke(); }
+  if (hv && !AN.lo) { finPath(ctx, L, C, 0.05); ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = rgbStr([170, 235, 255], 0.12 + 0.05 * hv); ctx.lineWidth = lw(1.2 + 0.3 * hv); ctx.stroke(); ctx.globalCompositeOperation = 'source-over'; }
+  if (spn) {
+    const Ls = L * (0.95 + 0.08 * max(m.spikes || 0, 1));
+    ctx.beginPath(); ctx.moveTo(0, -C * 0.55); ctx.quadraticCurveTo(Ls * 0.5, -C * 0.75, Ls, -C * 0.7); ctx.lineTo(0, -C * 0.25); ctx.closePath();
+    ctx.fillStyle = 'rgba(236,255,250,0.95)'; ctx.fill(); ctx.strokeStyle = 'rgba(30,80,85,0.55)'; ctx.lineWidth = lw(0.9); ctx.stroke();
+  }
+  ctx.restore();
+}
+// Fast Start on a sunfish: the escape is one huge stroke of the fins: fast-twitch muscle at both fin roots, glowing
+// while it is ready
+function molaDash(ctx, lv) {
+  const p = AN.p, ready = (p.dashCd || 0) <= 0, t = AN.t, pulse = 0.5 + 0.5 * sin(t * 5);
+  ctx.globalCompositeOperation = 'lighter';
+  for (const sd of SIDES) glowAt(ctx, DASH_C, MFIN_X + 0.02, sd * AN.W(MFIN_X) * 0.66, 0.22 + 0.03 * lv, ready ? 0.2 + 0.16 * pulse : 0.06, 1);
+  ctx.globalAlpha = AN.A0; ctx.globalCompositeOperation = 'source-over';
+  ctx.beginPath();
+  for (const sd of SIDES) for (let k = 0; k < 2 + lv; k++) { const v = sd * AN.W(MFIN_X) * (0.82 - 0.13 * k); sm(ctx, MFIN_X + 0.13, v - sd * 0.05); sl(ctx, MFIN_X, v); sl(ctx, MFIN_X - 0.13, v - sd * 0.05); }
+  ctx.strokeStyle = ready ? `rgba(255,245,215,${0.5 + 0.3 * pulse})` : 'rgba(230,220,190,0.28)'; ctx.lineWidth = AN.lw(1.6 + 0.3 * lv); ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke();
+}
+// Boxfish Toxin on a sunfish: venom glands glowing at the roots of the fins
+function molaVenom(ctx, lv) {
+  const t = AN.t, r = 0.032 + 0.007 * lv, pulse = 1 + 0.12 * sin(t * 2.6), P = [MFIN_X + 0.1, -1, MFIN_X - 0.1, -1, MFIN_X + 0.1, 1, MFIN_X - 0.1, 1, PEC8_X - 0.02, 0];
+  const pt = (i) => { const x = P[i], sd = P[i + 1]; return sd ? skin(x, sd * AN.W(x) * 0.84) : skin(x, PEC8_V); };
+  ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < P.length; i += 2) { pt(i); ctx.globalAlpha = AN.A0 * (0.32 + 0.1 * lv); const gs = r * 3.4; ctx.drawImage(glowSprite(TOX_C), SK[0] - gs, SK[1] - gs, gs * 2, gs * 2); }
+  ctx.globalAlpha = AN.A0; ctx.globalCompositeOperation = 'source-over';
+  ctx.beginPath();
+  for (let i = 0; i < P.length; i += 2) { pt(i); ctx.moveTo(SK[0] + r * pulse * 1.2, SK[1]); ctx.ellipse(SK[0], SK[1], r * pulse * 1.2, r * pulse, SK[2], 0, TAU); }
+  ctx.fillStyle = rgbStr(TOX_C, 0.88); ctx.fill(); ctx.strokeStyle = 'rgba(225,255,190,0.8)'; ctx.lineWidth = AN.lw(0.8); ctx.stroke();
+}
+// Lateral Line on a sunfish (seen side-on): one canal arching from behind the eye along the upper flank to the clavus
+const LL8 = [0.5, -0.2, 0.28, -0.42, 0.0, -0.52, -0.3, -0.5, -0.55, -0.38, -0.72, -0.2];
+function molaLateral(ctx, lv) {
+  const t = AN.t, lw = AN.lw;
+  ctx.beginPath(); smoothLine(ctx, LL8);
+  if (lv >= 2) { smoothLine(ctx, [0.52, -0.2, 0.62, -0.32, 0.74, -0.28, 0.8, -0.12]); smoothLine(ctx, [0.52, -0.2, 0.56, 0.08, 0.7, 0.2, 0.88, 0.14]); } // (head canals round the eye)
+  ctx.strokeStyle = rgbStr(AN.mem, 0.32 + 0.06 * lv); ctx.lineWidth = lw(1.1); ctx.stroke();
+  const n = 7 + 3 * lv, r = 0.02 + 0.003 * lv, nseg = (LL8.length >> 1) - 1;
+  const pos = (i) => { const f = ((i + 0.5) / n) * nseg, j = min(nseg - 1, f | 0), u = f - j; skin(LL8[j * 2] + (LL8[j * 2 + 2] - LL8[j * 2]) * u, LL8[j * 2 + 1] + (LL8[j * 2 + 3] - LL8[j * 2 + 1]) * u); };
+  ctx.beginPath(); for (let i = 0; i < n; i++) { pos(i); ctx.moveTo(SK[0] + r, SK[1]); ctx.arc(SK[0], SK[1], r, 0, TAU); }
+  ctx.fillStyle = 'rgba(225,255,250,0.9)'; ctx.fill();
+  if (!AN.lo) {
+    ctx.beginPath(); for (let i = 0; i < n; i++) { pos(i); const rr = r * (0.38 + 0.15 * (0.5 + 0.5 * sin(t * 4 - i * 0.7))); ctx.moveTo(SK[0] + rr, SK[1]); ctx.arc(SK[0], SK[1], rr, 0, TAU); }
+    ctx.fillStyle = 'rgba(10,40,50,0.8)'; ctx.fill();
+  }
+}
+
+// ----- Gelatinous Skin: a thick, clear jelly layer round the body, glossy, wobbling as it swims -----
+const GX = new Float32Array(200), GY = new Float32Array(200), GNX = new Float32Array(200), GNY = new Float32Array(200);
+function gelPts(lv) {
+  const n = bodyPts(1, true, TX, TY), t = AN.t, th = 0.035 + 0.03 * lv;
+  skin(F8M + 0.1, 0); const cx = SK[0], cy = SK[1];
+  for (let i = 0; i < n; i++) {
+    const a = i === 0 ? n - 1 : i - 1, b = i + 1 === n ? 0 : i + 1;
+    let nx = TY[b] - TY[a], ny = TX[a] - TX[b]; const l = Math.hypot(nx, ny) || 1; nx /= l; ny /= l;
+    if (nx * (TX[i] - cx) + ny * (TY[i] - cy) < 0) { nx = -nx; ny = -ny; }
+    const u = (i / n) * TAU, d = th * (1 + 0.16 * sin(3 * u + t * 2.1) + 0.08 * sin(5 * u - t * 2.9));
+    GX[i] = TX[i] + nx * d; GY[i] = TY[i] + ny * d; GNX[i] = nx; GNY[i] = ny;
+  }
+  return n;
+}
+function gelRim(ctx, lv) {
+  const n = gelPts(lv), lw = AN.lw;
+  emitPath(ctx, n, GX, GY);
+  ctx.fillStyle = rgbStr(JELLY_C, 0.16 + 0.05 * lv); ctx.fill();
+  ctx.strokeStyle = rgbStr(JELLY_C, 0.55); ctx.lineWidth = lw(1.1); ctx.stroke();
+}
+function gelGloss(ctx, lv) {
+  // the glossy highlight along the lit side of the jelly, fixed to the world's light (upper left)
+  const n = gelPts(lv), lw = AN.lw, ca = cos(-AN.ang), sa = sin(-AN.ang), lx = -0.67 * ca + 0.74 * sa, ly = -0.67 * sa - 0.74 * ca;
+  ctx.beginPath();
+  let on = false;
+  for (let i = 0; i <= n; i++) {
+    const j = i % n, k = GNX[j] * lx + GNY[j] * ly, ix = (TX[j] + GX[j]) / 2, iy = (TY[j] + GY[j]) / 2;
+    if (k > 0.55) { on ? ctx.lineTo(ix, iy) : ctx.moveTo(ix, iy); on = true; } else on = false;
+  }
+  ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = lw(1.4 + 0.5 * lv); ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke();
+  if (!AN.lo) {
+    // a few bright beads of light in the jelly
+    ctx.beginPath();
+    for (let i = 3; i < n; i += 7) { const r = 0.012 + 0.004 * lv; ctx.moveTo(GX[i] - GNX[i] * 0.02 + r, GY[i] - GNY[i] * 0.02); ctx.arc(GX[i] - GNX[i] * 0.02, GY[i] - GNY[i] * 0.02, r, 0, TAU); }
+    ctx.fillStyle = 'rgba(240,252,255,0.55)'; ctx.fill();
+  }
+}
+
+// ----- Breach: water streaming off as it leaps clear (front: droplets and a wet sheen; back: sheets of spray) -----
+function molaSpray(ctx, front) {
+  const k = S8.br, t = AN.t, lw = AN.lw;
+  if (!front) {
+    // a sheet of water pouring back off the clavus, torn into streaks and spray
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.beginPath();
+    for (let j = 0; j <= 10; j++) { const phi = -0.95 + 0.19 * j; clavEdge(phi, 0.05); const L = (0.28 + 0.16 * sin(j * 2.3 + t * 7)) * k; j ? sl(ctx, CE[0] - L, CE[1] * (1 + 0.25 * k)) : sm(ctx, CE[0] - L, CE[1] * (1 + 0.25 * k)); }
+    for (let j = 10; j >= 0; j--) { clavEdge(-0.95 + 0.19 * j, -0.02); sl(ctx, CE[0], CE[1]); }
+    ctx.closePath(); ctx.fillStyle = rgbStr([215, 240, 255], 0.16 * k); ctx.fill();
+    ctx.beginPath();
+    for (let i = 0; i < 9; i++) {
+      const phi = -0.95 + i * 0.237; clavEdge(phi, 0.08); skin(CE[0], CE[1]); const x0 = SK[0], y0 = SK[1], a = SK[2] + PI + phi * 0.45, L = (0.4 + 0.35 * ((i * 0.618) % 1)) * k;
+      ctx.moveTo(x0, y0); ctx.quadraticCurveTo(x0 + cos(a) * L * 0.5, y0 + sin(a) * L * 0.5 + 0.04 * sin(t * 9 + i), x0 + cos(a) * L, y0 + sin(a) * L);
+    }
+    ctx.strokeStyle = rgbStr([225, 245, 255], 0.32 * k); ctx.lineWidth = lw(3.4); ctx.lineCap = 'round'; ctx.stroke();
+    ctx.strokeStyle = rgbStr(WHITE, 0.55 * k); ctx.lineWidth = lw(1.2); ctx.stroke();
+    glowAt(ctx, [215, 240, 255], F8.xr - 0.3, 0, 0.7, 0.4 * k, 0);
+    ctx.globalAlpha = AN.A0; ctx.globalCompositeOperation = 'source-over';
+    return;
+  }
+  // the wet sheen: glossy light running over the back
+  ctx.globalCompositeOperation = 'lighter';
+  glowAt(ctx, WHITE, 0.2, -0.32, 0.6, 0.28 * k, 1);
+  ctx.beginPath(); smoothLine(ctx, [0.75, -0.45, 0.4, -0.66, 0.0, -0.72, -0.35, -0.64], 1, 1);
+  ctx.strokeStyle = rgbStr(WHITE, 0.4 * k); ctx.lineWidth = lw(2.4); ctx.lineCap = 'round'; ctx.stroke();
+  ctx.globalAlpha = AN.A0; ctx.globalCompositeOperation = 'source-over';
+  // droplets flung off the edges and falling away behind
+  const nd = AN.lo ? 12 : 24;
+  ctx.globalAlpha = AN.A0 * min(1, k * 1.6);
+  for (let pass = 0; pass < 2; pass++) {
+    ctx.beginPath();
+    for (let i = 0; i < nd; i++) {
+      let f = t * 1.6 + i * 0.381; f -= Math.floor(f);
+      const sd = i & 1 ? 1 : -1, x = 0.8 - ((i * 0.618) % 1) * 1.65;
+      edge(x, sd); const r0 = (0.025 + 0.022 * ((i * 0.37) % 1)) * (1 - 0.45 * f), r = pass ? r0 * 0.38 : r0;
+      skin(x, 0); const bx = -cos(SK[2]), by = -sin(SK[2]), out = 0.06 + 0.32 * f, back = 0.6 * f * (0.6 + 0.6 * k);
+      const px = EP[0] + EP[2] * out + bx * back - (pass ? r0 * 0.35 : 0), py = EP[1] + EP[3] * out + by * back - (pass ? r0 * 0.35 : 0);
+      ctx.moveTo(px + r, py); ctx.arc(px, py, r, 0, TAU);
+    }
+    ctx.fillStyle = pass ? 'rgba(255,255,255,0.95)' : 'rgba(205,238,255,0.75)'; ctx.fill();
+    if (!pass && !AN.lo) { ctx.strokeStyle = 'rgba(240,252,255,0.85)'; ctx.lineWidth = lw(0.8); ctx.stroke(); }
+  }
+  ctx.globalAlpha = AN.A0;
+  if (!AN.lo) {
+    // water running off the back and belly in streaks
+    ctx.beginPath();
+    for (let i = 0; i < 10; i++) {
+      const sd = i & 1 ? 1 : -1, x = 0.6 - (i >> 1) * 0.3; let f = t * 1.3 + i * 0.29; f -= Math.floor(f);
+      edge(x, sd, 0.98); const L = 0.14 + 0.16 * f;
+      skin(x, 0); const bx = -cos(SK[2]), by = -sin(SK[2]);
+      ctx.moveTo(EP[0], EP[1]); ctx.quadraticCurveTo(EP[0] + bx * L * 0.5, EP[1] + by * L * 0.5, EP[0] + (bx * 0.85 + EP[2] * 0.35) * L, EP[1] + (by * 0.85 + EP[3] * 0.35) * L);
+    }
+    ctx.strokeStyle = rgbStr(WHITE, 0.6 * k); ctx.lineWidth = lw(1.6); ctx.lineCap = 'round'; ctx.stroke();
+  }
+}
+// ----- Cleaner Fish: little bluestreak cleaner wrasses picking parasites off your skin -----
+function wrasse(ctx, L, t, i) {
+  // seen from above, +x forward, L long: a pale snout, a blue body and a black stripe down it, widening to the tail
+  const lw = AN.lw, w = 0.14 * sin(t * 15 + i * 2.3);
+  ctx.beginPath(); ctx.moveTo(-L * 0.34, 0); ctx.lineTo(-L * 0.58, -L * 0.15 + w * L); ctx.quadraticCurveTo(-L * 0.52, w * L * 0.5, -L * 0.58, L * 0.15 + w * L); ctx.closePath();
+  ctx.fillStyle = rgbStr(WRASSE_B, 0.95); ctx.fill(); ctx.strokeStyle = 'rgba(10,16,32,0.6)'; ctx.lineWidth = lw(0.7); ctx.stroke();
+  const body = () => { ctx.beginPath(); ctx.moveTo(L * 0.5, 0); ctx.quadraticCurveTo(L * 0.36, -L * 0.15, 0, -L * 0.13); ctx.quadraticCurveTo(-L * 0.3, -L * 0.09, -L * 0.38, w * L * 0.3); ctx.quadraticCurveTo(-L * 0.3, L * 0.09, 0, L * 0.13); ctx.quadraticCurveTo(L * 0.36, L * 0.15, L * 0.5, 0); ctx.closePath(); };
+  body(); ctx.fillStyle = rgbStr(WRASSE_B, 0.97); ctx.fill();
+  ctx.save(); ctx.clip();
+  ctx.beginPath(); ctx.ellipse(L * 0.48, 0, L * 0.26, L * 0.2, 0, 0, TAU); ctx.fillStyle = rgbStr(WRASSE_F, 0.95); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(L * 0.52, 0); ctx.lineTo(L * 0.2, -L * 0.03); ctx.lineTo(-L * 0.42, -L * 0.075 + w * L * 0.3); ctx.lineTo(-L * 0.42, L * 0.075 + w * L * 0.3); ctx.lineTo(L * 0.2, L * 0.03); ctx.closePath();
+  ctx.fillStyle = 'rgba(8,12,26,0.95)'; ctx.fill();
+  ctx.restore();
+  body(); ctx.strokeStyle = 'rgba(225,240,255,0.8)'; ctx.lineWidth = lw(0.8); ctx.stroke();
+  if (AN.s * L > 10) { ctx.beginPath(); for (const sd of SIDES) { ctx.moveTo(L * 0.33, sd * L * 0.08); ctx.arc(L * 0.3, sd * L * 0.08, L * 0.03, 0, TAU); } ctx.fillStyle = '#0d1a2a'; ctx.fill(); }
+}
+function cleanerWrasses(ctx, lv) {
+  const t = AN.t, p = AN.p, n = min(3, lv), L = 0.34, busy = p.latched > 0 ? 1.8 : 1, lw = AN.lw;
+  for (let i = 0; i < n; i++) {
+    // each wanders over your flank, stops to peck at the skin, and darts on
+    const s = t * 0.85 * busy + i * 0.37, c = Math.floor(s), f = s - c, run = f < 0.7 ? f / 0.7 : 1, u = (c + run) * 0.55 + i * 2.4;
+    const pos = (q) => { const x = 0.12 + 0.56 * sin(q + i * 2.1), v = 0.66 * sin(q * 1.37 + i * 1.3) * AN.W(x); return skin(x, v); };
+    pos(u + 0.04); const x1 = SK[0], y1 = SK[1];
+    pos(u); const x0 = SK[0], y0 = SK[1];
+    let a = Math.atan2(y1 - y0, x1 - x0);
+    const peck = f >= 0.7 ? sin(PI * (f - 0.7) / 0.3) : 0, jab = peck * 0.035 * (0.5 + 0.5 * sin(t * 26 * busy + i));
+    const px = x0 + cos(a) * jab, py = y0 + sin(a) * jab;
+    // its shadow on the skin, then the fish
+    ctx.save(); ctx.translate(px + 0.03, py + 0.04); ctx.rotate(a); ctx.scale(1, 0.8);
+    ctx.beginPath(); ctx.ellipse(0, 0, L * 0.45, L * 0.12, 0, 0, TAU); ctx.fillStyle = rgbStr(MOLA_DEEP, 0.22); ctx.fill();
+    ctx.restore();
+    ctx.save(); ctx.translate(px, py); ctx.rotate(a);
+    wrasse(ctx, L, t, i);
+    if (peck > 0.3 && !AN.lo) {
+      // a nip at the skin
+      ctx.beginPath(); ctx.arc(L * 0.58, 0, 0.03 + 0.04 * peck, 0, TAU); ctx.strokeStyle = `rgba(230,250,255,${0.5 * peck})`; ctx.lineWidth = lw(1); ctx.stroke();
+    }
+    ctx.restore();
+  }
+}
+
+function molaBack(ctx, m) {
+  if (S8.sl > 0.02) molaSlapArc(ctx, m);
+  if (S8.br > 0.02) molaSpray(ctx, 0);
+  molaClavus(ctx, m);
+  molaFin(ctx, m, -1); molaFin(ctx, m, 1);
+  if (m.gelskin) gelRim(ctx, m.gelskin);
+}
+function molaFront(ctx, m) {
+  if (m.shell) placoderm(ctx, m.shell);
+  if (m.guard) scutes(ctx, m.guard);
+  if (m.cilia) molaLateral(ctx, m.cilia);
+  if (m.biolum) biolumSpots(ctx, m.biolum);
+  if (m.tentacles) molaPores(ctx, m.tentacles);
+  if (m.dash) molaDash(ctx, m.dash);
+  if (m.cnido) stingSlime(ctx, m.cnido);
+  if (m.tetrodo) sailMucusFilm(ctx, m.tetrodo);
+  if (m.toxin) molaVenom(ctx, m.toxin);
+  molaGill(ctx, m);
+  molaPec(ctx, m);
+  if (m.warmeyes) molaWarmEyes(ctx, m.warmeyes);
+  if (m.jaws) molaCheeks(ctx, m.jaws);
+  molaEye(ctx, m);
+  molaMouth(ctx, m);
+  if (m.gelskin) gelGloss(ctx, m.gelskin);
+  if (S8.br > 0.02) molaSpray(ctx, 1);
+  if (m.cleaners) cleanerWrasses(ctx, m.cleaners);
+}
+
 // ============================ the animal pipeline ============================
 function drawAnimal(ctx, p, m, t, s, ph, stage, body, mem, A0) {
   const lw = (px) => px / s;
@@ -3295,8 +4023,8 @@ function drawAnimal(ctx, p, m, t, s, ph, stage, body, mem, A0) {
   AN.os = outlineXs(stage, AN.lo);
   mixRGB(body, [6, 40, 60], 0.52, AN.dark); mixRGB(body, WHITE, 0.5, AN.pale);
   // (the flatworm and the larva are drawn a little larger so each stage keeps the colony's visual weight)
-  const s6 = stage === 6, s7 = stage === 7, st = (p.stretch || 0) * (1 - AN.pk), k = stage === 3 ? 1.1 : stage === 4 ? 1.05 : 1;
-  if (s7) sailPalette(m);
+  const s6 = stage === 6, s7 = stage === 7, s8 = stage === 8, st = (p.stretch || 0) * (1 - AN.pk), k = stage === 3 ? 1.1 : stage === 4 ? 1.05 : 1;
+  if (s7) sailPalette(m); else if (s8) molaPalette(m);
   ctx.save();
   ctx.scale(k * (1 + st * 0.4), k * (1 - st * 0.28));
   ctx.lineJoin = 'round';
@@ -3307,23 +4035,23 @@ function drawAnimal(ctx, p, m, t, s, ph, stage, body, mem, A0) {
   }
   if (m.dash && p.dashT > 0) (stage >= 4 ? dashWake : dashJet)(ctx, m.dash);
   if (stage === 5 && m.tentacles) barbels(ctx, m.tentacles); // (a pufferfish's tentacles are its nostrils: pufferFront)
-  if (stage === 3) wormBack(ctx, m); else if (stage === 4) larvaBack(ctx, m); else if (s6) pufferBack(ctx, m); else if (s7) sailBack(ctx, m); else fishBack(ctx, m);
+  if (stage === 3) wormBack(ctx, m); else if (stage === 4) larvaBack(ctx, m); else if (s6) pufferBack(ctx, m); else if (s7) sailBack(ctx, m); else if (s8) molaBack(ctx, m); else fishBack(ctx, m);
   if (m.polyps && stage === 3) animalPolyps(ctx, m.polyps); // a fish digests with pyloric caeca instead (inside)
   // ---- the body
   const n = bodyPts(1, true);
   if (m.cyst) cystCoat(ctx, m.cyst, n);
   emitPath(ctx, n);
-  if (stage === 3) wormBody(ctx, m, n); else if (stage === 4) larvaBody(ctx, n); else if (s6) pufferBody(ctx, n); else if (s7) sailBody(ctx, n); else fishBody(ctx, n);
+  if (stage === 3) wormBody(ctx, m, n); else if (stage === 4) larvaBody(ctx, n); else if (s6) pufferBody(ctx, n); else if (s7) sailBody(ctx, n); else if (s8) molaBody(ctx, n); else fishBody(ctx, n);
   ctx.save(); ctx.clip();
-  if (stage === 3) wormInside(ctx, m); else if (stage === 4) larvaInside(ctx, m); else if (s6) pufferInside(ctx, m); else if (s7) sailInside(ctx, m); else fishInside(ctx, m);
+  if (stage === 3) wormInside(ctx, m); else if (stage === 4) larvaInside(ctx, m); else if (s6) pufferInside(ctx, m); else if (s7) sailInside(ctx, m); else if (s8) molaInside(ctx, m); else fishInside(ctx, m);
   ctx.restore();
   emitPath(ctx, n);
   ctx.strokeStyle = cstr(mem); ctx.lineWidth = lw(1.5 + (m.membrane || 0) * 0.8); ctx.stroke();
   if (m.membrane) membraneIn(ctx, m.membrane);
   // ---- on the skin
-  if (stage === 3) wormFront(ctx, m); else if (stage === 4) larvaFront(ctx, m); else if (s6) pufferFront(ctx, m); else if (s7) sailFront(ctx, m); else fishFront(ctx, m);
+  if (stage === 3) wormFront(ctx, m); else if (stage === 4) larvaFront(ctx, m); else if (s6) pufferFront(ctx, m); else if (s7) sailFront(ctx, m); else if (s8) molaFront(ctx, m); else fishFront(ctx, m);
   if (s6) hiliteAt(ctx, 0.3, 0.8 + 0.75 * AN.pk);
-  else hiliteAt(ctx, stage === 3 ? 0.3 : stage === 4 ? 0.62 : s7 ? 0.45 : 0.4, stage === 4 ? 0.5 : s7 ? 0.62 : 0.72);
+  else hiliteAt(ctx, stage === 3 ? 0.3 : stage === 4 ? 0.62 : s7 ? 0.45 : s8 ? 0.2 : 0.4, stage === 4 ? 0.5 : s7 ? 0.62 : s8 ? 0.95 : 0.72);
   if (p.cyst > 0) cystShell(ctx, t, lw);
   ctx.restore();
   AN.pk = 0; // (skin() is only ever the pufferfish's balloon while it is being drawn)
@@ -3343,13 +4071,14 @@ function drawAnimal(ctx, p, m, t, s, ph, stage, body, mem, A0) {
 export function drawPlayer(ctx, p, T, s) {
   const t = T;
   const m0 = p.muts || NOMUT;
-  // the Photophore Flash trait brings light organs with it: draw them like bioluminescence
-  const m = m0.photo && (m0.biolum | 0) < m0.photo ? { ...m0, biolum: m0.photo } : m0;
+  const stage = bodyStage(p.stage || 1);
+  // the Photophore Flash trait brings light organs with it: draw them like bioluminescence (on the sunfish it is
+  // Silver Flash, its mirror-bright skin: molaInside)
+  const m = stage < 8 && m0.photo && (m0.biolum | 0) < m0.photo ? { ...m0, biolum: m0.photo } : m0;
   const col = COLORS.player;
   const body = p.bodyCol || col.body;
   const mem = p.memCol || col.mem;
   ctx.lineJoin = 'round';
-  const stage = clampStage(p.stage || 1);
   const A0 = ctx.globalAlpha;
   const ph = swimPhase(p, T);
   if (stage >= 3) return drawAnimal(ctx, p, m, t, s, ph, stage, body, mem, A0);
@@ -3584,9 +4313,10 @@ function drawSiphPortrait(g, size) {
 }
 
 // evolution stage framing for portraits: [radius as a fraction of size, x offset (units), rotation]
-const STAGE_FRAME = [null, [0.27, 0, -0.4], [0.235, 0.3, -0.4], [0.32, 0.04, -0.42], [0.32, 0.2, -0.45], [0.3, 0.2, -0.42], [0.31, 0.04, -0.42], [0.2, -0.2, -0.58]];
+const STAGE_FRAME = [null, [0.27, 0, -0.4], [0.235, 0.3, -0.4], [0.32, 0.04, -0.42], [0.32, 0.2, -0.45], [0.3, 0.2, -0.42], [0.31, 0.04, -0.42], [0.2, -0.2, -0.58], [0.235, 0.12, -0.3]];
 // the evolution stage each campaign mutation belongs to (its portrait shows that body)
-const MUT_STAGE = { guard: 2, polyps: 2, signal: 2, muscle: 3, jaws: 3, nerve: 3, cnido: 3, fins: 4, eyes: 4, shell: 4, tentacles: 5, hide: 5, gills: 5, beak: 6, tetrodo: 6, hover: 6, sail: 7, warmeyes: 7, stripes: 7 };
+const MUT_STAGE = { guard: 2, polyps: 2, signal: 2, muscle: 3, jaws: 3, nerve: 3, cnido: 3, fins: 4, eyes: 4, shell: 4, tentacles: 5, hide: 5, gills: 5, beak: 6, tetrodo: 6, hover: 6, sail: 7, warmeyes: 7, stripes: 7,
+  gelskin: 8, stingproof: 8, cleaners: 8 };
 // per-trait framing tweaks (zoom toward the feature)
 const MUT_FRAME = { jaws: [0.38, -0.45, -0.3], eyes: [0.36, -0.35, -0.45], polyps: [0.215, 0.3, -0.4], signal: [0.2, 0.3, -0.4], tentacles: [0.3, -0.25, -0.5],
   fins: [0.34, 0.05, -0.42], shell: [0.4, -0.3, -0.45], hide: [0.31, 0.15, -0.42], gills: [0.36, -0.3, -0.45] };
@@ -3596,6 +4326,7 @@ const MUT_GLOW = {
   fins: [140, 230, 255], eyes: [150, 255, 235], shell: [255, 210, 140], tentacles: [230, 180, 255], hide: [140, 190, 230], gills: [255, 140, 190],
   beak: [255, 236, 190], tetrodo: [255, 214, 80], hover: [150, 235, 255], puff: [255, 226, 150],
   sail: [90, 160, 255], warmeyes: [255, 160, 90], stripes: [80, 185, 255], slash: [180, 225, 255],
+  gelskin: [190, 235, 255], stingproof: [255, 160, 200], cleaners: [90, 160, 255], breach: [200, 238, 255], photo8: [220, 240, 255],
 };
 
 const MUT_T = { jaws: 1.0 }; // portrait time per trait (jaws at rest: mandibles apart)
@@ -3623,43 +4354,51 @@ const SAIL_FRAME = { jaws: [0.36, -0.9, -0.42], beak: [0.36, -0.9, -0.42], eyes:
   toxin: [0.25, -0.35, -0.55], polyps: [0.28, -0.25, -0.5], lysosome: [0.27, -0.1, -0.5], vacuole: [0.27, 0, -0.52], mito: [0.23, 0.05, -0.58], muscle: [0.23, 0.05, -0.58],
   nova: [0.17, -0.15, -0.58], pseudopod: [0.24, -0.2, -0.55], fins: [0.2, -0.12, -0.58] };
 const SAIL_PROPS = { sail: { sailK: 1, sailSide: -1 }, spikes: { sailK: 0.35 } };
+// every trait shown on the sunfish (stage 8): the tall body and fins fill the frame; head traits zoom in on the head
+const MOLA_FRAME = { jaws: [0.4, -0.55, -0.25], beak: [0.42, -0.62, -0.25], stingproof: [0.38, -0.5, -0.25], eyes: [0.4, -0.45, -0.25], warmeyes: [0.4, -0.45, -0.25],
+  tentacles: [0.38, -0.45, -0.25], gills: [0.42, -0.38, -0.25], osmo: [0.42, -0.4, -0.25], hover: [0.36, -0.3, -0.3], sail: [0.185, 0.12, -0.3], gelskin: [0.27, 0.04, -0.3],
+  cleaners: [0.31, -0.06, -0.3], flagellum: [0.3, 0.42, -0.3], hide: [0.32, 0, -0.3], stripes: [0.29, 0.02, -0.3], shell: [0.3, -0.12, -0.3], cilia: [0.3, 0.05, -0.3],
+  vacuole: [0.32, 0, -0.3], lysosome: [0.32, -0.05, -0.3], polyps: [0.33, -0.12, -0.3], pseudopod: [0.36, -0.3, -0.3], nerve: [0.3, 0, -0.3], muscle: [0.28, 0.12, -0.3],
+  mito: [0.28, 0.12, -0.3], guard: [0.3, 0.02, -0.3], tetrodo: [0.29, 0.04, -0.3], mimicry: [0.29, 0.04, -0.3], chloro: [0.29, 0.04, -0.3], photo: [0.29, 0.04, -0.3] };
+const MOLA_PROPS = { sail: { sailK: 1 }, stripes: { stripeK: 0.85 } };
 // an early trait in its fish form (on a fish body): pyloric caeca for polyps, pilot fish for symbionts, …
 const FISH_FRAME = { cilia: [0.31, 0.12, -0.42], spikes: [0.3, 0.15, -0.42], toxin: [0.31, 0.05, -0.42], polyps: [0.34, -0.1, -0.42], lysosome: [0.34, 0, -0.42],
   vacuole: [0.33, 0.05, -0.42], osmo: [0.36, -0.3, -0.45], nerve: [0.31, 0.1, -0.42], biolum: [0.3, 0.15, -0.42], pseudopod: [0.27, 0.1, -0.42],
   flagellum: [0.25, 0.45, -0.42], mito: [0.28, 0.25, -0.42], mimicry: [0.27, 0.25, -0.42], muscle: [0.28, 0.25, -0.42] };
 function fishFormPortrait(id, size, st) {
   const [c, g] = portraitCanvas(size);
-  const muts = { [id]: 3 }, s6 = st === 6, s7 = st === 7, props = s7 ? { ...SAIL_PROPS[id] } : {};
-  let frame = (s7 ? SAIL_FRAME[id] : s6 ? PUFF_FRAME[id] : FISH_FRAME[id]) || STAGE_FRAME[st];
+  const muts = { [id]: 3 }, s6 = st === 6, s7 = st === 7, s8 = st === 8, props = s7 ? { ...SAIL_PROPS[id] } : s8 ? { ...MOLA_PROPS[id] } : {};
+  let frame = (s8 ? MOLA_FRAME[id] : s7 ? SAIL_FRAME[id] : s6 ? PUFF_FRAME[id] : FISH_FRAME[id]) || STAGE_FRAME[st];
   if (id === 'mito') muts.mito = 4;
   if (id === 'membrane') muts.membrane = 5;
-  if (id === 'dash') { props.dashT = 0.2; frame = s7 ? [0.17, 0.5, -0.5] : s6 ? [0.23, 0.55, -0.42] : [0.22, 0.75, -0.42]; }
-  if (id === 'cyst') { props.cyst = 1; frame = s7 ? [0.18, -0.16, -0.58] : s6 ? [0.22, 0.04, -0.42] : [0.23, 0.22, -0.42]; }
-  if (id === 'jaws') frame = st === 4 ? [0.4, -0.55, -0.42] : s7 ? SAIL_FRAME.jaws : s6 ? PUFF_FRAME.jaws : [0.38, -0.45, -0.3];
-  if (id === 'symbionts' || id === 'fission' || id === 'signal' || id === 'nova') frame = s7 ? [0.15, -0.15, -0.58] : s6 ? [0.21, 0.04, -0.42] : [0.2, 0.12, -0.42];
+  if (id === 'dash') { props.dashT = 0.2; frame = s8 ? [0.21, 0.5, -0.3] : s7 ? [0.17, 0.5, -0.5] : s6 ? [0.23, 0.55, -0.42] : [0.22, 0.75, -0.42]; }
+  if (id === 'cyst') { props.cyst = 1; frame = s8 ? [0.25, 0.04, -0.3] : s7 ? [0.18, -0.16, -0.58] : s6 ? [0.22, 0.04, -0.42] : [0.23, 0.22, -0.42]; }
+  if (id === 'jaws') frame = st === 4 ? [0.4, -0.55, -0.42] : s8 ? MOLA_FRAME.jaws : s7 ? SAIL_FRAME.jaws : s6 ? PUFF_FRAME.jaws : [0.38, -0.45, -0.3];
+  if (id === 'symbionts' || id === 'fission' || id === 'signal' || id === 'nova') frame = s8 ? [0.18, 0.06, -0.3] : s7 ? [0.15, -0.15, -0.58] : s6 ? [0.21, 0.04, -0.42] : [0.2, 0.12, -0.42];
   framedBody(g, size, st, muts, frame, MUT_GLOW[id] || [110, 255, 225], FAKE_T, props);
   const R = size * frame[0];
   if (id === 'symbionts') {
     for (let i = 0; i < 3; i++) {
-      const a = (i / 3) * TAU + 0.6, d = s7 ? 2.35 : 1.8;
+      const a = (i / 3) * TAU + 0.6, d = s7 ? 2.35 : s8 ? 2.05 : 1.8;
       g.save(); g.translate(cos(a) * d + (s7 ? 0.15 : 0), sin(a) * d * (s7 ? 0.62 : 1)); g.rotate(a + PI / 2); g.scale(0.55, 0.55); drawPilotFish(g, FAKE_T + i, R * 1.1, i); g.restore();
     }
   } else if (id === 'fission') {
-    g.save(); if (s7) g.translate(-0.55, 1.45); else g.translate(-0.35, 1.3); g.scale(0.55, 0.55);
+    g.save(); if (s7) g.translate(-0.55, 1.45); else if (s8) g.translate(1.15, 1.35); else g.translate(-0.35, 1.3); g.scale(0.55, 0.55);
     drawPlayer(g, { r: 1, ang: frame[2], seed: 1.7, muts: {}, stage: st, speedN: 0.3, bodyCol: KIN_BODY, memCol: KIN_MEM }, FAKE_T + 0.7, R * 1.1);
     g.restore();
   } else if (id === 'nova') {
     // (the sailfish is long: the rings stretch along it)
-    const ex = s7 ? 1.55 : 1, cx = s7 ? 0.2 : 0.05;
+    // (the sailfish is long, the sunfish tall: the rings stretch along them)
+    const ex = s7 ? 1.55 : s8 ? 0.72 : 1, ey = s8 ? 1.75 : 1, cx = s7 ? 0.2 : s8 ? -0.1 : 0.05;
     g.globalCompositeOperation = 'lighter'; g.lineCap = 'round'; g.lineJoin = 'round';
-    for (let i = 0; i < 2; i++) { g.beginPath(); g.ellipse(cx, 0, (1.6 + i * 0.4) * ex, 1.0 + i * 0.4, 0, 0, TAU); g.strokeStyle = `rgba(200,170,255,${0.65 - i * 0.25})`; g.lineWidth = 0.09 - i * 0.03; g.stroke(); }
+    for (let i = 0; i < 2; i++) { g.beginPath(); g.ellipse(cx, 0, (1.6 + i * 0.4) * ex, (1.0 + i * 0.4) * ey, 0, 0, TAU); g.strokeStyle = `rgba(200,170,255,${0.65 - i * 0.25})`; g.lineWidth = 0.09 - i * 0.03; g.stroke(); }
     g.beginPath();
-    const bx = s7 ? cx : 0;
-    for (let b = 0; b < 6; b++) { const a = b * 1.05 + 0.3; let r = 0.95; g.moveTo(bx + cos(a) * r * 1.3 * ex, sin(a) * r * 0.85); for (let j = 0; j < 4; j++) { r += 0.22; const aj = a + (j % 2 ? 0.12 : -0.12); g.lineTo(bx + cos(aj) * r * 1.3 * ex, sin(aj) * r * 0.85); } }
+    const bx = s7 || s8 ? cx : 0;
+    for (let b = 0; b < 6; b++) { const a = b * 1.05 + 0.3; let r = 0.95; g.moveTo(bx + cos(a) * r * 1.3 * ex, sin(a) * r * 0.85 * ey); for (let j = 0; j < 4; j++) { r += 0.22; const aj = a + (j % 2 ? 0.12 : -0.12); g.lineTo(bx + cos(aj) * r * 1.3 * ex, sin(aj) * r * 0.85 * ey); } }
     g.strokeStyle = 'rgba(235,225,255,0.9)'; g.lineWidth = 0.05; g.stroke();
     g.globalCompositeOperation = 'source-over';
   } else if (id === 'dash') {
-    const x0 = s7 ? -2.05 : -1.75;
+    const x0 = s7 ? -2.05 : s8 ? -1.55 : -1.75;
     g.beginPath();
     for (let i = 0; i < 4; i++) { const y = (i - 1.5) * 0.4; g.moveTo(x0, y); g.lineTo(x0 - 0.5 - (i % 2) * 0.35, y); }
     g.strokeStyle = 'rgba(200,255,245,0.75)'; g.lineWidth = 0.07; g.lineCap = 'round'; g.stroke();
@@ -3669,15 +4408,87 @@ function fishFormPortrait(id, size, st) {
 
 // a stage's body, no mutations: centred, glowing, transparent background
 export function stagePortrait(stage, size = 96) {
-  const st = clampStage(stage);
+  const st = bodyStage(stage);
   const [c, g] = portraitCanvas(size);
   framedBody(g, size, st, {}, STAGE_FRAME[st], COLORS.player.glow, FAKE_T, st === 7 ? { sailK: 0.85, sailSide: -1 } : null); // (the sailfish shows off its sail)
   return c;
 }
 
-// the fish bodies' active abilities: the body plus what the ability does
-function abilityPortrait(id, size) {
-  const [c, g] = portraitCanvas(size);
+// bristling lines round a body spread to look big (Spread Fins), in unit space round (cx, 0)
+function bristle(g, cx, rx, ry) {
+  g.lineCap = 'round';
+  g.beginPath();
+  for (let i = 0; i < 12; i++) { const a = (i / 12) * TAU + 0.15, r0 = 1 + 0.06 * (i % 2); g.moveTo(cx + cos(a) * rx * r0, sin(a) * ry * r0); g.lineTo(cx + cos(a) * (rx * r0 + 0.3), sin(a) * (ry * r0 + 0.3)); }
+  g.strokeStyle = 'rgba(220,248,255,0.8)'; g.lineWidth = 0.08; g.stroke();
+}
+// the fish bodies' active abilities: the body plus what the ability does (stage: the body it is shown on, where the
+// power looks different on later bodies)
+function abilityPortrait(id, size, stage) {
+  const [c, g] = portraitCanvas(size), bst = bodyStage(stage || 1);
+  if (id === 'breach') {
+    // Breach: the sunfish leaping clear of the water, a splash bursting up from the surface beneath it
+    g.save();
+    framedBody(g, size, 8, {}, [0.2, 0.15, -0.78], MUT_GLOW.breach, FAKE_T, { breachK: 0.8 });
+    g.restore();
+    const W = size, y0 = size * 0.86;
+    g.lineCap = 'round'; g.lineJoin = 'round';
+    // the splash: a crown of water thrown up where it left the surface, and flying drops
+    g.beginPath();
+    for (let i = 0; i < 9; i++) { const a = -PI / 2 + (i - 4) * 0.27, x = W * 0.3 + (i - 4) * W * 0.022, L = W * (0.1 + 0.07 * (1 - abs(i - 4) / 4)); g.moveTo(x, y0); g.quadraticCurveTo(x + cos(a) * L * 0.6, y0 + sin(a) * L * 0.7, x + cos(a) * L, y0 + sin(a) * L); }
+    g.strokeStyle = 'rgba(225,246,255,0.9)'; g.lineWidth = W * 0.022; g.stroke();
+    g.beginPath();
+    for (let i = 0; i < 9; i++) { const a = -PI / 2 + (i - 4) * 0.32, d = W * (0.2 + 0.05 * (i % 3)), x = W * 0.3 + cos(a) * d, y = y0 + sin(a) * d * 0.9, r = W * (0.012 + 0.006 * (i % 2)); g.moveTo(x + r, y); g.arc(x, y, r, 0, TAU); }
+    g.fillStyle = 'rgba(235,250,255,0.95)'; g.fill();
+    // the surface: a rippling line, with rings spreading from the splash
+    g.beginPath(); g.moveTo(W * 0.04, y0);
+    for (let i = 1; i <= 12; i++) { const x = W * (0.04 + 0.92 * i / 12); g.lineTo(x, y0 + W * 0.012 * sin(i * 1.7)); }
+    g.strokeStyle = 'rgba(190,232,255,0.85)'; g.lineWidth = W * 0.018; g.stroke();
+    g.beginPath(); g.ellipse(W * 0.3, y0 + W * 0.02, W * 0.2, W * 0.035, 0, 0, TAU); g.strokeStyle = 'rgba(200,238,255,0.5)'; g.lineWidth = W * 0.012; g.stroke();
+    return c;
+  }
+  if (id === 'slash' && bst >= 8) {
+    // Fin Slap: the sunfish sweeps its tall fins round through the water in front, knocking small fish and jellies away
+    framedBody(g, size, 8, {}, [0.21, -0.05, -0.3], MUT_GLOW.slash, FAKE_T, { slashK: 1, slashDir: 1 });
+    const fish = [[1.55, 1.25, 1.9], [1.05, 1.75, 0.7], [1.95, 0.55, -2.4]];
+    for (const [x, y, a] of fish) {
+      g.save(); g.translate(x, y); g.rotate(a);
+      g.beginPath(); g.ellipse(0, 0, 0.22, 0.075, 0, 0, TAU); g.moveTo(-0.18, 0); g.lineTo(-0.34, -0.095); g.lineTo(-0.34, 0.095); g.closePath();
+      g.fillStyle = 'rgba(222,238,250,0.96)'; g.fill(); g.strokeStyle = 'rgba(50,80,120,0.75)'; g.lineWidth = 0.03; g.stroke();
+      g.restore();
+    }
+    // a little jelly tumbling away
+    g.save(); g.translate(2.0, 1.35); g.rotate(0.9);
+    g.beginPath(); g.arc(0, 0, 0.2, PI, TAU); g.quadraticCurveTo(0, 0.07, -0.2, 0); g.fillStyle = 'rgba(255,200,235,0.75)'; g.fill(); g.strokeStyle = 'rgba(255,230,250,0.9)'; g.lineWidth = 0.03; g.stroke();
+    g.beginPath(); for (let i = -1; i <= 1; i++) { g.moveTo(i * 0.1, 0.02); g.quadraticCurveTo(i * 0.1 + 0.06, 0.18, i * 0.1, 0.34); } g.stroke();
+    g.restore();
+    g.globalCompositeOperation = 'lighter';
+    for (const [x, y] of [...fish.slice(0, 2), [2.0, 1.35]]) g.drawImage(glowSprite([255, 240, 170], 1), x - 0.22, y - 0.22, 0.44, 0.44);
+    g.globalCompositeOperation = 'source-over';
+    return c;
+  }
+  if (id === 'photo' && bst >= 8) {
+    // Silver Flash: the sunfish's skin flashing like a mirror
+    framedBody(g, size, 8, { photo: 3 }, [0.24, 0.1, -0.3], MUT_GLOW.photo8, FAKE_T, {});
+    g.globalCompositeOperation = 'lighter';
+    g.globalAlpha = 0.75; g.drawImage(glowSprite([235, 248, 255], 1), -1.15, -1.1, 2.3, 2.2);
+    g.globalAlpha = 1;
+    g.beginPath();
+    for (let i = 0; i < 10; i++) { const a = (i / 10) * TAU + 0.3, r0 = 1.15 + 0.1 * (i % 2); g.moveTo(cos(a) * r0, sin(a) * r0); g.lineTo(cos(a) * (r0 + 0.45 + 0.2 * (i % 2)), sin(a) * (r0 + 0.45 + 0.2 * (i % 2))); }
+    g.strokeStyle = 'rgba(225,242,255,0.7)'; g.lineWidth = 0.07; g.lineCap = 'round'; g.stroke();
+    // star glints on the mirror skin
+    for (const [x, y, r] of [[-0.25, -0.35, 0.34], [0.45, 0.2, 0.24], [-0.5, 0.42, 0.2]]) {
+      g.beginPath(); g.moveTo(x - r, y); g.quadraticCurveTo(x, y, x, y - r); g.quadraticCurveTo(x, y, x + r, y); g.quadraticCurveTo(x, y, x, y + r); g.quadraticCurveTo(x, y, x - r, y);
+      g.fillStyle = 'rgba(255,255,255,0.95)'; g.fill();
+    }
+    g.globalCompositeOperation = 'source-over';
+    return c;
+  }
+  if (id === 'puff' && bst >= 7) {
+    // Spread Fins: every fin spread wide and stiff to look big (the sailfish: its sail too)
+    if (bst >= 8) { framedBody(g, size, 8, {}, [0.22, 0.12, -0.3], MUT_GLOW.puff, FAKE_T, { puffK: 1 }); bristle(g, -0.12, 1.3, 2.0); }
+    else { g.translate(0, size * 0.09); framedBody(g, size, 7, { spikes: 2 }, [0.19, -0.42, -0.08], MUT_GLOW.puff, FAKE_T, { sailK: 1, sailSide: -1, puffK: 1 }); bristle(g, 0.4, 2.3, 1.7); }
+    return c;
+  }
   if (id === 'slash') {
     // Bill Slash: the sailfish whips its bill sideways through a school of sardines, which tumble away stunned
     g.translate(0, size * 0.09); // (the raised sail makes it taller above than below)
@@ -3739,15 +4550,16 @@ function abilityPortrait(id, size) {
 // draws a "mini player" with a single mutation emphasised
 // stage: the body the trait is shown on; fish bodies show early traits in their fish form
 export function mutationPortrait(id, size, stage) {
-  if (id === 'photo' || id === 'shoal' || id === 'suction' || id === 'puff' || id === 'slash') return abilityPortrait(id, size);
-  const fst = clampStage(stage || 1);
+  if (id === 'photo' || id === 'shoal' || id === 'suction' || id === 'puff' || id === 'slash' || id === 'breach') return abilityPortrait(id, size, stage);
+  const fst = bodyStage(stage || 1);
   if (fst >= 4 && (MUT_STAGE[id] || 1) < 4) return fishFormPortrait(id, size, fst);
   if (MUT_STAGE[id]) {
     const [c, g] = portraitCanvas(size);
     // fins, eyes and the head shield shown on the jawed fish once you are one; every fish trait (and the
     // pufferfish's own) on the pufferfish once you are one, and on the sailfish once you are that
-    const ms = MUT_STAGE[id], stage = ms === 7 || (ms >= 4 && fst === 7) ? 7 : ms === 6 || (ms >= 4 && fst === 6) ? 6 : ms === 4 && fst === 5 ? 5 : ms;
-    if (stage === 7) framedBody(g, size, 7, { [id]: 3 }, SAIL_FRAME[id] || STAGE_FRAME[7], MUT_GLOW[id], MUT_T[id], SAIL_PROPS[id]);
+    const ms = MUT_STAGE[id], stage = ms === 8 || (ms >= 4 && fst === 8) ? 8 : ms === 7 || (ms >= 4 && fst === 7) ? 7 : ms === 6 || (ms >= 4 && fst === 6) ? 6 : ms === 4 && fst === 5 ? 5 : ms;
+    if (stage === 8) framedBody(g, size, 8, { [id]: 3 }, MOLA_FRAME[id] || STAGE_FRAME[8], MUT_GLOW[id], MUT_T[id], MOLA_PROPS[id]);
+    else if (stage === 7) framedBody(g, size, 7, { [id]: 3 }, SAIL_FRAME[id] || STAGE_FRAME[7], MUT_GLOW[id], MUT_T[id], SAIL_PROPS[id]);
     else if (stage === 6) framedBody(g, size, 6, { [id]: 3 }, PUFF_FRAME[id] || STAGE_FRAME[6], MUT_GLOW[id], MUT_T[id], PUFF_PROPS[id]);
     else framedBody(g, size, stage, { [id]: 3 }, MUT_FRAME[id] || STAGE_FRAME[stage], MUT_GLOW[id], MUT_T[id]);
     return c;
@@ -3895,7 +4707,7 @@ function heart(g, x, y, s) {
   g.fill(); g.restore();
 }
 
-// kind: 'microbe' (species + boss ids) | 'mutation' | 'genome' | 'stage' (id = 1..7)
+// kind: 'microbe' (species + boss ids) | 'mutation' | 'genome' | 'stage' (id = 1..10; a stage not drawn yet shows the last body)
 export function portrait(kind, id, size = 96, stage) {
   try {
     if (kind === 'microbe') return microbePortrait(id, size);
