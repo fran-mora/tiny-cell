@@ -4084,7 +4084,7 @@ function molaFront(ctx, m) {
 // sailK = the dorsal fin standing taller; stripeK = Ambush Rush (the countershading sharpens, a surge of speed lines);
 // breachK = Breach (arched and half rolled, water pouring off); rollK (optional, 0…1) = rolled onto its side, flashing
 // the white belly (Belly Flash).
-const SHARK_SLATE = [62, 70, 86], SHARK_DEEP = [22, 28, 40], SHARK_BELLY = [242, 248, 250], SENSE_C = [176, 150, 255], WARMB_C = [255, 96, 50];
+const SHARK_SLATE = [42, 62, 78], SHARK_DEEP = [22, 28, 40], SHARK_BELLY = [242, 248, 250], SENSE_C = [176, 150, 255], WARMB_C = [255, 96, 50];
 const SPEED_C = [205, 236, 255], SCENT_C = [255, 176, 186], TOOTH_C = [252, 249, 238];
 const DORS9_A = 0.22, DORS9_B = -0.15, DORS9_2A = -0.84, DORS9_2B = -0.93, EYE9_X = 0.74, PEC9_X = 0.25, GILL9_X = 0.62, MOUTH9_X = 0.58;
 // this frame's colours and state: sk = Ambush Rush colours 0…1 (rush: its speed lines), cs = Countershading level,
@@ -4099,7 +4099,7 @@ function sharkPalette(m) {
   S9.rush = smooth01(c01(((p.stripeK || 0) - 0.78) / 0.22)); // (the speed lines only in the charge itself)
   S9.cs = min(3, m.countershade || 0);
   const ct = S9.ct = min(1, 0.25 * S9.cs + 0.6 * S9.sk);
-  mixRGB(b, SHARK_SLATE, 0.8, S9.back); mixRGB(S9.back, SHARK_DEEP, 0.5 * ct, S9.back);
+  mixRGB(b, SHARK_SLATE, 0.75, S9.back); mixRGB(S9.back, SHARK_DEEP, 0.5 * ct, S9.back);
   mixRGB(b, SHARK_DEEP, 0.84 + 0.08 * ct, S9.deep);
   mixRGB(b, SHARK_BELLY, 0.8 + 0.18 * ct, S9.belly);
   mixRGB(S9.back, SHARK_DEEP, 0.3, S9.fin);
@@ -4122,7 +4122,7 @@ function sharkPalette(m) {
 // Countershading and Ambush Rush)
 function csFrac(x, sd) {
   const g = 1 + 0.3 * S9.cs + 0.3 * S9.ct;
-  let f = 0.78 - 0.045 * g * (0.6 * sin(12.5 * x + 1.1 + sd * 1.9) + 0.4 * sin(27 * x + 0.4 + sd * 0.7) + 0.28 * sin(49 * x + sd * 2.6));
+  let f = 0.81 - 0.045 * g * (0.6 * sin(12.5 * x + 1.1 + sd * 1.9) + 0.4 * sin(27 * x + 0.4 + sd * 0.7) + 0.28 * sin(49 * x + sd * 2.6));
   const d = (x - 0.1) / 0.14; f -= 0.12 * exp(-d * d); // (the white rises up the flank behind the gills)
   if (x > 0.6) f += (x - 0.6) * 0.36; // (round the head it tucks under the snout)
   if (x < -0.55) f += (-0.55 - x) * 0.34; // (the back wraps right round the tail stock)
@@ -4204,6 +4204,23 @@ function sharkTail(ctx, m) {
     ctx.strokeStyle = rgbStr(mixRGB(S9.fin, S9.belly, 0.45, TMPC), 0.6); ctx.lineWidth = lw(1.2); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(lu, -S + f); ctx.quadraticCurveTo(L * 0.52, -S * 0.48 + f * 0.6, L * 0.32, f * 0.45); ctx.quadraticCurveTo(L * 0.5, Sl * 0.48 + f * 0.6, ll, Sl + f);
     ctx.strokeStyle = rgbStr(SHARK_DEEP, 0.5); ctx.lineWidth = lw(1.6); ctx.stroke();
+  }
+  if (br > 0.02) {
+    // Breach: threads of water streaming off the tail's tips and trailing edge
+    const lu = L * (1 + ext), ll = L * (0.86 + 0.8 * ext), Sl = S * 0.84, t = AN.t;
+    ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
+    ctx.beginPath();
+    for (const u of [0, 0.16, 0.4, 0.7]) {
+      // (from points along the upper and the lower trailing edge, the tips and in towards the notch)
+      const a = 1 - u, d = (0.3 + 0.25 * ((u * 7.3) % 1)) * br * (1 - 0.4 * u), w = 0.04 * sin(t * 9 + u * 11);
+      const ux = a * a * lu + 2 * a * u * L * 0.52 + u * u * L * 0.32, uy = a * a * (-S + f) + 2 * a * u * (-S * 0.48 + f * 0.6) + u * u * f * 0.45;
+      const lx = a * a * ll + 2 * a * u * L * 0.5 + u * u * L * 0.32, ly = a * a * (Sl + f) + 2 * a * u * (Sl * 0.48 + f * 0.6) + u * u * f * 0.45;
+      ctx.moveTo(ux, uy); ctx.quadraticCurveTo(ux + d * 0.5, uy + w - 0.04 * a, ux + d, uy - 0.1 * a * d);
+      ctx.moveTo(lx, ly); ctx.quadraticCurveTo(lx + d * 0.5, ly - w + 0.04 * a, lx + d, ly + 0.1 * a * d);
+    }
+    ctx.strokeStyle = rgbStr([225, 245, 255], 0.3 * br); ctx.lineWidth = lw(2.6); ctx.stroke();
+    ctx.strokeStyle = rgbStr(WHITE, 0.5 * br); ctx.lineWidth = lw(1); ctx.stroke();
+    ctx.globalCompositeOperation = 'source-over';
   }
   ctx.restore();
 }
@@ -4624,13 +4641,8 @@ function rushLines(ctx) {
 function sharkSpray(ctx, front) {
   const k = S9.br, t = AN.t, lw = AN.lw;
   if (!front) {
-    ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
-    skin(F9.xr - 0.15, 0); const x0 = SK[0], y0 = SK[1], a0 = SK[2] + PI;
-    ctx.beginPath();
-    for (let i = 0; i < 7; i++) { const a = a0 + (i - 3) * 0.17, L = (0.4 + 0.35 * ((i * 0.618) % 1)) * k; ctx.moveTo(x0 + cos(a) * 0.08, y0 + sin(a) * 0.08); ctx.quadraticCurveTo(x0 + cos(a) * L * 0.55, y0 + sin(a) * L * 0.55 + 0.04 * sin(t * 9 + i), x0 + cos(a) * L, y0 + sin(a) * L); }
-    ctx.strokeStyle = rgbStr([225, 245, 255], 0.22 * k); ctx.lineWidth = lw(3.2); ctx.stroke();
-    ctx.strokeStyle = rgbStr(WHITE, 0.4 * k); ctx.lineWidth = lw(1.1); ctx.stroke();
-    glowAt(ctx, [215, 240, 255], F9.xr - 0.45, 0, 0.7, 0.4 * k, 0);
+    ctx.globalCompositeOperation = 'lighter';
+    glowAt(ctx, [215, 240, 255], F9.xr - 0.35, 0, 0.5, 0.25 * k, 0); // (spray hanging in the air behind the tail)
     ctx.globalAlpha = AN.A0; ctx.globalCompositeOperation = 'source-over';
     return;
   }
@@ -4786,7 +4798,16 @@ function drawAnimal(ctx, p, m, t, s, ph, stage, body, mem, A0) {
 //     slashDir side (where the game knocks things), leaving a bright arc; the near one swings back a little
 //   sailK (0…1): the fins raised taller (Tall Fins keeps them partly up); stripeK (0…1): Colour Flash, the blotches stark
 //   breachK (0…1): Breach, water streaming off, droplets flung away, fins and clavus flung back
-//   latched (> 0): Cleaner Fish peck faster. Stages 9–10 borrow this body until they are drawn (bodyStage).
+//   latched (> 0): Cleaner Fish peck faster.
+// stage 9 (the great white shark: body x ∈ [-1.3, 1.1], half-width 0.45; pectorals out to about |y| = 0.95, the crescent
+// tail to x ≈ -2.0):
+//   senseK (0…1): Electrosense, the pores on the snout glow violet-blue and electric ripples pulse out ahead
+//   puffK (0…1): Threat Display, back hunched, pectorals dropped, stiff jerky swimming, jaws agape
+//   slashK + slashDir: Head Shake, the head and open jaws wrench round to the slashDir side, leaving an arc
+//   sailK (0…1): the dorsal fin taller (Tall Dorsal Fin keeps it partly up); stripeK (0…1): Ambush Rush, the
+//     countershading sharpens, and above 0.78 a surge of speed lines; breachK (0…1): Breach, arched and half rolled,
+//     water pouring off; rollK (optional, 0…1): rolled onto its side, the white belly showing (for Belly Flash)
+//   latched (> 0): Cleaner Fish peck faster. Stage 10 borrows this body until it is drawn (bodyStage).
 // ctx is pre-translated to the player, rotated so heading is +x and scaled so 1 unit = player radius.
 export function drawPlayer(ctx, p, T, s) {
   const t = T;
@@ -5033,7 +5054,7 @@ function drawSiphPortrait(g, size) {
 }
 
 // evolution stage framing for portraits: [radius as a fraction of size, x offset (units), rotation]
-const STAGE_FRAME = [null, [0.27, 0, -0.4], [0.235, 0.3, -0.4], [0.32, 0.04, -0.42], [0.32, 0.2, -0.45], [0.3, 0.2, -0.42], [0.31, 0.04, -0.42], [0.2, -0.2, -0.58], [0.235, 0.12, -0.3], [0.245, 0.42, -0.5]];
+const STAGE_FRAME = [null, [0.27, 0, -0.4], [0.235, 0.3, -0.4], [0.32, 0.04, -0.42], [0.32, 0.2, -0.45], [0.3, 0.2, -0.42], [0.31, 0.04, -0.42], [0.2, -0.2, -0.58], [0.235, 0.12, -0.3], [0.265, 0.42, -0.5]];
 // the evolution stage each campaign mutation belongs to (its portrait shows that body)
 const MUT_STAGE = { guard: 2, polyps: 2, signal: 2, muscle: 3, jaws: 3, nerve: 3, cnido: 3, fins: 4, eyes: 4, shell: 4, tentacles: 5, hide: 5, gills: 5, beak: 6, tetrodo: 6, hover: 6, sail: 7, warmeyes: 7, stripes: 7,
   gelskin: 8, stingproof: 8, cleaners: 8, serrated: 9, warmblood: 9, countershade: 9 };
@@ -5180,7 +5201,7 @@ function abilityPortrait(id, size, stage) {
   if (id === 'sense') {
     // Electrosense: the great white's snout, its pores aglow, electric ripples spreading out through the dark to the
     // heartbeat of an animal hidden there
-    framedBody(g, size, 9, {}, [0.3, -1.42, -0.3], MUT_GLOW.sense, FAKE_T, { senseK: 1 });
+    framedBody(g, size, 9, {}, [0.29, -1.3, -0.3], MUT_GLOW.sense, FAKE_T, { senseK: 1 });
     const hx = 2.5, hy = 0.5;
     g.lineCap = 'round'; g.lineJoin = 'round';
     // the hidden animal: a dark fish shape in the gloom

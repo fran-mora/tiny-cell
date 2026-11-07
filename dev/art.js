@@ -170,7 +170,7 @@ if (view === 'zoom') {
     { serrated: 2, warmblood: 2, countershade: 2, jaws: 2, sail: 2, tentacles: 2 }];
   const tiles = [];
   for (let s = 1; s <= NS; s++) {
-    const y = 160 + (s - 1) * 320, ox = s === 7 ? -15 : s === 8 ? 10 : s === 9 ? 35 : s >= 3 ? 20 : 0, R = s === 7 ? 70 : s === 8 ? 64 : s === 9 ? 66 : 78;
+    const y = 160 + (s - 1) * 320, ox = s === 7 ? -15 : s === 8 ? 10 : s === 9 ? 45 : s >= 3 ? 20 : 0, R = s === 7 ? 70 : s === 8 ? 64 : s === 9 ? 74 : 78;
     tiles.push(playerTile(225 + ox, y, R, mkP(s, {}, { ang: 0 }), STAGE_NAMES[s], { ly: y + 150 }));
     tiles.push(playerTile(675 + ox, y, R, mkP(s, TIER[s], { ang: 0 }), STAGE_NAMES[s] + ' · ' + Object.keys(TIER[s]).join(', '), { ly: y + 150 }));
   }
