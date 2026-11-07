@@ -301,7 +301,7 @@ class App {
       body: el('div.center', {}, [
         el('div.era-kicker', {}, 'Journey complete'),
         el('div.era-big', {}, 'From a single cell'),
-        el('p.dim', { style: { margin: '0 0 10px' } }, `You crossed ${Game.HABITATS.length - 1} habitats, beat ${Game.HABITATS.length - 1} bosses and evolved from a single cell into a ${Game.STAGES[Game.STAGES.length - 1].name.toLowerCase()}.`),
+        el('p.dim', { style: { margin: '0 0 10px' } }, `You crossed ${Game.LIVE_HABITATS} habitats, beat ${Game.LIVE_HABITATS} bosses and evolved from a single cell into a ${Game.STAGES[Game.LIVE_STAGE].name.toLowerCase()}.`),
         el('p', { style: { margin: '0 0 12px', fontWeight: 700 } }, 'Bigger fish are on their way in future updates. Until then the Open Ocean is open: endless expeditions, boss rematches that teach you new traits, and every trait you are still missing.'),
         el('div.stat-grid', {}, [
           el('div.stat', {}, [el('div.v', {}, fmt(st.totals.attempts)), el('div.k', {}, 'Attempts')]),
@@ -315,7 +315,7 @@ class App {
   openJourney() {
     const c = C();
     const items = [];
-    for (let h = 1; h < Game.HABITATS.length; h++) {
+    for (let h = 1; h <= Game.LIVE_HABITATS; h++) {
       const H = Game.HABITATS[h], B = Game.BOSSES[H.boss];
       const first = (h - 1) * Game.LEVELS_PER_HABITAT + 1, lastL = h * Game.LEVELS_PER_HABITAT;
       const reached = c.level >= first || c.best >= first;
@@ -325,7 +325,7 @@ class App {
         const boss = lv === lastL;
         dots.appendChild(el('i', { class: (c.best >= lv ? 'on' : '') + (lv === c.level && !c.complete ? ' cur' : '') + (boss ? ' boss' : '') }));
       }
-      const evo = Game.EVOLVE_AFTER[h];
+      const evo = h < Game.LIVE_HABITATS ? Game.EVOLVE_AFTER[h] : 0;
       let bossPic = null;
       if (reached) { try { bossPic = Game.portrait('microbe', B.id, 88); bossPic.style.width = bossPic.style.height = '100%'; } catch (e) {} }
       items.push(el('div.card.jr-card', { class: (done ? 'done' : '') + (!reached ? ' locked' : '') + (c.level >= first && c.level <= lastL && !c.complete ? ' cur' : '') }, [
@@ -347,7 +347,7 @@ class App {
         c.complete ? el('div.small', { style: { color: 'var(--dna)', marginTop: '4px' } }, 'Every 5th expedition is a boss rematch that teaches you a trait') : null,
       ]),
     ]));
-    sheet({ title: 'Journey', body: [el('p.dim', { style: { margin: '0 0 12px', fontSize: '14px' } }, `${Game.TOTAL_LEVELS} levels across ${Game.HABITATS.length - 1} habitats, evolving every ${2 * Game.LEVELS_PER_HABITAT} levels, then the endless Open Ocean. You are on ${c.complete ? `expedition ${c.ocean.level | 0}` : `level ${c.level}`}. Die and you retry the same level, keeping every trait.`), el('div.list', {}, items)] });
+    sheet({ title: 'Journey', body: [el('p.dim', { style: { margin: '0 0 12px', fontSize: '14px' } }, `${Game.TOTAL_LEVELS} levels across ${Game.LIVE_HABITATS} habitats, evolving every ${2 * Game.LEVELS_PER_HABITAT} levels, then the endless Open Ocean. You are on ${c.complete ? `expedition ${c.ocean.level | 0}` : `level ${c.level}`}. Die and you retry the same level, keeping every trait.`), el('div.list', {}, items)] });
   }
 
   openTraits() {
@@ -377,7 +377,7 @@ class App {
         el('div.info', {}, [el('div.nm', {}, m.name), el('div.ds', {}, m.desc), el('div.ds', { style: { color: 'var(--text-faint)' } }, where)]),
       ]);
     });
-    const tiers = [2, 3, 4, 5].map((stg) => {
+    const tiers = Array.from({ length: Game.LIVE_STAGE - 1 }, (_, i) => i + 2).map((stg) => {
       const list = Game.MUTATIONS.filter((m) => m.stage === stg).map((m) => defs[m.id]);
       const open = c.stage >= stg;
       return el('div.small', { style: { margin: '4px 2px', color: open ? 'var(--text-dim)' : 'var(--text-faint)' } }, [el('b', { style: { color: open ? 'var(--good)' : 'var(--text-faint)' } }, `${Game.STAGES[stg].name}: `), list.map((m) => m.name).join(', '), open ? '' : ' (locked)']);
@@ -472,7 +472,7 @@ class App {
       p('<b style="color:var(--text)">The journey:</b> 48 levels across 8 habitats. Survive the timer to clear a level. Every sixth level is a boss: bite its glowing weak spots and avoid its body.'),
       p('<b style="color:var(--text)">Dying</b> sends you back to the start of the same level. You never lose traits or evolution progress.'),
       p('<b style="color:var(--dna)">Evolution:</b> eating fills your evolution bar. When it fills, pick a trait. Traits stay for the whole journey and stack when picked again.'),
-      p('<b style="color:var(--text)">Bodies:</b> every 10 levels a boss evolves you into a new body: colony, flatworm, primordial fish, jawed fish, pufferfish. Each body brings a power and a new family of traits. There is no limit: every trait you pick stays with you, so you can collect them all.'),
+      p('<b style="color:var(--text)">Bodies:</b> every 10 levels a boss evolves you into a new body: colony, flatworm, primordial fish, jawed fish, pufferfish, sailfish. Each body brings a power and a new family of traits. There is no limit: every trait you pick stays with you, so you can collect them all.'),
       p('<b style="color:var(--text)">Powers:</b> you can take up to 4 powers into a level. Your newest always comes; choose the rest with the Powers button on the home screen.'),
     ] });
   }

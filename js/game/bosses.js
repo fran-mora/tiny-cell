@@ -1487,6 +1487,10 @@ BOSS_KIT.squidpack = {
       k.sq = k.sq.filter((o) => o.alive !== false);
     }
   },
+  slashAny(g, b, k, R, half) {
+    const p = g.p;
+    for (const q of k.sq) { if (q.alive === false) continue; const ux = q.x - p.x, uy = q.y - p.y, ud = hypot(ux, uy); if (ud < R + q.r && abs(ad(p.ang, atan2(uy, ux))) < half + q.r / max(ud, 1)) { q.st = 'tired'; q.stT = 1.4; q.wb = 0; q.flash = 1; } }
+  },
   // a photophore flash scrambles the signals of every squid it reaches
   flashAny(g, b, k, R) {
     const p = g.p; let n = 0;
@@ -1512,6 +1516,383 @@ BOSS_KIT.squidpack = {
       }
       else if (q.st === 'tired') glow(ctx, q.x, q.y, q.r * 1.6, [150, 255, 200], 0.2 + 0.1 * sin(T * 9));
       else if (q.st === 'confused') glow(ctx, q.x, q.y, q.r * 1.5, [190, 225, 255], 0.18 + 0.12 * sin(T * 17 + q.seed));
+    }
+  },
+};
+
+// ===================================================================================== Thresher Shark
+// Thresher sharks herd fish with their enormous tail, then lash it over their heads to stun the whole shoal.
+// Stay out of the arc in front of it. After a lash it is spent for a moment: bite it, or slash it with your
+// bill. Slashing it while it winds up staggers it.
+BOSS_KIT.thresher = {
+  r: (p) => 50 + p.r * 0.95,
+  chip: 0.06, phaseAt: [0.5], phaseText: ['Double lashes!'],
+  hint: ['target', 'Keep out of the arc in front of it. After its tail lashes it is spent: bite or slash it then'],
+  spawn(g, b, k) { k.state = 'circle'; k.st = 0; k.whipT = 3; k.lashes = 0; k.bumpT = 0; k.orb = atan2(b.y - g.p.y, b.x - g.p.x); b.windK = 0; b.whipK = 0; b.stunK = 0; },
+  tick(g, b, k, dt) {
+    const p = g.p, ps = g.pTop(), ph2 = b.phase >= 2;
+    const dx = p.x - b.x, dy = p.y - b.y, d = hypot(dx, dy) + 0.01, reach = b.r * 3.4;
+    k.bumpT = max(0, k.bumpT - dt);
+    let tx = 0, ty = 0, sp = 0, sk = 2;
+    switch (k.state) {
+      case 'circle': { // herding: it circles, closing in, then lines up a lash
+        k.orb += dt * 0.7; k.whipT -= dt;
+        const R = k.whipT > 0 ? b.r * 3.2 : reach * 0.7;
+        const gx = p.x + cos(k.orb) * R - b.x, gy = p.y + sin(k.orb) * R - b.y, gd = hypot(gx, gy) + 0.01;
+        tx = gx / gd; ty = gy / gd; sp = min(ps * 1.1, gd * 2.5);
+        b.ang = turn(b.ang, k.whipT > 0 ? atan2(b.vy, b.vx) : atan2(dy, dx), dt * 3);
+        if (k.whipT <= 0 && d < reach + p.r && abs(ad(b.ang, atan2(dy, dx))) < 0.5 && !g.dead) { k.state = 'wind'; k.st = ph2 && k.lashes ? 0.45 : ph2 ? 0.6 : 0.8; g.sfx('tick'); }
+        break;
+      }
+      case 'wind': // the tail cocks forward: the lash is coming
+        k.st -= dt; b.tele = 1; b.vx *= exp(-dt * 4); b.vy *= exp(-dt * 4);
+        if (k.st > 0.25) b.ang = turn(b.ang, atan2(dy, dx), dt * 3);
+        if (k.st <= 0) { k.state = 'whip'; k.st = 0.35; k.hit = false; g.sfx('dash', { vol: 0.6 }); }
+        break;
+      case 'whip': { // the tail lashes over its head through everything in front
+        k.st -= dt;
+        if (!k.hit && k.st < 0.2) {
+          k.hit = true; k.lashes++; g.shake = min(16, g.shake + 8); g.sfx('hit', { pitch: 0.7 }); g.sfx('boss', { vol: 0.3 });
+          const inArc = (x, y, r) => { const ux = x - b.x, uy = y - b.y, ud = hypot(ux, uy); return ud < reach + r && abs(ad(b.ang, atan2(uy, ux))) < 1.0; };
+          for (const e of g.ents) if (e.alive && !e.boss && !e.ally && inArc(e.x, e.y, e.r)) { e.stun = max(e.stun || 0, 2.2); e.flash = 1; } // stunned fish: free food
+          if (!g.dead && inArc(p.x, p.y, p.r * 0.6)) { if (g.hurt(26, b, { why: 'Thresher tail', iframes: 0.6 })) { p.vx = cos(b.ang) * 600; p.vy = sin(b.ang) * 600; } }
+          g.burst(b.x + cos(b.ang) * reach * 0.6, b.y + sin(b.ang) * reach * 0.6, [220, 240, 255], 20, 300);
+        }
+        if (k.st <= 0) {
+          if (ph2 && k.lashes < 2) { k.state = 'wind'; k.st = 0.45; }
+          else { k.state = 'spent'; k.st = ph2 ? 1.25 : 1.5; k.wb = 0; k.lashes = 0; g.hint('boss_thresher2', 'It’s spent! Bite or slash it now', 'target', 2400); }
+        }
+        break;
+      }
+      case 'spent': // the tail drags: open to bites
+        k.st -= dt; b.vx *= exp(-dt * 2.5); b.vy *= exp(-dt * 2.5); b.ang += sin(g.T * 2) * dt * 0.2;
+        if (k.st <= 0) { k.state = 'circle'; k.whipT = ph2 ? 2.2 : 3.0; k.orb = atan2(b.y - p.y, b.x - p.x); }
+        break;
+    }
+    if (k.state === 'circle') steer(b, tx, ty, sp, sk, dt);
+    const ap = (v, to, rate) => v + (to - v) * min(1, dt * rate);
+    b.windK = ap(b.windK, k.state === 'wind' ? 1 : 0, 8);
+    b.whipK = k.state === 'whip' ? 1 - k.st / 0.35 : ap(b.whipK, 0, 4);
+    b.stunK = ap(b.stunK, k.state === 'spent' ? 1 : 0, 5);
+    if (g.dead) return;
+    if (d < b.r * 0.9 + p.r * 0.8) {
+      if (k.state === 'spent') { if (winBite(b, k, 2, 0.5)) g.bossHit(0.075, (p.x + b.x) / 2, (p.y + b.y) / 2); }
+      else {
+        const pen = b.r * 0.9 + p.r * 0.8 - d; p.x += dx / d * pen; p.y += dy / d * pen;
+        if (k.bumpT <= 0) { k.bumpT = 1.4; g.texts.push({ x: p.x, y: p.y - p.r * 1.5, s: 'Too quick!', life: 0.9, c: '#cfd8e8' }); }
+        if (g.hurt(12, b, { why: 'Thresher shark', iframes: 0.6 })) { p.vx = dx / d * 360; p.vy = dy / d * 360; }
+      }
+    }
+  },
+  slash(g, b, k) {
+    if (k.state === 'spent') g.bossHit(0.1, b.x, b.y, { text: 'Slashed!', tc: '#bfe6ff', c: [200, 235, 255] });
+    else if (k.state === 'wind') { g.bossHit(0.07, b.x, b.y, { text: 'Staggered!', tc: '#bfe6ff', c: [200, 235, 255] }); if (b.alive) { k.state = 'spent'; k.st = 1.2; k.wb = 0; k.lashes = 0; } }
+    else g.bossDamage(30);
+  },
+  over(g, ctx, z) {
+    const b = g.boss, k = b.k, T = g.T, reach = b.r * 3.4;
+    if (k.state === 'wind' || k.state === 'whip') {
+      ctx.beginPath(); ctx.moveTo(b.x, b.y); ctx.arc(b.x, b.y, reach, b.ang - 1.0, b.ang + 1.0); ctx.closePath();
+      ctx.fillStyle = k.state === 'wind' ? `rgba(255,110,100,${0.1 + 0.08 * sin(T * 24)})` : 'rgba(220,240,255,0.18)'; ctx.fill();
+      ctx.strokeStyle = k.state === 'wind' ? 'rgba(255,140,120,0.6)' : 'rgba(230,245,255,0.6)'; ctx.lineWidth = 2 / z; ctx.stroke();
+    }
+    if (k.state === 'spent') glow(ctx, b.x, b.y, b.r * 1.3, [150, 255, 200], 0.22 + 0.12 * sin(T * 9));
+  },
+};
+
+// ===================================================================================== Broadbill Swordfish
+// Swordfish hunt at night. A heater organ warms their eyes and brain, so they see far better than their prey in
+// cold, dark water. In the dark you see its glowing eyes and the sparks of its wake. It charges sword first:
+// dodge, then bite its side as it turns, or meet the charge with your own bill (a parry) to stagger it.
+BOSS_KIT.swordfish = {
+  r: (p) => 48 + p.r * 0.9,
+  chip: 0.06, phaseAt: [0.5], phaseText: ['Faster, double charges'],
+  hint: ['eye', 'Watch for its glowing eyes. Dodge the charge and bite its side as it turns, or parry with a Bill Slash'],
+  spawn(g, b, k) { k.state = 'stalk'; k.st = 0; k.chargeT = 3; k.n = 0; k.trail = []; k.trT = 0; k.orb = atan2(b.y - g.p.y, b.x - g.p.x); b.glowK = 0.4; b.wakeK = 0.3; b.chargeK = 0; },
+  tick(g, b, k, dt) {
+    const p = g.p, ps = g.pTop(), ph2 = b.phase >= 2;
+    const dx = p.x - b.x, dy = p.y - b.y, d = hypot(dx, dy) + 0.01;
+    let tx = 0, ty = 0, sp = 0, sk = 2, glowW = 0.45, wakeW = 0.3;
+    switch (k.state) {
+      case 'stalk': { // a wide, slow circle in the dark
+        k.orb += dt * 0.45 * (ph2 ? 1.3 : 1); k.chargeT -= dt;
+        const R = 320, gx = p.x + cos(k.orb) * R - b.x, gy = p.y + sin(k.orb) * R - b.y, gd = hypot(gx, gy) + 0.01;
+        tx = gx / gd; ty = gy / gd; sp = min(ps * 1.15, gd * 2.2);
+        b.ang = turn(b.ang, atan2(b.vy, b.vx), dt * 3);
+        if (k.chargeT <= 0 && !g.dead) { k.state = 'aim'; k.st = ph2 && k.n ? 0.4 : ph2 ? 0.55 : 0.75; g.sfx('tick'); }
+        break;
+      }
+      case 'aim': // it turns on you, eyes blazing
+        k.st -= dt; b.tele = 1; glowW = 1; b.vx *= exp(-dt * 4); b.vy *= exp(-dt * 4);
+        b.ang = turn(b.ang, atan2(dy + p.vy * 0.2, dx + p.vx * 0.2), dt * 4.5);
+        if (k.st <= 0) { k.state = 'charge'; k.st = min(0.9, max(0.35, (d + b.r * 2.4) / (ps * 3.1))); k.hit = false; k.ca = b.ang; g.sfx('dash', { vol: 0.6 }); } // it overshoots you by a couple of lengths
+        break;
+      case 'charge': { // sword first, in a straight line
+        k.st -= dt; glowW = 1; wakeW = 1; tx = cos(k.ca); ty = sin(k.ca); sp = ps * 3.1; sk = 8; b.ang = k.ca;
+        const ca = cos(b.ang), sa = sin(b.ang);
+        if (!k.hit && !g.dead && segDist(p.x, p.y, b.x + ca * b.r * 0.6, b.y + sa * b.r * 0.6, b.x + ca * b.r * 2.2, b.y + sa * b.r * 2.2) < p.r + 8) {
+          k.hit = true; if (g.hurt(34, b, { why: 'Swordfish sword', iframes: 0.7 })) { p.vx = ca * 650; p.vy = sa * 650; }
+        }
+        if (k.st <= 0) { k.n++; if (ph2 && k.n < 2) { k.state = 'aim'; k.st = 0.4; } else { k.state = 'turn'; k.st = ph2 ? 1.3 : 1.6; k.wb = 0; k.n = 0; g.hint('boss_sword3', 'It overshot! Bite its side as it turns', 'target', 2200); } }
+        break;
+      }
+      case 'turn': // overshot: it swings round slowly, flank open
+        k.st -= dt; glowW = 0.3; b.vx *= exp(-dt * 4); b.vy *= exp(-dt * 4);
+        b.ang = turn(b.ang, atan2(dy, dx), dt * 1.1);
+        if (k.st <= 0) { k.state = 'stalk'; k.chargeT = ph2 ? 1.8 : 2.4; k.orb = atan2(b.y - p.y, b.x - p.x); }
+        break;
+      case 'parried': // swords clashed: it reels
+        k.st -= dt; glowW = 0.15; wakeW = 0.1; b.vx *= exp(-dt * 2); b.vy *= exp(-dt * 2); b.ang += sin(g.T * 3) * dt * 0.4;
+        if (k.st <= 0) { k.state = 'stalk'; k.chargeT = ph2 ? 2.0 : 2.8; k.orb = atan2(b.y - p.y, b.x - p.x); }
+        break;
+    }
+    if (k.state === 'stalk' || k.state === 'charge') steer(b, tx, ty, sp, sk, dt);
+    const ap = (v, to, rate) => v + (to - v) * min(1, dt * rate);
+    b.glowK = ap(b.glowK, glowW, 6); b.wakeK = ap(b.wakeK, wakeW, 4);
+    b.chargeK = ap(b.chargeK, k.state === 'charge' ? 1 : 0, k.state === 'charge' ? 12 : 3);
+    // its wake leaves a fading trail of sparks (they also light up the dark)
+    k.trT -= dt; if (k.trT <= 0) { k.trT = 0.08; k.trail.push({ x: b.x - cos(b.ang) * b.r, y: b.y - sin(b.ang) * b.r, life: 1.2, a: b.wakeK }); }
+    for (const q of k.trail) q.life -= dt; k.trail = k.trail.filter((q) => q.life > 0);
+    if (g.dead) return;
+    if (d < b.r * 0.9 + p.r * 0.8) {
+      const rel = abs(ad(b.ang, atan2(dy, dx)));
+      if ((k.state === 'turn' || k.state === 'parried') && rel > 0.5) { if (winBite(b, k, k.state === 'parried' ? 3 : 2, 0.5)) g.bossHit(0.075, (p.x + b.x) / 2, (p.y + b.y) / 2); }
+      else if (k.state !== 'charge') {
+        const pen = b.r * 0.9 + p.r * 0.8 - d; p.x += dx / d * pen; p.y += dy / d * pen;
+        if (g.hurt(rel < 0.5 ? 18 : 10, b, { why: rel < 0.5 ? 'Swordfish sword' : 'Swordfish', iframes: 0.6 })) { p.vx = dx / d * 380; p.vy = dy / d * 380; }
+      }
+    }
+  },
+  // a Bill Slash that meets its charge is a parry: the swords clash and it reels
+  slash(g, b, k) {
+    const p = g.p, rel = abs(ad(b.ang, atan2(p.y - b.y, p.x - b.x))), d = hypot(p.x - b.x, p.y - b.y);
+    if ((k.state === 'charge' || k.state === 'aim') && rel < 0.7 && d < b.r * 3) {
+      k.state = 'parried'; k.st = 1.8; k.wb = 0; k.n = 0;
+      g.sfx('hit', { pitch: 2 }); g.sfx('boss', { vol: 0.3 }); g.flash = 0.3; g.shake = 14;
+      g.bossHit(0.06, (p.x + b.x) / 2, (p.y + b.y) / 2, { raw: true, text: 'Parried!', tc: '#bfe6ff', c: [220, 240, 255] });
+      g.hint('boss_sword2', 'Parried! Bite it while it reels', 'target', 2400);
+    } else if (k.state === 'turn' || k.state === 'parried') g.bossHit(0.08, b.x, b.y, { text: 'Slashed!', tc: '#bfe6ff', c: [200, 235, 255] });
+    else g.bossDamage(30);
+  },
+  lights(g, b, k) {
+    const out = [], ca = cos(b.ang), sa = sin(b.ang);
+    for (const sd of [-1, 1]) out.push({ x: b.x + ca * b.r * 0.55 - sa * sd * b.r * 0.22, y: b.y + sa * b.r * 0.55 + ca * sd * b.r * 0.22, r: b.r * 0.9, col: [255, 170, 90], a: 0.25 + 0.55 * b.glowK });
+    for (const q of k.trail) out.push({ x: q.x, y: q.y, r: b.r * 0.7, col: [110, 190, 255], a: 0.35 * q.life * q.a });
+    return out;
+  },
+  over(g, ctx, z) {
+    const b = g.boss, k = b.k, T = g.T;
+    if (k.state === 'aim') {
+      ctx.beginPath(); ctx.moveTo(b.x, b.y); ctx.lineTo(b.x + cos(b.ang) * 900, b.y + sin(b.ang) * 900);
+      ctx.strokeStyle = `rgba(255,150,110,${0.2 + 0.2 * sin(T * 26)})`; ctx.lineWidth = (b.r * 0.7); ctx.lineCap = 'round'; ctx.stroke();
+    }
+    if (k.state === 'turn' || k.state === 'parried') glow(ctx, b.x, b.y, b.r * 1.3, [150, 255, 200], 0.2 + 0.12 * sin(T * 9));
+  },
+};
+
+// ===================================================================================== Lion's Mane Jellyfish
+// The biggest jellyfish: a bell two metres wide and a mane of stinging tentacles longer than a blue whale.
+// Sunfish eat jellies, tentacles and all: bite through the strands to open a path, then bite the bell.
+// A Breach that lands near it rips through every strand around and stuns the bell. Cut strands regrow.
+const LM_STRANDS = 10, LM_SEGS = 9;
+BOSS_KIT.lionsmane = {
+  r: (p) => 60 + p.r * 0.9,
+  fixed: true, chip: 0.06, phaseAt: [0.5], phaseText: ['Its mane grows back faster'],
+  hint: ['target', 'Bite through its stinging strands to reach the bell, then bite the bell. A Breach rips through them all'],
+  spawn(g, b, k) {
+    k.st = []; k.stunT = 0; k.bumpT = 0; k.drift = random() * TAU; b.pulse = 0; b.stingK = 0; b.hurtK = 0;
+    for (let i = 0; i < LM_STRANDS; i++) {
+      const a = (i / LM_STRANDS) * TAU, pts = [];
+      for (let j = 0; j <= LM_SEGS; j++) pts.push({ x: b.x + cos(a) * b.r * (0.8 + j * 0.75), y: b.y + sin(a) * b.r * (0.8 + j * 0.75) });
+      k.st.push({ a, pts, len: LM_SEGS, regrow: 0, sting: 0 });
+    }
+  },
+  tick(g, b, k, dt) {
+    const p = g.p, ps = g.pTop(), ph2 = b.phase >= 2, T = g.T;
+    k.bumpT = max(0, k.bumpT - dt); k.stunT = max(0, k.stunT - dt); b.hurtK = max(0, b.hurtK - dt * 1.5);
+    // the bell pulses and drifts slowly after you
+    b.pulse = 0.5 + 0.5 * sin(T * 2.1);
+    const dx = p.x - b.x, dy = p.y - b.y, d = hypot(dx, dy) + 0.01;
+    const want = k.stunT > 0 ? 0 : ps * (0.28 + 0.22 * max(0, sin(T * 2.1)));
+    b.vx += ((dx / d) * want - b.vx) * min(1, dt * 1.2); b.vy += ((dy / d) * want - b.vy) * min(1, dt * 1.2);
+    b.x += b.vx * dt; b.y += b.vy * dt; b.ang = atan2(b.vy, b.vx) || b.ang;
+    if (hypot(b.x - p.x, b.y - p.y) > 1800) { b.x = p.x + dx / d * -700; b.y = p.y + dy / d * -700; }
+    // strands: ropes hanging from the bell's rim, swaying, trailing a little behind its drift
+    let stinging = false;
+    const segL = b.r * 0.75;
+    for (const S of k.st) {
+      if (S.len < LM_SEGS) { S.regrow += dt; if (S.regrow > (ph2 ? 5 : 8)) { S.regrow = 0; S.len++; } }
+      const sway = sin(T * 0.9 + S.a * 3) * 0.35, a = S.a + sway * 0.25;
+      S.pts[0].x = b.x + cos(a) * b.r * 0.8; S.pts[0].y = b.y + sin(a) * b.r * 0.8;
+      for (let j = 1; j <= LM_SEGS; j++) {
+        const q = S.pts[j], pr = S.pts[j - 1];
+        // rest direction: outwards, bent by the sway and by the bell's motion
+        const tx = pr.x + cos(a + sway * j * 0.08) * segL - b.vx * 0.04 * j, ty = pr.y + sin(a + sway * j * 0.08) * segL - b.vy * 0.04 * j;
+        q.x += (tx - q.x) * min(1, dt * 4); q.y += (ty - q.y) * min(1, dt * 4);
+        const ux = q.x - pr.x, uy = q.y - pr.y, ud = hypot(ux, uy) + 0.01; q.x = pr.x + ux / ud * segL; q.y = pr.y + uy / ud * segL;
+      }
+      S.sting = max(0, S.sting - dt * 3);
+      if (!S.touch) S.chew = max(0, (S.chew || 0) - dt); S.touch = false;
+      if (g.dead) continue;
+      // touching a live strand stings; biting it cuts it there
+      for (let j = 1; j <= S.len; j++) {
+        const q = S.pts[j], pr = S.pts[j - 1];
+        if (segDist(p.x, p.y, pr.x, pr.y, q.x, q.y) < p.r * 0.8 + b.r * 0.12) {
+          stinging = true; S.sting = 1; S.chew = (S.chew || 0) + dt; S.touch = true;
+          // chewing through a strand takes a moment (and stings); a spiny ball or a dash cuts straight through
+          if (p.puffK > 0.5 || p.dashT > 0 || S.chew > 0.45) { S.len = j - 1; S.regrow = 0; S.chew = 0; g.sparkle(q.x, q.y, [255, 170, 120], 6); g.sfx('gulp', { vol: 0.5 }); g.gainXP(0.4 * g.df(), false); }
+          break;
+        }
+      }
+    }
+    if (stinging) {
+      const proof = 1 - 0.3 * (p.muts.stingproof | 0);
+      g.hurt(16 * dt * max(0.1, proof), null, { dot: true, why: "Lion's mane sting" });
+      b.stingK = 1;
+    } else b.stingK = max(0, b.stingK - dt * 2);
+    if (g.dead) return;
+    // the bell
+    if (d < b.r * 0.9 + p.r * 0.8) {
+      if (b.biteCd <= 0) {
+        b.biteCd = k.stunT > 0 ? 0.45 : 0.75; b.hurtK = 1;
+        g.bossHit(k.stunT > 0 ? 0.075 : 0.05, (p.x + b.x) / 2, (p.y + b.y) / 2);
+        if (!b.alive) return;
+        if (k.stunT <= 0) { b.vx -= dx / d * 260; b.vy -= dy / d * 260; } // it pulses away
+      }
+      const pen = b.r * 0.9 + p.r * 0.8 - d; p.x += dx / d * pen * 0.5; p.y += dy / d * pen * 0.5;
+    }
+  },
+  // a breach landing near it rips through every strand in reach and stuns the bell
+  breachAny(g, b, k, R) {
+    const p = g.p; let cut = 0;
+    for (const S of k.st) for (let j = 1; j <= S.len; j++) { const q = S.pts[j]; if (hypot(q.x - p.x, q.y - p.y) < R) { S.len = j - 1; S.regrow = 0; cut++; break; } }
+    if (hypot(b.x - p.x, b.y - p.y) < R + b.r) { k.stunT = 3; b.hurtK = 1; g.bossHit(0.05, b.x, b.y, { raw: true, knock: false, text: 'Stunned!', tc: '#ffd0b0', c: [255, 200, 160] }); g.hint('boss_mane2', 'Stunned! Bite the bell', 'target', 2200); }
+    else if (cut) g.texts.push({ x: p.x, y: p.y - p.r * 2, s: 'Strands torn!', life: 1, c: '#ffd0b0' });
+  },
+  under(g, ctx, z, inView, sc) {
+    const b = g.boss, k = b.k, T = g.T, art = CREATURE_ART.lionsmane, H = art ? artH(b.r * 0.12 * sc, art.col) : null;
+    ctx.lineCap = 'round';
+    for (const S of k.st) {
+      for (let j = 1; j <= LM_SEGS; j++) {
+        const q = S.pts[j], pr = S.pts[j - 1], live = j <= S.len;
+        if (!inView(q.x, q.y, b.r)) continue;
+        if (art && art.tentacle) { art.tentacle(ctx, pr.x, pr.y, q.x, q.y, T + S.a, H, live ? 0.6 + 0.4 * S.sting : 0); continue; }
+        ctx.beginPath(); ctx.moveTo(pr.x, pr.y); ctx.lineTo(q.x, q.y);
+        ctx.strokeStyle = live ? `rgba(255,${150 + 60 * S.sting},110,0.7)` : 'rgba(150,90,70,0.25)'; ctx.lineWidth = (live ? 5 : 2) / z; ctx.stroke();
+      }
+    }
+  },
+  over(g, ctx, z) { const b = g.boss, k = b.k; if (k.stunT > 0) glow(ctx, b.x, b.y, b.r * 1.3, [150, 255, 200], 0.2 + 0.12 * sin(g.T * 9)); },
+};
+
+// ===================================================================================== Sea lion gang
+// Young sea lions are fast, clever and playful, and they love to bite the fins off sunfish. The gang darts in
+// one at a time to nip you (each nip slows you down), then rolls away showing off. Bite one mid-roll, or stun
+// the gang: a Breach landing in their midst, a spiny Inflate or a Bill Slash all leave them dazed.
+const GANG = 4, SL_HITS = 4;
+BOSS_KIT.sealions = {
+  r: (p) => 26 + p.r * 0.85,
+  fixed: true, chip: 0.08, phaseAt: [0.5], phaseText: ['Bolder: two at a time'],
+  hint: ['bolt', 'They dart in to nip your fins. Bite one as it rolls away, or Breach to stun the whole gang'],
+  spawn(g, b, k) {
+    const p = g.p; k.sq = [b];
+    for (let i = 1; i < GANG; i++) {
+      const a = atan2(b.y - p.y, b.x - p.x) + i * 0.6, R = hypot(b.x - p.x, b.y - p.y);
+      k.sq.push({ kind: 'sealion', x: p.x + cos(a) * R, y: p.y + sin(a) * R, vx: 0, vy: 0, ang: a + PI, r: b.r * (0.9 + random() * 0.15), seed: random() * 10, t: random() * 5, alive: true });
+    }
+    k.total = GANG * SL_HITS;
+    for (const q of k.sq) Object.assign(q, { hits: SL_HITS, st: 'circle', stT: 0, orb: atan2(q.y - p.y, q.x - p.x), sprintK: 0, biteK: 0, biteCd: 0, wb: 0, flash: 0, hit: false });
+    k.dartT = 2; k.bumpT = 0;
+  },
+  tick(g, b, k, dt) {
+    const p = g.p, ps = g.pTop(), ph2 = b.phase >= 2, T = g.T;
+    k.bumpT = max(0, k.bumpT - dt);
+    const live = k.sq.filter((q) => q.alive !== false);
+    k.dartT -= dt;
+    if (k.dartT <= 0 && !g.dead) {
+      const ready = live.filter((q) => q.st === 'circle');
+      for (let i = 0; i < (ph2 ? 2 : 1) && ready.length; i++) { const q = ready.splice((random() * ready.length) | 0, 1)[0]; q.st = 'eye'; q.stT = 0.45; }
+      k.dartT = ph2 ? 1.3 : 1.7;
+    }
+    for (const q of live) {
+      q.t = (q.t || 0) + dt; q.biteCd = max(0, q.biteCd - dt); q.flash = max(0, (q.flash || 0) - dt * 4);
+      const dx = p.x - q.x, dy = p.y - q.y, d = hypot(dx, dy) + 0.01;
+      let tx = 0, ty = 0, sp = 0, sk = 3;
+      switch (q.st) {
+        case 'circle': {
+          q.orb += dt * (0.9 + 0.2 * sin(q.seed)) * (q.seed > 5 ? 1 : -1);
+          const R = 230 + q.r * 2 + 60 * sin(T * 1.3 + q.seed);
+          const gx = p.x + cos(q.orb) * R - q.x, gy = p.y + sin(q.orb) * R - q.y, gd = hypot(gx, gy) + 0.01;
+          tx = gx / gd; ty = gy / gd; sp = min(ps * 1.5, gd * 3); q.ang = turn(q.ang, atan2(q.vy, q.vx), dt * 5);
+          break;
+        }
+        case 'eye': // it eyes you up: the dart is coming
+          q.stT -= dt; q.vx *= exp(-dt * 4); q.vy *= exp(-dt * 4); q.ang = turn(q.ang, atan2(dy, dx), dt * 8);
+          if (q.stT <= 0) { q.st = 'dart'; q.stT = 0.55; q.hit = false; q.da = atan2(dy + p.vy * 0.2, dx + p.vx * 0.2); g.sfx('dash', { vol: 0.25 }); }
+          break;
+        case 'dart': {
+          q.stT -= dt; tx = cos(q.da); ty = sin(q.da); sp = ps * 2.6; sk = 9; q.ang = turn(q.ang, q.da, dt * 8); q.sprintK = 1;
+          if (!q.hit && !g.dead && d < q.r + p.r * 0.9) {
+            q.hit = true; q.biteK = 1;
+            if (p.puffK > 0.5) { q.st = 'dazed'; q.stT = 2.2; q.wb = 0; this.hitSeal(g, b, k, q, 0.4, 'Spiked!'); continue; }
+            if (g.hurt(14, q, { why: 'Sea lion nip', iframes: 0.4 })) { p.slowT = 2; g.texts.push({ x: p.x, y: p.y - p.r * 1.6, s: 'Fin nipped!', life: 1, c: '#ffc8a0' }); }
+          }
+          if (q.stT <= 0) { q.st = 'roll'; q.stT = ph2 ? 0.8 : 1.0; q.wb = 0; }
+          break;
+        }
+        case 'roll': // a playful barrel roll after the nip: open to a bite
+          q.stT -= dt; q.vx *= exp(-dt * 2.2); q.vy *= exp(-dt * 2.2); q.ang += dt * 5;
+          if (q.stT <= 0) { q.st = 'circle'; q.orb = atan2(q.y - p.y, q.x - p.x); }
+          break;
+        case 'dazed':
+          q.stT -= dt; q.vx *= exp(-dt * 2); q.vy *= exp(-dt * 2); q.ang += sin(T * 3 + q.seed) * dt;
+          if (q.stT <= 0) { q.st = 'circle'; q.orb = atan2(q.y - p.y, q.x - p.x); }
+          break;
+      }
+      if (q.st === 'circle' || q.st === 'dart') sqSteer(q, tx, ty, sp, sk, dt);
+      if (q.st !== 'dart') q.sprintK = max(0, q.sprintK - dt * 3);
+      q.biteK = max(0, q.biteK - dt * 3);
+      q.x += q.vx * dt; q.y += q.vy * dt;
+      if (!Number.isFinite(q.x) || hypot(q.x - p.x, q.y - p.y) > 2000) { const a = random() * TAU; q.x = p.x + cos(a) * 600; q.y = p.y + sin(a) * 600; q.vx = q.vy = 0; }
+      if (g.dead || !b.alive) continue;
+      if (d < q.r * 0.95 + p.r * 0.8) {
+        if (q.st === 'roll' || q.st === 'dazed') { if (q.biteCd <= 0 && q.wb < (q.st === 'dazed' ? 2 : 1)) { q.biteCd = 0.5; q.wb++; this.hitSeal(g, b, k, q, g.biteK(), null); } }
+        else if (q.st === 'circle' && k.bumpT <= 0) { k.bumpT = 1.2; g.texts.push({ x: p.x, y: p.y - p.r * 1.5, s: 'Too quick!', life: 0.8, c: '#cfd8e8' }); }
+      }
+    }
+  },
+  hitSeal(g, b, k, q, n, text) {
+    const ox = q.x, oy = q.y;
+    g.bossHit(n / k.total, q.x, q.y, { raw: true, text, tc: '#ffd8b8', c: [255, 210, 170] });
+    q.hits -= n; q.flash = 1;
+    if (!b.alive || q.hits > 0.01) return;
+    g.texts.push({ x: ox, y: oy - q.r, s: 'Gave up!', life: 1, c: '#e8d8c8' }); g.sfx('bubble');
+    if (q === b) {
+      const rest = k.sq.filter((o) => o !== b && o.alive !== false); if (!rest.length) return;
+      const o = rest.reduce((a, c) => (hypot(c.x - ox, c.y - oy) < hypot(a.x - ox, a.y - oy) ? c : a));
+      for (const key of ['x', 'y', 'vx', 'vy', 'ang', 'r', 'seed', 't', 'hits', 'st', 'stT', 'orb', 'sprintK', 'biteK', 'biteCd', 'wb', 'hit', 'da']) b[key] = o[key];
+      o.alive = false;
+    } else q.alive = false;
+    k.sq = k.sq.filter((o) => o.alive !== false);
+  },
+  stunNear(g, b, k, x, y, R, text) {
+    let n = 0;
+    for (const q of k.sq) if (q.alive !== false && hypot(q.x - x, q.y - y) < R + q.r) { q.st = 'dazed'; q.stT = 2.4; q.wb = 0; q.flash = 1; n++; }
+    if (n) { g.texts.push({ x, y: y - 40, s: text, life: 1.2, c: '#ffe0c0' }); g.hint('boss_seal2', 'Dazed! Bite them now', 'target', 2400); }
+  },
+  breachAny(g, b, k, R) { this.stunNear(g, b, k, g.p.x, g.p.y, R, 'Splashed!'); },
+  slashAny(g, b, k, R, half) {
+    const p = g.p; let n = 0;
+    for (const q of k.sq) { if (q.alive === false) continue; const ux = q.x - p.x, uy = q.y - p.y, ud = hypot(ux, uy); if (ud < R + q.r && abs(ad(p.ang, atan2(uy, ux))) < half + q.r / max(ud, 1)) { q.st = 'dazed'; q.stT = 2; q.wb = 0; q.flash = 1; n++; } }
+    if (n) { g.texts.push({ x: p.x, y: p.y - p.r * 2, s: 'Slashed!', life: 1, c: '#ffe0c0' }); g.hint('boss_seal2', 'Dazed! Bite them now', 'target', 2400); }
+  },
+  over(g, ctx, z, inView, sc) {
+    const b = g.boss, k = b.k, T = g.T;
+    for (const q of k.sq) { if (q === b || q.alive === false || !inView(q.x, q.y, q.r * 3)) continue; drawFake(ctx, q, T, sc); }
+    for (const q of k.sq) {
+      if (q.alive === false || !inView(q.x, q.y, q.r * 3)) continue;
+      if (q.st === 'eye') { glow(ctx, q.x, q.y, q.r * 2, [255, 120, 80], 0.3 + 0.2 * sin(T * 26)); ctx.font = `900 ${Math.round(24 / z)}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,150,110,0.9)'; ctx.fillText('!', q.x, q.y - q.r * 1.6); }
+      else if (q.st === 'roll' || q.st === 'dazed') glow(ctx, q.x, q.y, q.r * 1.6, [150, 255, 200], 0.2 + 0.1 * sin(T * 9));
     }
   },
 };

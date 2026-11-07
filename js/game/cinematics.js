@@ -67,7 +67,7 @@ export const Cinematics = {
     const L = this.L, H = C.HABITATS[L.h], a = H.pal.accent;
     if (this.bannerEl) this.bannerEl.remove();
     const card = this.bannerEl = el('div.mb-habitat', {}, [
-      el('div.mb-kicker', {}, L.ocean ? `Open Ocean \u00b7 leg ${L.leg}` : `Habitat ${L.h} of ${C.HABITATS.length - 1}`),
+      el('div.mb-kicker', {}, L.ocean ? `Open Ocean \u00b7 leg ${L.leg}` : `Habitat ${L.h} of ${C.LIVE_HABITATS}`),
       el('h1', {}, L.ocean ? H.name : L.name),
       el('div.mb-hab-line'),
       el('p', {}, L.ocean ? 'Endless water. How far can you go?' : H.tag || ''),

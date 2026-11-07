@@ -5,11 +5,15 @@ import T3 from '../js/game/creatures/t3.js';
 import T4 from '../js/game/creatures/t4.js';
 import T5 from '../js/game/creatures/t5.js';
 import T6 from '../js/game/creatures/t6.js';
+import T7 from '../js/game/creatures/t7.js';
+import T8 from '../js/game/creatures/t8.js';
+import T9 from '../js/game/creatures/t9.js';
+import T10 from '../js/game/creatures/t10.js';
 
 const q = new URLSearchParams(location.search);
 const only = q.get('tier'), one = q.get('kind');
 const fixedT = q.has('t') ? parseFloat(q.get('t')) : null;
-const BG = { t2: ['#123f4a', '#051820'], t3: ['#2a1550', '#08041a'], t4: ['#12405c', '#041626'], t5: ['#0d1430', '#020409'], t6: ['#0f4a5e', '#03141c'] };
+const BG = { t2: ['#123f4a', '#051820'], t3: ['#2a1550', '#08041a'], t4: ['#12405c', '#041626'], t5: ['#0d1430', '#020409'], t6: ['#0f4a5e', '#03141c'], t7: ['#0c4f78', '#02162a'], t8: ['#14506a', '#041822'], t9: ['#1a4458', '#05121a'], t10: ['#0a3f6e', '#021226'] };
 const root = document.getElementById('root');
 const tiles = [];
 const el = (tag, props = {}, kids = []) => { const e = Object.assign(document.createElement(tag), props); for (const k of kids) e.append(k); return e; };
@@ -24,7 +28,7 @@ function tile(kind, state, R, label, bg) {
   return el('figure', {}, [c, el('figcaption', { textContent: label })]);
 }
 
-for (const [tier, mod] of [['t2', T2], ['t3', T3], ['t4', T4], ['t5', T5], ['t6', T6]]) {
+for (const [tier, mod] of [['t2', T2], ['t3', T3], ['t4', T4], ['t5', T5], ['t6', T6], ['t7', T7], ['t8', T8], ['t9', T9], ['t10', T10]]) {
   if (only && only !== tier) continue;
   for (const [kind, def] of Object.entries(mod)) {
     if (one && one !== kind) continue;

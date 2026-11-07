@@ -1,4 +1,5 @@
 // Tiny Cell save data (localStorage).
+import { TOTAL_LEVELS } from './game/campaign.js';
 const KEY = 'tinycell.save.v1';
 const BAK = 'tinycell.save.v1.bak';
 
@@ -84,19 +85,21 @@ function migrate(s) {
   }
   if (!c.ocean || typeof c.ocean !== 'object') c.ocean = { level: 1, best: 0 };
   if (!Array.isArray(c.loadout)) c.loadout = [];
-  // the journey grew past the jawed fish (Build 21): a finished journey carries on at level 51 as a pufferfish
-  const END = 60;
+  // the journey keeps growing (Build 21 on): a finished journey carries on at the first new level, in the
+  // body its last boss evolves you into
+  const END = TOTAL_LEVELS;
   if ((c.journeyEnd | 0) < END) {
     const was = c.journeyEnd | 0 || 50;
     if (c.complete && (c.best | 0) >= was) {
       c.complete = false; c.level = was + 1; c.best = was;
-      if (was === 50) { c.stage = Math.max(c.stage | 0, 6); s.flags.evolvedTo = 6; }
+      const st = 1 + Math.floor(was / 10);
+      if (st > (c.stage | 0)) { c.stage = st; s.flags.evolvedTo = st; }
     }
     c.journeyEnd = END;
   }
   // powers come with bodies now (Build 18): saves that already have the bodies get their powers
-  const POWERS = { 2: 'dash', 3: 'nova', 4: 'photo', 5: 'suction', 6: 'puff' };
-  for (const [st, id] of Object.entries(POWERS)) if ((c.stage | 0) >= +st && !c.muts[id]) { c.muts[id] = 1; if (!c.mutOrder.includes(id)) c.mutOrder.push(id); if (id === 'puff') s.flags.newPower = 'puff'; }
+  const POWERS = { 2: 'dash', 3: 'nova', 4: 'photo', 5: 'suction', 6: 'puff', 7: 'slash' };
+  for (const [st, id] of Object.entries(POWERS)) if ((c.stage | 0) >= +st && !c.muts[id]) { c.muts[id] = 1; if (!c.mutOrder.includes(id)) c.mutOrder.push(id); if (+st >= 6) s.flags.newPower = id; }
   if ((c.complete || (c.stage | 0) >= 6) && !c.muts.shoal) { c.muts.shoal = 1; if (!c.mutOrder.includes('shoal')) c.mutOrder.push('shoal'); }
   if (!s.codex.microbes) s.codex.microbes = {};
   if (!s.codex.mutations) s.codex.mutations = {};

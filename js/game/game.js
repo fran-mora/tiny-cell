@@ -6,7 +6,7 @@ import * as D from './data.js';
 import * as C from './campaign.js';
 import { drawSpecies, drawPlayer, drawPilotFish, drawKin, glowSprite, makeCausticTile, makeShaft, portrait, mixRGB, rgbStr, WHITE, CREATURE_ART, BOSS_ART } from './art.js';
 // boss portraits for the codex and journey: which body each boss is drawn with
-Object.assign(BOSS_ART, { giantamoeba: { base: 'colossus', col: null }, virus: { base: 'queen', col: null }, abyssal: { base: 'angler', col: null }, progenitor: { base: 'siphboss', col: null }, grouper: { base: 'grouper', col: null }, squidpack: { base: 'humboldt', col: null } });
+Object.assign(BOSS_ART, { giantamoeba: { base: 'colossus', col: null }, virus: { base: 'queen', col: null }, abyssal: { base: 'angler', col: null }, progenitor: { base: 'siphboss', col: null }, grouper: { base: 'grouper', col: null }, squidpack: { base: 'humboldt', col: null }, thresher: { base: 'thresher', col: null }, swordfish: { base: 'swordfish', col: null }, lionsmane: { base: 'lionsmane', col: null }, sealions: { base: 'sealion', col: null } });
 import { injectStyle, releaseStyle } from './style.js';
 import { Cinematics } from './cinematics.js';
 import { Threats, THREAT_INFO } from './threats.js';
@@ -93,7 +93,7 @@ class MicrobeGame {
     this.p = {
       x: 0, y: 0, vx: 0, vy: 0, r: D.playerRadius(1), ang: -PI / 2, seed: 0.42,
       level: 1, xp: 0, hp: 100, maxHp: 100, muts: {}, iframes: 0, flashT: 0, dent: 0, dentA: 0, stretch: 0,
-      cyst: 0, cystUsed: false, dashT: 0, dashCd: 0, novaCd: 0, photoCd: 0, shoalCd: 0, suckCd: 0, suckT: 0, puffCd: 0, puffT: 0, puffK: 0, toxinT: 3, latched: 0, wiggle: 0, lastVA: 0, speedN: 0, wob: 0,
+      cyst: 0, cystUsed: false, dashT: 0, dashCd: 0, novaCd: 0, photoCd: 0, shoalCd: 0, suckCd: 0, suckT: 0, puffCd: 0, puffT: 0, puffK: 0, slashCd: 0, slashT: 0, slashK: 0, slashDir: 1, sailK: 0, stripeK: 0, stripeT: 0, breachCd: 0, breachT: 0, breachK: 0, toxinT: 3, latched: 0, wiggle: 0, lastVA: 0, speedN: 0, wob: 0,
     };
     this.gained = [];
     if (this.camp) {
@@ -164,23 +164,24 @@ class MicrobeGame {
     const p = this.p, m = p.muts, g = this.genome;
     const oldMax = p.maxHp;
     const stageHp = 1 + 0.15 * ((p.stage | 0 || 1) - 1);
-    p.maxHp = Math.round(100 * stageHp * (1 + 0.15 * (g.hp | 0)) + 25 * (m.membrane | 0) + 40 * (m.shell | 0) + (this.boonHp | 0));
+    p.maxHp = Math.round(100 * stageHp * (1 + 0.15 * (g.hp | 0)) + 25 * (m.membrane | 0) + 40 * (m.shell | 0) + 30 * (m.gelskin | 0) + (this.boonHp | 0));
     if (p.maxHp > oldMax) p.hp += p.maxHp - oldMax;
     p.hp = min(p.hp, p.maxHp);
-    p.r0 = D.playerRadius(p.level); p.r = p.r0 * (1 + PUFF_GROW * (p.puffK || 0)); // r0: your size; r: grows while inflated
-    let sm = (1 + 0.06 * (g.motor | 0)) * (1 + 0.12 * (m.flagellum | 0)) * (1 + 0.1 * (m.muscle | 0)) * (1 + 0.12 * (m.fins | 0));
+    p.r0 = D.playerRadius(p.level); p.r = p.r0 * (1 + ((p.stage | 0) === 6 ? PUFF_GROW : 0) * (p.puffK || 0)); // r0: your size; r: grows while inflated (pufferfish only)
+    let sm = (1 + 0.06 * (g.motor | 0)) * (1 + 0.12 * (m.flagellum | 0)) * (1 + 0.1 * (m.muscle | 0)) * (1 + 0.12 * (m.fins | 0)) * (1 + 0.08 * (m.sail | 0));
     if (this.camp && sm > C.TUNE.speedSoft) sm = C.TUNE.speedSoft + (sm - C.TUNE.speedSoft) * C.TUNE.speedK; // stacked speed has diminishing returns
     this.speedMult = sm * Math.min(1.5, this.boonMult || 1);
-    this.accel = 5.5 * (1 + 0.25 * (m.cilia | 0)) * (1 + 0.2 * (m.muscle | 0)) * (1 + 0.12 * (m.fins | 0)) * (1 + 0.2 * (m.hover | 0));
+    this.accel = 5.5 * (1 + 0.25 * (m.cilia | 0)) * (1 + 0.2 * (m.muscle | 0)) * (1 + 0.12 * (m.fins | 0)) * (1 + 0.2 * (m.hover | 0)) * (1 + 0.1 * (m.sail | 0));
     this.reach = (1 + 0.15 * (m.cilia | 0)) * (1 + 0.1 * (m.nerve | 0));
-    let mg = (1 + 0.4 * (m.biolum | 0)) * (1 + 0.2 * (g.sensory | 0)) * (1 + 0.25 * (m.signal | 0)) * (1 + 0.3 * (m.eyes | 0)) * (1 + 0.3 * (m.tentacles | 0)) * this.reach;
+    let mg = (1 + 0.4 * (m.biolum | 0)) * (1 + 0.2 * (g.sensory | 0)) * (1 + 0.25 * (m.signal | 0)) * (1 + 0.3 * (m.eyes | 0)) * (1 + 0.3 * (m.tentacles | 0)) * (1 + 0.15 * (m.sail | 0)) * (1 + 0.25 * (m.warmeyes | 0)) * this.reach;
     if (this.camp && mg > 2.2) mg = 2.2 + Math.log(mg / 2.2) * 0.55; // stacked lures have diminishing returns (x34 becomes about x3.7)
     this.magnet = (55 + p.r * 2.2) * mg;
     this.xpMult = (1 + 0.1 * (g.digest | 0)) * (1 + 0.15 * (m.vacuole | 0)) * (1 + 0.12 * (m.polyps | 0)) * (this.boonMult || 1);
-    this.regen = 0.5 * (m.mito | 0) + 0.8 * (m.gills | 0);
+    this.regen = 0.5 * (m.mito | 0) + 0.8 * (m.gills | 0) + 0.6 * (m.cleaners | 0);
+    this.stingMult = max(0.1, 1 - 0.3 * (m.stingproof | 0)); // a jelly-eater's mouth
     this.hazMult = 1 - 0.25 * (m.osmo | 0);
     this.sight = max(0.25, (1 - 0.22 * (m.mimicry | 0)) * (1 - 0.12 * (m.signal | 0)));
-    this.armor = min(this.camp ? C.TUNE.armorCap : 0.6, 0.08 * (m.guard | 0) + 0.05 * (m.shell | 0) + 0.1 * (m.hide | 0));
+    this.armor = min(this.camp ? C.TUNE.armorCap : 0.6, 0.08 * (m.guard | 0) + 0.05 * (m.shell | 0) + 0.1 * (m.hide | 0) + 0.06 * (m.gelskin | 0));
     this.biteMult = (1 + 0.3 * (m.jaws | 0)) * (1 + 0.15 * (m.eyes | 0));
     this.auraDps = ((m.cnido | 0) ? 6 + 6 * m.cnido : 0) + 8 * (m.tentacles | 0);
     this.iframeBonus = 0.15 * (m.nerve | 0);
@@ -511,9 +512,9 @@ class MicrobeGame {
 
   updatePlayer(dt) {
     const p = this.p, m = p.muts;
-    p.iframes = max(0, p.iframes - dt); p.flashT = max(0, p.flashT - dt); p.cyst = max(0, p.cyst - dt);
+    p.iframes = max(0, p.iframes - dt); p.flashT = max(0, p.flashT - dt); p.cyst = max(0, p.cyst - dt); if (p.slowT > 0) p.slowT -= dt;
     p.dashCd = max(0, p.dashCd - dt); p.novaCd = max(0, p.novaCd - dt);
-    p.photoCd = max(0, p.photoCd - dt); p.shoalCd = max(0, p.shoalCd - dt); p.suckCd = max(0, p.suckCd - dt); p.puffCd = max(0, p.puffCd - dt);
+    p.photoCd = max(0, p.photoCd - dt); p.shoalCd = max(0, p.shoalCd - dt); p.suckCd = max(0, p.suckCd - dt); p.puffCd = max(0, p.puffCd - dt); p.slashCd = max(0, p.slashCd - dt); p.breachCd = max(0, p.breachCd - dt);
     p.dent *= exp(-dt * 6);
     if (this.dead) { p.vx *= 0.9; p.vy *= 0.9; return; }
     if (this.cineLock()) { this.cineMove(dt); return; }
@@ -521,7 +522,7 @@ class MicrobeGame {
     if (mag > 0) this.hints.moved += dt;
     const latchSlow = 1 - min(0.45, p.latched * 0.07);
     const mucus = p.inMucus || p.inTrap ? min(0.85, 0.42 + 0.12 * (p.muts.osmo | 0)) : 1; // sticky slime and spines slow you right down
-    const top = D.baseSpeed(p.r0 || p.r) * this.speedMult * latchSlow * mucus * (1 - 0.55 * (p.puffK || 0)); // a puffed-up pufferfish can barely swim
+    const top = D.baseSpeed(p.r0 || p.r) * this.speedMult * latchSlow * mucus * (1 - 0.55 * (p.puffK || 0)) * (p.breachT > 0 ? 0.6 : 1) * (p.slowT > 0 ? 0.6 : 1); // puffed up you can barely swim; in the air you glide
     if (p.dashT > 0) {
       p.dashT -= dt;
     } else if (mag > 0) {
@@ -551,6 +552,7 @@ class MicrobeGame {
       p.toxinT -= dt;
       if (p.toxinT <= 0) { p.toxinT = 5 - 0.7 * (m.toxin - 1); this.clouds.push({ x: p.x, y: p.y, r: p.r * 3.6, life: 2.6, max: 2.6, dps: 8 + 6 * m.toxin }); this.sfx('toxin', { vol: 0.6 }); }
     }
+    if (m.cleaners && p.latched > 0) { p.cleanT = (p.cleanT || 0) + dt; if (p.cleanT > 5 - m.cleaners) { p.cleanT = 0; this.detachPhages(1); } }
     // phage shake-off by wiggle
     if (p.latched > 0 && p.wiggle > 5) { p.wiggle -= 2.5; this.detachPhages(1); }
     this.updateAbilitiesUI();
@@ -569,6 +571,7 @@ class MicrobeGame {
   hurt(n, src = null, opts = {}) {
     const p = this.p;
     if (this.dead || this.victory || this.invuln || this.trans) return false;
+    if (p.breachT > 0) return false; // in the air above the waves
     if (!opts.dot && (p.iframes > 0 || p.cyst > 0)) return false;
     if (opts.dot && p.cyst > 0) return false;
     n *= (this.L ? (opts.env ? this.L.envMult : this.L.dmgMult * this.stageThreat(C.TUNE.stageDmg)) : 1) * (1 - (this.armor || 0));
@@ -826,7 +829,7 @@ class MicrobeGame {
           e.strikeK = max(0, (e.strikeK || 0) - dt * 3);
           if (!this.dead && !this.victory && !edible && e.closedK < 0.3 && d < e.r * (1.2 + 1.8 * e.reach) + p.r * 0.6) {
             const [b, k] = SP[e.kind].sting; e.strikeK = 1;
-            this.hurt((b + k * this.depth) * dt * this.biteScale(e), null, { dot: true, why: SP[e.kind].name + ' sting' });
+            this.hurt((b + k * this.depth) * dt * this.biteScale(e) * (this.stingMult || 1), null, { dot: true, why: SP[e.kind].name + ' sting' });
             if (!e.fx || e.fx < T) { e.fx = T + 0.3; p.flashT = 0.15; this.sparkle(p.x, p.y, this.colorOf(e), 3); }
           }
           break;
@@ -881,7 +884,7 @@ class MicrobeGame {
             const tp = clamp(rx * bx + ry * by, 0, Lt), qx = e.x + bx * tp - p.x, qy = e.y + by * tp - p.y;
             if (tp > e.r * 0.4 && qx * qx + qy * qy < (e.r * 0.75 + p.r * 0.8) ** 2) {
               e.stingK = 1; const [b, k] = SP[e.kind].sting;
-              this.hurt((b + k * this.depth) * dt * this.biteScale(e), null, { dot: true, why: 'Jellyfish sting' });
+              this.hurt((b + k * this.depth) * dt * this.biteScale(e) * (this.stingMult || 1), null, { dot: true, why: SP[e.kind].name + ' sting' });
               if (!e.fx || e.fx < T) { e.fx = T + 0.3; p.flashT = 0.15; this.sparkle(p.x, p.y, this.colorOf(e), 3); }
             }
           }
@@ -1082,6 +1085,7 @@ class MicrobeGame {
 
   interact(e, d, dx, dy, dt, edible) {
     const p = this.p, S = SP[e.kind] || {};
+    if (p.breachT > 0) return; // leaping: nothing touches you
     const puffed = p.puffK > 0.5;
     if (S.latch && !(edible && !isTiny(e))) {
       if (d < p.r + e.r * 0.8) {
@@ -1224,7 +1228,7 @@ class MicrobeGame {
     if (this.boss) this.kitEat(e);
     if (SP[e.kind] && SP[e.kind].ai === 'glowbomb') this.glowAlarm(e);
     e.alive = false; if (e.latched) { this.p.latched--; }
-    const v = (KIND_XP[e.kind] || 2) * (e.r / 6) * this.df() * (shelled(e) ? 1.3 : 1) * mult;
+    const v = (KIND_XP[e.kind] || 2) * (e.r / 6) * this.df() * (shelled(e) ? 1.3 : 1) * mult * (this.p.muts.stingproof && SP[e.kind] && SP[e.kind].ai === 'jelly' ? 1 + 0.5 * this.p.muts.stingproof : 1);
     this.gainXP(v, true);
     this.stats.eaten++; this.stats.kills++;
     this.combo++; this.comboT = 1.0;
@@ -1360,6 +1364,8 @@ class MicrobeGame {
     p.vx = cos(a) * v; p.vy = sin(a) * v; p.ang = a;
     p.dashT = 0.28; p.iframes = max(p.iframes, 0.45); p.dashCd = 6 - 0.8 * (p.muts.dash - 1);
     this.detachPhages(99);
+    // hunting stripes: prey nearby freeze when a sailfish lights up and charges
+    if (p.muts.stripes) { p.stripeT = 0.8; for (const e of this.ents) if (e.alive && !e.ally && !e.boss && !HOSTILE[e.kind] && hypot(e.x - p.x, e.y - p.y) < p.r * 6 + 120) e.stun = max(e.stun || 0, 0.6 * p.muts.stripes); }
     this.sfx('dash'); this.buzz(20);
     for (let i = 0; i < 14; i++) this.part(p.x, p.y, -cos(a) * 200 + (random() - 0.5) * 120, -sin(a) * 200 + (random() - 0.5) * 120, 0.5, [190, 255, 240], 2 + random() * 3);
     this.abFlash('dash');
@@ -2225,7 +2231,8 @@ class MicrobeGame {
     this.cineBack(ctx);
     const pv = this.cinePlayer();
     if (pv && !(this.hidePlayer && this.boss && this.boss.alive)) {
-      const pr = p.r0 || p.r; // the art draws the inflated balloon itself (p.puffK)
+      const pr = (p.r0 || p.r) * (1 + 0.45 * (p.breachK || 0)); // the art draws the inflated balloon itself (p.puffK); a breach lifts you up
+      if (p.breachK > 0) { ctx.save(); ctx.translate(p.x + p.breachK * pr * 0.5, p.y + p.breachK * pr * 0.9); ctx.rotate(p.ang); ctx.scale(pr * 1.2, pr * 0.8); ctx.globalAlpha = 0.35 * p.breachK; ctx.drawImage(glowSprite([0, 10, 25]), -1.3, -1.3, 2.6, 2.6); ctx.restore(); ctx.globalAlpha = 1; }
       ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.ang); ctx.scale(pr * pv.s, pr * pv.s);
       if (p.iframes > 0 && p.cyst <= 0 && !this.trans && !this.intro && !this.victory && floor(T * 20) % 2 === 0) ctx.globalAlpha = 0.55;
       if (p.muts.mimicry) ctx.globalAlpha *= 1 - 0.12 * p.muts.mimicry;
@@ -2436,7 +2443,7 @@ class MicrobeGame {
   drawDark(ctx, W, H, wx, wy, z) {
     // the deep is pitch dark: you only see around your own glow, and around living lights
     const p = this.p, T = this.T;
-    const light = (110 + 45 * (p.muts.biolum | 0)) + p.r * z * 2.2;
+    const light = (110 + 45 * (p.muts.biolum | 0) + 40 * (p.muts.warmeyes | 0)) + (p.r0 || p.r) * z * 2.2; // warm eyes see further
     const px = wx(p.x), py = wy(p.y);
     const g = ctx.createRadialGradient(px, py, light * 0.35, px, py, light * 1.6);
     g.addColorStop(0, 'rgba(0,2,8,0)'); g.addColorStop(0.55, 'rgba(0,2,8,0.7)'); g.addColorStop(1, 'rgba(0,2,8,0.93)');
@@ -2452,12 +2459,20 @@ class MicrobeGame {
         const ca = cos(e.ang), sa = sin(e.ang);
         lx = e.x + (lp.x * ca - lp.y * sa) * e.r; ly = e.y + (lp.x * sa + lp.y * ca) * e.r; rad = e.r * 1.3; col = [150, 230, 255]; a = 0.55 + 0.4 * (e.lureK || 0.6);
       } else if (k === 'krill' || k === 'cookiecutter') { rad = e.r * 2.2; col = [110, 200, 255]; a = 0.35; }
-      else if (k === 'jellyfish' || k === 'combjelly' || k === 'siphonophore') { rad = e.r * 2.4; col = [200, 140, 255]; a = 0.25; }
-      else if (e.boss) { rad = e.r * 1.4; col = [140, 200, 255]; a = 0.25; }
+      else if (k === 'jellyfish' || k === 'combjelly' || k === 'siphonophore' || k === 'manowar' || k === 'nomura') { rad = e.r * 2.4; col = [200, 140, 255]; a = 0.25; }
+      else if (k === 'pyrosome' || k === 'krillcloud') { rad = e.r * 2.2; col = [120, 220, 255]; a = 0.4; }
+      else if (e.boss && !(e.kit && e.kit.lights)) { rad = e.r * 1.4; col = [140, 200, 255]; a = 0.25; }
       if (!rad) continue;
       const sx = wx(lx), sy = wy(ly), sr = rad * z;
       if (sx < -sr || sy < -sr || sx > W + sr || sy > H + sr) continue;
       ctx.globalAlpha = a; ctx.drawImage(glowSprite(col), sx - sr, sy - sr, sr * 2, sr * 2);
+    }
+    // a boss may carry its own lights (a swordfish's warm eyes and glowing wake)
+    const B = this.boss;
+    if (B && B.alive && B.kit && B.kit.lights) for (const l of B.kit.lights(this, B, B.k)) {
+      const sx = wx(l.x), sy = wy(l.y), sr = l.r * z;
+      if (sx < -sr || sy < -sr || sx > W + sr || sy > H + sr) continue;
+      ctx.globalAlpha = l.a; ctx.drawImage(glowSprite(l.col), sx - sr, sy - sr, sr * 2, sr * 2);
     }
     // seed-shrimp alarms and your own photophore flash light up the dark
     if (this.glows) for (const g of this.glows) {

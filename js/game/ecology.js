@@ -3,7 +3,8 @@
 // two scales down is too small to see (it is simply not spawned).
 //
 // tier: 1 microbial (single cell) · 2 colony (0.1–1 mm) · 3 first animals (mm) · 4 reef (cm) · 5 sea (10 cm+)
-//       · 6 pufferfish scale (0.5–3 m)
+//       · 6 pufferfish (0.5–3 m) · 7 sailfish (1–4 m) · 8 ocean sunfish (2–5 m) · 9 great white (4–8 m)
+//       · 10 whale shark (10–20 m): a filter feeder, it can only swallow small things (filter: plankton clouds)
 // ai:   behaviour used in game.js (updateEnts)
 // size: radius range as a multiple of the level's reference size
 // spd:  base speed · xp: biomass per unit radius · bite: [base, per habitat level] contact damage
@@ -103,6 +104,64 @@ export const SPECIES = {
     desc: 'A gentle grazer that can live for 80 years. Far too big and armoured to eat; it just shoulders you aside.' },
   humboldt: { tier: 6, ai: 'inker', size: [0.9, 1.3], spd: 98, xp: 3.6, hostile: true, bite: [12, 3.5], pcol: [255, 110, 100], name: 'Humboldt Squid', role: 'predator',
     desc: 'The jumbo squid of the cold Pacific. Packs hunt together, talking in flickers of red and white across their skin.' },
+
+  // ---------------- T7: sailfish scale (1–4 m), the open blue ----------------
+  flyingfish: { tier: 7, ai: 'school', size: [0.5, 0.7], spd: 120, xp: 3, pcol: [150, 200, 255], name: 'Flying Fish', role: 'prey',
+    desc: 'It escapes hunters by bursting out of the water and gliding on wing-like fins, sometimes for over 100 metres.' },
+  tuna: { tier: 7, ai: 'school', size: [0.8, 1.1], spd: 116, xp: 3.4, pcol: [200, 215, 235], name: 'Yellowfin Tuna', role: 'prey',
+    desc: 'A torpedo of muscle with yellow finlets. Tuna never stop swimming: they breathe by ramming water through their gills.' },
+  mahimahi: { tier: 7, ai: 'ciliate', size: [0.8, 1.1], spd: 112, xp: 3.4, pcol: [120, 230, 140], name: 'Mahi-mahi', role: 'prey',
+    desc: 'A blunt-headed fish of dazzling green and gold that fades to grey the moment it dies.' },
+  dolphin: { tier: 7, ai: 'sprinter', size: [1.0, 1.4], spd: 106, xp: 3.6, hostile: true, bite: [13, 4], pcol: [170, 185, 205], name: 'Common Dolphin', role: 'predator',
+    desc: 'Pods of dolphins herd fish into tight balls and take turns charging through them. Not a fish: it breathes air.' },
+  manowar: { tier: 7, ai: 'jelly', size: [0.7, 1.0], spd: 18, xp: 2.4, hostile: true, sting: [12, 3], pcol: [170, 140, 255], name: 'Portuguese Man o\' War', role: 'hazard',
+    desc: 'Not one animal but a colony, sailing on a gas-filled float. Its tentacles trail for tens of metres and sting horribly.' },
+  hammerhead: { tier: 7, ai: 'hunter', size: [1.0, 1.45], spd: 90, xp: 3.8, hostile: true, bite: [14, 4], pcol: [165, 180, 190], name: 'Scalloped Hammerhead', role: 'predator',
+    desc: 'Its wide hammer-shaped head spreads its eyes and electric sensors apart, so it can sweep the water like a metal detector.' },
+  marlin: { tier: 7, ai: 'sprinter', size: [1.1, 1.5], spd: 110, xp: 3.8, hostile: true, bite: [15, 4.5], pcol: [70, 120, 220], name: 'Blue Marlin', role: 'predator',
+    desc: 'A huge billfish, cousin of the sailfish, with a spear-like bill and a tall crescent tail. It lights up with blue stripes when it hunts.' },
+
+  // ---------------- T8: ocean sunfish scale (2–5 m) ----------------
+  salp: { tier: 8, ai: 'volvox', size: [0.7, 1.0], spd: 22, xp: 3, pcol: [190, 235, 255], name: 'Salp Chain', role: 'prey',
+    desc: 'Glassy barrel-shaped animals linked into chains metres long. They pump water through their bodies to swim and feed.' },
+  pyrosome: { tier: 8, ai: 'volvox', size: [0.6, 0.9], spd: 16, xp: 3.2, pcol: [150, 230, 255], name: 'Pyrosome', role: 'prey',
+    desc: 'A hollow tube made of thousands of tiny animals. Touch it and it glows: its name means fire-body.' },
+  nomura: { tier: 8, ai: 'jelly', size: [1.0, 1.4], spd: 20, xp: 3.4, hostile: true, sting: [14, 3.5], pcol: [255, 200, 170], name: 'Nomura\'s Jellyfish', role: 'predator',
+    desc: 'One of the biggest jellyfish in the world, two metres across and heavier than a person. Sunfish eat jellies like this.' },
+  leatherback: { tier: 8, ai: 'volvox', size: [1.6, 2.0], spd: 30, xp: 2.5, inedible: true, pcol: [120, 140, 150], name: 'Leatherback Turtle', role: 'neutral',
+    desc: 'The biggest turtle alive, with a leathery shell instead of a hard one. It crosses whole oceans eating jellyfish.' },
+  blueshark: { tier: 8, ai: 'hunter', size: [1.0, 1.4], spd: 92, xp: 3.6, hostile: true, bite: [14, 4], pcol: [80, 130, 220], name: 'Blue Shark', role: 'predator',
+    desc: 'A slender, deep-blue shark with long pectoral fins that roams entire oceans.' },
+  sealion: { tier: 8, ai: 'sprinter', size: [0.9, 1.25], spd: 108, xp: 3.6, hostile: true, bite: [13, 4], pcol: [170, 130, 90], name: 'California Sea Lion', role: 'predator',
+    desc: 'Fast, clever and playful. Young sea lions bite the fins off sunfish and toss them about like frisbees.' },
+
+  // ---------------- T9: great white scale (4–8 m) ----------------
+  furseal: { tier: 9, ai: 'ciliate', size: [0.6, 0.85], spd: 115, xp: 3.6, pcol: [150, 120, 90], name: 'Cape Fur Seal', role: 'prey',
+    desc: 'Quick and twisty. Seals cross the danger zone around their island in groups, zigzagging to dodge sharks from below.' },
+  elephantseal: { tier: 9, ai: 'volvox', size: [1.0, 1.35], spd: 34, xp: 3.4, pcol: [140, 120, 100], name: 'Elephant Seal', role: 'neutral',
+    desc: 'A four-tonne seal with a floppy trunk of a nose. It dives deeper than a kilometre to hunt.' },
+  mako: { tier: 9, ai: 'sprinter', size: [0.95, 1.3], spd: 120, xp: 3.8, hostile: true, bite: [15, 4.5], pcol: [80, 110, 200], name: 'Shortfin Mako', role: 'predator',
+    desc: 'The fastest shark, with bursts near 70 km/h, and it can leap clear out of the water.' },
+  bronzewhaler: { tier: 9, ai: 'hunter', size: [1.0, 1.4], spd: 92, xp: 3.8, hostile: true, bite: [15, 4], pcol: [170, 150, 110], name: 'Bronze Whaler', role: 'predator',
+    desc: 'A coppery shark that hunts in loose packs around sardine shoals.' },
+  sixgill: { tier: 9, ai: 'lurker', cap: 4, size: [1.1, 1.5], spd: 70, xp: 4, hostile: true, camo: true, bite: [16, 4.5], pcol: [110, 120, 110], name: 'Bluntnose Sixgill', role: 'predator',
+    desc: 'An ancient deep-water shark with six gill slits and glowing green eyes. It lurks in the dark and lunges.' },
+  manta: { tier: 9, maxTier: 10, ai: 'volvox', size: [1.6, 2.1], spd: 34, xp: 2.5, inedible: true, pcol: [60, 70, 90], name: 'Giant Manta Ray', role: 'neutral',
+    desc: 'Seven metres from wingtip to wingtip, with the biggest brain of any fish. It flies through the water eating plankton.' },
+
+  // ---------------- T10: whale shark scale (10–20 m) ----------------
+  krillcloud: { tier: 10, ai: 'volvox', filter: true, size: [0.8, 1.3], spd: 12, xp: 3.4, pcol: [255, 180, 150], name: 'Krill Swarm', role: 'prey',
+    desc: 'Billions of krill in one glowing cloud. To a whale shark, a swarm is a mouthful.' },
+  baitball: { tier: 10, ai: 'ciliate', filter: true, size: [0.6, 0.9], spd: 60, xp: 3.6, pcol: [200, 225, 240], name: 'Bait Ball', role: 'prey',
+    desc: 'A shoal of sardines packed into a swirling ball, the fish fighting to get to the middle.' },
+  eggcloud: { tier: 10, ai: 'volvox', filter: true, size: [0.7, 1.1], spd: 10, xp: 3.8, pcol: [255, 170, 190], name: 'Coral Spawn', role: 'prey',
+    desc: 'Once a year the corals of Ningaloo all spawn on the same night, filling the sea with pink egg bundles. Whale sharks come to feast.' },
+  orca: { tier: 10, ai: 'sprinter', size: [0.55, 0.75], spd: 115, xp: 3, hostile: true, inedible: true, bite: [18, 5], pcol: [30, 30, 40], name: 'Orca', role: 'predator',
+    desc: 'The top predator of the sea. Pods of orcas hunt sharks, seals and whales together, and are smaller than a whale shark but far more dangerous.' },
+  whitetip: { tier: 10, ai: 'hunter', size: [0.45, 0.6], spd: 95, xp: 3, hostile: true, inedible: true, bite: [14, 4], pcol: [150, 140, 120], name: 'Oceanic Whitetip', role: 'predator',
+    desc: 'A bold, white-tipped shark of the open ocean that follows whale sharks and ships looking for scraps.' },
+  bluewhale: { tier: 10, ai: 'volvox', size: [3.0, 3.6], spd: 30, xp: 1, inedible: true, pcol: [110, 140, 170], name: 'Blue Whale', role: 'neutral',
+    desc: 'The biggest animal that has ever lived: thirty metres long, with a heart the size of a small car. Even a whale shark looks small beside it.' },
 };
 
 // legacy kinds from earlier builds (still understood if an old level spawns them)

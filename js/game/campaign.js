@@ -10,20 +10,22 @@ export const STAGES = [
   { n: 4, name: 'Primordial Fish', size: '5 cm', blurb: 'A backbone, a fin fold and gill pores: one of the first fish. New power: Photophore Flash. New traits: fins, eyes, a bony head shield.' },
   { n: 5, name: 'Jawed Fish', size: '50 cm', blurb: 'Jaws, paired fins and a real tail: a sea predator. New power: Suction Feeding. New traits: barbels, bony scales, gills.' },
   { n: 6, name: 'Pufferfish', size: '1 m', blurb: 'A round, beaked fish that nothing wants to swallow. Sardines and barracudas are small fry now. New power: Inflate, and Shoal Call for beating the Progenitor. New traits: a crushing beak, tetrodotoxin, hover fins.' },
+  { n: 7, name: 'Sailfish', size: '3 m', blurb: 'The fastest fish in the sea, with a spear for a nose and a sail on its back. Reef sharks and pufferfish are small fry now. New power: Bill Slash. New traits: a sail, warm eyes, hunting stripes.' },
+  { n: 8, name: 'Ocean Sunfish', size: '3 m tall', blurb: 'The heaviest bony fish: two tonnes of fish shaped like a giant swimming head. Jellyfish are finally food. New power: Breach. New traits: gelatinous skin, a jelly-eater\u2019s mouth, cleaner fish.' },
 ];
 // which boss (by habitat index 1..8) evolves you to which stage
-export const EVOLVE_AFTER = { 2: 2, 4: 3, 6: 4, 8: 5, 10: 6 };
+export const EVOLVE_AFTER = { 2: 2, 4: 3, 6: 4, 8: 5, 10: 6, 12: 7, 14: 8 };
 // every new body brings one active power (a button); beating the Progenitor (reaching the pufferfish) also
 // brings Shoal Call. They are never offered as picks; once you have one, picks can level it up.
-export const STAGE_POWER = { 2: 'dash', 3: 'nova', 4: 'photo', 5: 'suction', 6: 'puff' };
+export const STAGE_POWER = { 2: 'dash', 3: 'nova', 4: 'photo', 5: 'suction', 6: 'puff', 7: 'slash', 8: 'breach' };
 export const FINAL_POWER = 'shoal';
 export const SHOAL_STAGE = 6;
-export const POWER_NAMES = { dash: 'Enzyme Burst', nova: 'Toxin Nova', photo: 'Photophore Flash', suction: 'Suction Feeding', shoal: 'Shoal Call', puff: 'Inflate' };
+export const POWER_NAMES = { dash: 'Enzyme Burst', nova: 'Toxin Nova', photo: 'Photophore Flash', suction: 'Suction Feeding', shoal: 'Shoal Call', puff: 'Inflate', slash: 'Bill Slash', breach: 'Breach' };
 // the powers a save should have: one per body reached, plus Shoal Call from the pufferfish on
 export const powersFor = (stage, complete) => [...Object.entries(STAGE_POWER).filter(([s]) => stage >= +s).map(([, id]) => id), ...(complete || stage >= SHOAL_STAGE ? [FINAL_POWER] : [])];
 // You can take at most this many powers into a level. Your newest power always comes; the rest are your pick.
 export const LOADOUT_SIZE = 4;
-const POWER_PRIORITY = ['dash', 'nova', 'photo', 'suction', 'shoal', 'puff']; // default fill order after the newest
+const POWER_PRIORITY = ['dash', 'nova', 'photo', 'suction', 'shoal', 'puff', 'slash', 'breach']; // default fill order after the newest
 export const newestPower = (stage) => { let id = null; for (const [s, p] of Object.entries(STAGE_POWER)) if (stage >= +s) id = p; return id; };
 // the powers to take into a level: owned = ids you have, chosen = your saved picks (may be stale)
 export function loadoutFor(owned, chosen, stage) {
@@ -36,7 +38,8 @@ export function loadoutFor(owned, chosen, stage) {
 }
 export const stageForCleared = (habitatsCleared) => {
   let s = 1;
-  for (const [h, st] of Object.entries(EVOLVE_AFTER)) if (habitatsCleared >= +h) s = Math.max(s, st);
+  // the journey's last live boss doesn't evolve you until the next body is built (saves are moved on then)
+  for (const [h, st] of Object.entries(EVOLVE_AFTER)) if (habitatsCleared >= +h && +h < LIVE_HABITATS) s = Math.max(s, st);
   return s;
 };
 
@@ -83,6 +86,22 @@ export const NEW_MUTATIONS = [
     desc: 'You carry one of the deadliest poisons in nature. Anything that bites you is poisoned and backs off.', lv: (l) => `biters lose ${10 + 8 * l}% of their health and are stunned` },
   { id: 'hover', stage: 6, name: 'Hover Fins', rarity: 'common', maxLevel: 3, tags: ['speed'],
     desc: 'Pufferfish row with small fluttering fins: slow, but they can stop dead, turn on the spot and reverse.', lv: (l) => `+${20 * l}% acceleration, sharper stops and turns` },
+  { id: 'slash', stage: 7, name: 'Bill Slash', rarity: 'rare', maxLevel: 3, tags: ['active', 'offense'], active: true,
+    desc: 'ACTIVE: whip your spear-like bill sideways through everything in front of you, as sailfish do to stun sardines. It stuns and hurts all it hits.', lv: (l) => `${30 + 10 * l}% of their health, ${f1(7 - 0.8 * (l - 1))}s cooldown` },
+  { id: 'sail', stage: 7, name: 'Sail', rarity: 'common', maxLevel: 3, tags: ['speed', 'utility'],
+    desc: 'A huge fin you can raise or fold. Fold it to race, raise it to turn sharply and herd food towards you.', lv: (l) => `+${8 * l}% speed, +${15 * l}% magnet` },
+  { id: 'warmeyes', stage: 7, name: 'Warm Eyes', rarity: 'rare', maxLevel: 3, tags: ['utility'],
+    desc: 'A heater organ next to your eyes keeps them warm in cold, deep water, so you see sharper and further, even in the dark.', lv: (l) => `+${25 * l}% magnet, see further in the dark` },
+  { id: 'stripes', stage: 7, name: 'Hunting Stripes', rarity: 'rare', maxLevel: 3, tags: ['offense'],
+    desc: 'Excited sailfish flash bright blue bars. Prey freeze when you charge them, and your Bill Slash stuns longer.', lv: (l) => `prey freeze ${f1(0.6 * l)}s when you dash, slashes stun +${f1(0.4 * l)}s` },
+  { id: 'breach', stage: 8, name: 'Breach', rarity: 'rare', maxLevel: 3, tags: ['active', 'offense', 'defense'], active: true,
+    desc: 'ACTIVE: leap clear of the water and crash back down, as sunfish really do. Nothing can touch you in the air, and the landing stuns and hurts everything around.', lv: (l) => `${25 + 8 * l}% of their health, ${f1(12 - 1.5 * (l - 1))}s cooldown` },
+  { id: 'gelskin', stage: 8, name: 'Gelatinous Skin', rarity: 'common', maxLevel: 3, tags: ['defense'],
+    desc: 'A thick layer of tough jelly under your skin, as sunfish have, cushions every blow.', lv: (l) => `+${30 * l} max HP, -${6 * l}% damage taken` },
+  { id: 'stingproof', stage: 8, name: 'Jelly-eater\u2019s Mouth', rarity: 'rare', maxLevel: 3, tags: ['defense', 'growth'],
+    desc: 'A mouth and throat lined to take stings. Jellyfish and their tentacles barely hurt you, and jellies are extra filling.', lv: (l) => `-${30 * l}% sting damage, +${50 * l}% biomass from jellies` },
+  { id: 'cleaners', stage: 8, name: 'Cleaner Fish', rarity: 'rare', maxLevel: 3, tags: ['sustain'],
+    desc: 'Little cleaner wrasses pick parasites off your skin. You heal over time and anything latched on is picked off.', lv: (l) => `+${f1(0.6 * l)} HP/s, latchers picked off every ${5 - l}s` },
 ];
 export const NEW_MUT_BY_ID = Object.fromEntries(NEW_MUTATIONS.map((m) => [m.id, m]));
 
@@ -116,10 +135,28 @@ export const TRAIT_FORMS = {
   cnido: [[4, 'Stinging Slime', 'Your skin oozes a stinging slime, like a soapfish’s. Everything touching you gets hurt, bosses included.']],
   jaws: [[4, 'Sucker Mouth', 'A round sucker ringed with horny teeth, like a lamprey’s. Bite bosses harder and swallow bigger prey.'],
     [5, 'Jaws', 'Real hinged jaws lined with teeth. Bite bosses harder and swallow bigger prey.'],
-    [6, 'Jaw Muscles', 'Bulging muscles behind your beak. Bite bosses harder and swallow bigger prey.']],
+    [6, 'Jaw Muscles', 'Bulging muscles behind your beak. Bite bosses harder and swallow bigger prey.'],
+    [7, 'Jaws', 'Strong jaws under your bill. Bite bosses harder and swallow bigger prey.'],
+    [8, 'Jaw Muscles', 'Strong muscles behind your little beak. Bite bosses harder and swallow bigger prey.']],
   // the pufferfish has no scales or barbels: its scales are prickles, and it smells through little tentacles
-  hide: [[6, 'Prickles', 'Your scales have become tiny prickles all over your skin. They stand straight up when you inflate.']],
-  tentacles: [[6, 'Nasal Tentacles', 'Pufferfish smell through tiny tentacles instead of nostrils. They find food from afar, and anything that touches you gets lashed.']],
+  hide: [[6, 'Prickles', 'Your scales have become tiny prickles all over your skin. They stand straight up when you inflate.'],
+    [7, 'Bony Scales', 'Small, bony scales set deep in your skin armour your whole body.'],
+    [8, 'Rough Skin', 'Sunfish skin is thick and rough as sandpaper, covered in tiny tooth-like scales.']],
+  tentacles: [[6, 'Nasal Tentacles', 'Pufferfish smell through tiny tentacles instead of nostrils. They find food from afar, and anything that touches you gets lashed.'],
+    [7, 'Sensory Bill', 'Your bill is dotted with sensors that find food from afar, and anything that touches you gets lashed by it.'],
+    [8, 'Sensory Pores', 'Pores all over your head sense food from afar, and your rough skin scrapes anything that touches you.']],
+  // the pufferfish's own traits, on later bodies
+  beak: [[7, 'Crushing Jaws', 'Jaws strong enough to crack shells. Armoured prey breaks open at a bite, and boss bites hit harder.'],
+    [8, 'Crushing Beak', 'Teeth fused into a beak, like your pufferfish cousins. Armoured prey cracks at a bite, and boss bites hit harder.']],
+  tetrodo: [[7, 'Repellent Mucus', 'Like the Moses sole, your skin oozes a poison that makes biters let go and back off.']],
+  hover: [[7, 'Precise Fins', 'Small fins that let you stop dead, turn on the spot and reverse.'],
+    [8, 'Fluttering Fins', 'Sunfish swim by flapping their tall fins: you can stop dead, turn on the spot and reverse.']],
+  sail: [[8, 'Tall Fins', 'Your tall dorsal and anal fins flap like wings: more speed and a wider reach for food.']],
+  stripes: [[8, 'Colour Flash', 'Sunfish flash pale and dark when excited. Prey freeze when you charge them, and your slashes stun longer.']],
+  // powers carried over to bodies that can't do them the same way
+  puff: [[7, 'Spread Fins', 'ACTIVE: spread every fin and spine to look huge and spiky. Nothing can swallow or grab you, biters are spiked and other damage is halved, but you swim slowly and cannot eat.']],
+  slash: [[8, 'Fin Slap', 'ACTIVE: a mighty swipe of your tall fins through everything in front of you. It stuns and hurts all it hits.']],
+  photo: [[8, 'Silver Flash', 'ACTIVE: your skin flashes like a mirror in the light. Nearby animals are dazzled and lose track of you, hidden hunters show up, and deep-sea eyes are blinded.']],
 };
 // def (a mutation definition) as it appears on a body of this stage: { ...def, name, desc, lv, was }
 export function traitForm(def, stage) {
@@ -143,6 +180,8 @@ export const TRAIT_FROM = {
   fins: 31, shell: 31, eyes: 32, photo: 32, shoal: 34,
   tentacles: 41, hide: 41, gills: 42, suction: 41,
   puff: 51, beak: 51, hover: 51, tetrodo: 52,
+  slash: 61, sail: 61, warmeyes: 62, stripes: 62,
+  breach: 71, gelskin: 71, stingproof: 72, cleaners: 72,
 };
 // How well a trait suits a level: [offer weight, reason shown on the card].
 export function traitFit(id, L) {
@@ -167,7 +206,12 @@ export function traitFit(id, L) {
     case 'pseudopod': return (pop.diatom | 0) + (pop.ciliate | 0) + (pop.copepod | 0) >= 8 ? [1.4, 'plenty of prey'] : [1];
     case 'beak': return (pop.seaurchin | 0) >= 3 ? [1.7, 'sea urchins to crack'] : bossNear ? [1.5, 'a boss ahead'] : [1];
     case 'tetrodo': return hunters >= 9 ? [1.5, 'packs of predators'] : [1];
-    case 'hover': return (hz.current | 0) >= 3 ? [1.4, 'strong currents'] : [1];
+    case 'hover': case 'sail': return (hz.current | 0) >= 3 ? [1.4, 'strong currents'] : [1];
+    case 'warmeyes': return L.dark ? [2.2, 'total darkness'] : [1];
+    case 'stingproof': return (pop.jellyfish | 0) + (pop.nomura | 0) + (pop.manowar | 0) >= 6 || L.boss === 'lionsmane' ? [1.9, 'stinging jellies'] : [1];
+    case 'gelskin': return hunters >= 9 ? [1.4, 'packs of predators'] : [1];
+    case 'cleaners': return [1.1];
+    case 'stripes': return (pop.tuna | 0) + (pop.flyingfish | 0) >= 10 ? [1.5, 'schools of fish'] : [1];
     default: return [1];
   }
 }
@@ -187,6 +231,10 @@ export const BOSSES = {
   progenitor: { id: 'progenitor', name: 'The Progenitor', art: 'siphboss', logic: 'queen', hp: 2600, speed: 56, swarm: 'jellyfish', tagline: 'A colony forty metres long', attacks: ['burst', 'charge', 'swarm', 'burst'], phases: 3 },
   grouper: { id: 'grouper', name: 'Goliath Grouper', art: 'grouper', logic: 'colossus', hp: 3200, speed: 52, minions: ['triggerfish', 'parrotfish'], tagline: 'It swallows its prey whole' },
   squidpack: { id: 'squidpack', name: 'Humboldt Squid Pack', art: 'humboldt', logic: 'queen', hp: 3400, speed: 92, tagline: 'They hunt as one, talking in flashes', phases: 2 },
+  thresher: { id: 'thresher', name: 'Thresher Shark', art: 'thresher', logic: 'colossus', hp: 3600, speed: 80, tagline: 'Its tail is as long as its body' },
+  swordfish: { id: 'swordfish', name: 'Broadbill Swordfish', art: 'swordfish', logic: 'queen', hp: 3800, speed: 110, tagline: 'It hunts in the dark with heated eyes' },
+  lionsmane: { id: 'lionsmane', name: 'Lion\u2019s Mane Jellyfish', art: 'lionsmane', logic: 'colossus', hp: 4000, speed: 40, tagline: 'Its tentacles are longer than a blue whale' },
+  sealions: { id: 'sealions', name: 'Sea Lion Gang', art: 'sealion', logic: 'queen', hp: 4000, speed: 110, tagline: 'They want your fins', phases: 2 },
 };
 
 // ---------- habitats ----------
@@ -231,10 +279,28 @@ export const HABITATS = [
   { n: 12, tier: 6, threat: 1.15, name: 'Humboldt Current', tag: 'Cold, green water rising from the deep, thick with anchovies', boss: 'squidpack', sun: 0.4,
     pal: { bg: [14, 64, 72], edge: [2, 14, 20], caustic: [150, 235, 205], shaft: [175, 240, 215], plankton: [185, 245, 210], mote: [230, 255, 185], accent: [255, 120, 110] },
     pop: { humboldt: 5, jellyfish: 3, octopus: 2, seaturtle: 2, seaurchin: 4, triggerfish: 1, reefshark: 1, sardine: 16, squid: 4, barracuda: 2 }, hazards: { current: 3 }, phage: 0, food: 1.05 },
+  // ---- the sailfish (levels 61–70) ----
+  { n: 13, tier: 7, threat: 1.1, name: 'Sardine Run', tag: 'Deep-blue open sea, alive with shoals and hunters', boss: 'thresher', sun: 0.85,
+    pal: { bg: [12, 70, 118], edge: [2, 16, 36], caustic: [150, 215, 255], shaft: [190, 230, 255], plankton: [185, 225, 255], mote: [255, 235, 170], accent: [120, 200, 255] },
+    pop: { tuna: 8, flyingfish: 10, mahimahi: 4, dolphin: 3, hammerhead: 2, marlin: 1, manowar: 2, parrotfish: 3, humboldt: 3, reefshark: 2, triggerfish: 2 }, hazards: { current: 2 }, phage: 0, food: 1.0 },
+  { n: 14, tier: 7, threat: 1.15, name: 'Night Blue', tag: 'The open ocean at night. Hunters see you long before you see them', boss: 'swordfish', sun: 0, dark: true,
+    pal: { bg: [8, 22, 54], edge: [1, 3, 12], caustic: [110, 150, 255], shaft: [100, 130, 255], plankton: [150, 200, 255], mote: [170, 235, 255], accent: [140, 180, 255] },
+    pop: { flyingfish: 7, tuna: 6, mahimahi: 3, manowar: 2, hammerhead: 2, marlin: 1, dolphin: 2, jellyfish: 2, humboldt: 4, octopus: 2 }, hazards: { current: 1 }, phage: 0, food: 1.0 },
+  // ---- the ocean sunfish (levels 71–80) ----
+  { n: 15, tier: 8, threat: 1.1, name: 'Jelly Bloom', tag: 'Warm water thick with drifting jellies', boss: 'lionsmane', sun: 0.7,
+    pal: { bg: [40, 70, 112], edge: [8, 14, 34], caustic: [210, 190, 255], shaft: [230, 210, 255], plankton: [225, 205, 255], mote: [255, 220, 200], accent: [255, 160, 200] },
+    pop: { jellyfish: 10, nomura: 3, salp: 6, pyrosome: 4, leatherback: 2, blueshark: 2, sealion: 2, manowar: 3, tuna: 5, flyingfish: 5, dolphin: 2 }, hazards: { current: 2 }, phage: 0, food: 1.0 },
+  { n: 16, tier: 8, threat: 1.15, name: 'Cleaning Station', tag: 'A kelp-fringed reef where big fish come to be cleaned', boss: 'sealions', sun: 0.65,
+    pal: { bg: [16, 78, 80], edge: [3, 18, 20], caustic: [170, 245, 215], shaft: [200, 250, 225], plankton: [195, 245, 220], mote: [255, 235, 170], accent: [255, 190, 120] },
+    pop: { sealion: 4, blueshark: 2, leatherback: 1, salp: 4, pyrosome: 3, nomura: 2, jellyfish: 5, hammerhead: 2, marlin: 1, mahimahi: 3 }, hazards: { current: 2 }, phage: 0, food: 1.05 },
 ];
 
 export const LEVELS_PER_HABITAT = 5;
-export const TOTAL_LEVELS = (HABITATS.length - 1) * LEVELS_PER_HABITAT; // 60
+// Habitats playable in this build. Later ones (and their bodies, traits and bosses) may already be defined here
+// while their art is being made; they stay out of the game until this number reaches them.
+export const LIVE_HABITATS = 14;
+export const TOTAL_LEVELS = LIVE_HABITATS * LEVELS_PER_HABITAT;
+export const LIVE_STAGE = HABITATS[LIVE_HABITATS].tier; // the last body you can reach in this build
 export const LAYOUT = 50; // saves from the 48-level journey are mapped onto this one
 
 // Balance knobs in one place (the automated playtester sweeps these).
@@ -261,7 +327,7 @@ export const TUNE = {
 // ---------- the Open Ocean: endless expeditions once the journey is complete ----------
 // Levels past the journey are expeditions through the habitats of your last body, five at a time (the fifth is a
 // boss rematch that always teaches you a new trait). They keep getting harder, a little more gently than the journey.
-export const OCEAN_HABS = [11, 12];
+export const OCEAN_HABS = [LIVE_HABITATS - 1, LIVE_HABITATS]; // your last body's two habitats
 export const isOcean = (c) => c > TOTAL_LEVELS;
 export const oceanIndex = (c) => c - TOTAL_LEVELS;
 

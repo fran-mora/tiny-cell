@@ -55,6 +55,7 @@ const CSS = `
 .mb-ab.ready.ab-shoal { box-shadow: 0 0 22px rgba(255, 210, 140, .5); }
 .mb-ab.ready.ab-suction { box-shadow: 0 0 22px rgba(160, 255, 210, .5); }
 .mb-ab.ready.ab-puff { box-shadow: 0 0 22px rgba(255, 215, 140, .5); }
+.mb-ab.ready.ab-slash { box-shadow: 0 0 22px rgba(150, 210, 255, .5); }
 .mb-ab.flash { animation: mbAbFlash .4s ease; }
 @keyframes mbAbFlash { 0% { transform: scale(1); } 40% { transform: scale(1.14); } 100% { transform: scale(1); } }
 .mb-ab .mb-key { position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); font-size: 10px; font-weight: 800; color: var(--text-dim);
