@@ -2208,7 +2208,7 @@ BOSS_KIT.spermwhale = {
           k.state = 'click'; k.st = 0.35; k.clicks++;
           const { L, half } = this.beam(b), hx = b.x + cos(b.ang) * b.r, hy = b.y + sin(b.ang) * b.r;
           const ux = p.x - hx, uy = p.y - hy, ud = hypot(ux, uy);
-          (g.rings = g.rings || []).push({ x: hx, y: hy, r: 0, R: L * 0.6, life: 0.5, c: [255, 240, 220] });
+          (g.rings = g.rings || []).push({ x: hx, y: hy, r: 0, R: L * 0.6, life: 0.5, max: 0.5, c: [255, 240, 220] });
           g.sfx('hit', { pitch: 2.2 }); g.sfx('boss', { vol: 0.35 }); g.shake = min(14, g.shake + 6);
           k.hitP = false;
           if (!g.dead && p.breachT <= 0 && ud < L + p.r && abs(ad(b.ang, atan2(uy, ux))) < half + p.r / max(ud, 1)) {

@@ -178,7 +178,7 @@ export const Abilities = {
     const p = this.p, lv = p.muts.sense | 0;
     if (!lv || p.senseCd > 0 || this.dead || this.modal) return;
     p.senseCd = ABILITY_BY_ID.sense.cd(lv); p.senseT = 4 + lv; p.senseMax = p.senseT;
-    (this.rings = this.rings || []).push({ x: p.x, y: p.y, r: 0, R: senseR(p), life: 0.9, c: [210, 180, 255] });
+    (this.rings = this.rings || []).push({ x: p.x, y: p.y, r: 0, R: senseR(p), life: 0.9, max: 0.9, c: [210, 180, 255] });
     this.revealSensed();
     const b = this.boss;
     if (b && b.alive && b.kit && b.kit.sense) b.kit.sense(this, b, b.k);
