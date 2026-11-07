@@ -711,7 +711,7 @@ const RIM = [0, 0, 0, 0];
 
 function clampStage(s) { s = s | 0; return s < 1 ? 1 : s > 10 ? 10 : s; }
 // the bodies drawn so far: a later stage not drawn yet borrows the last one's body
-const DRAWN_STAGES = 8;
+const DRAWN_STAGES = 9;
 function bodyStage(s) { s = clampStage(s); return s > DRAWN_STAGES ? DRAWN_STAGES : s; }
 
 // Swim phase, integrated over time so a changing speed never makes the tail jump. Rate = 6 + 6·speedN rad/s.
@@ -966,6 +966,19 @@ function w8(x) {
   const q = min(1, (F8M - x) / (F8M - F8.xr));
   return F8W * Math.pow(1 - Math.pow(q, F8P), 1 / F8P);
 }
+// great white shark: a thick, muscular spindle (widest at F9M, just behind the pectorals) running forward into a conical
+// snout and back to a narrow caudal peduncle with lateral keels (the tall crescent tail hangs off its end: sharkTail)
+const F9 = { xf: 1.1, xr: -1.3 }, F9M = 0.12, F9W = 0.45;
+function w9(x) {
+  if (x >= F9M) {
+    const q = (x - F9M) / (F9.xf - F9M); if (q >= 1) return 0;
+    const w = F9W * Math.pow(1 - Math.pow(q, 1.55), 0.68);
+    if (!AN.chk) return w;
+    const d = (x - 0.6) / 0.11; return w + AN.chk * exp(-d * d); // Crushing Bite: jaw muscles bulging at the corners of the head
+  }
+  const q = min(1, (F9M - x) / (F9M - F9.xr)), k = (x + 1.19) / 0.075;
+  return 0.05 + (F9W - 0.05) * (1 - Math.pow(q, 1.8)) + 0.03 * exp(-k * k); // (+ the caudal keels)
+}
 // flatworm: broad leaf, a neck, then a spade-shaped head with two ear-like auricles
 function w3(x) {
   const u = (x - F3.xr) / (F3.xf - F3.xr);
@@ -998,6 +1011,7 @@ const AN = {
   aur: 0.13, rip: 0.03, ripK: 15, t: 0, ph: 0, sp: 0, s: 1, lw: null, fine: false, lo: false, A0: 1,
   p: null, m: NOMUT, body: null, mem: null, dark: [0, 0, 0], pale: [0, 0, 0], ang: 0,
   pk: 0, pxf: 1, pxr: -1, chk: 0, // pufferfish: inflation 0…1, the current (inflated) nose / tail ends, cheek bulge
+  phw: 0, // the swim phase as the body uses it (the great white's Threat Display makes it jerky)
 };
 // the pufferfish's current half-width at skinned x (the rest profile blended toward the balloon)
 function w6cur(x) {
@@ -1029,7 +1043,11 @@ function setupAnimal(p, m, stage, t, ph) {
   } else if (stage === 4) { f = F4; AN.W = w4; x1 = f.xr - 0.78; AN.hw = 0.33; AN.tip = f.xr; }
   else if (stage === 7) { f = F7; AN.W = w7; x1 = f.xr - 0.12; AN.hw = 0.42; AN.tip = f.xr - 0.02; } // (the rigid bill follows the head: skin() extends the spine)
   else if (stage === 8) { f = F8; AN.W = w8; x1 = f.xr - 0.36; AN.hw = F8W; AN.tip = f.xr; AN.chk = m.jaws ? 0.03 + 0.016 * min(3, m.jaws) : 0; } // (the spine runs on through the clavus)
+  else if (stage === 9) { f = F9; AN.W = w9; x1 = f.xr - 0.1; AN.hw = F9W; AN.tip = f.xr - 0.02; AN.chk = m.beak ? 0.022 + 0.013 * min(3, m.beak) : 0; }
   else { f = F5; AN.W = w5; x1 = f.xr - 0.08; AN.hw = 0.48; AN.tip = f.xr - 0.03; }
+  // the great white's Threat Display (stiff, jerky swimming: the swim phase holds, then snaps) and Breach (arched)
+  const pk9 = stage === 9 ? smooth01(min(1, max(0, p.puffK || 0))) : 0, br9 = stage === 9 ? min(1, max(0, p.breachK || 0)) : 0;
+  const phw = AN.phw = pk9 ? ph - 0.42 * pk9 * sin(2 * ph) : ph;
   AN.xf = f.xf; AN.xr = f.xr; AN.cx = (f.xf + f.xr) / 2; AN.hl = (f.xf - f.xr) / 2;
   // (the pufferfish's spine runs along its current, possibly inflated, length and on past the beak)
   const x0 = AN.x0 = stage === 6 ? AN.pxf + 0.3 : f.xf + 0.04, n = NSP, dx = AN.dx = (x0 - x1) / (n - 1);
@@ -1058,6 +1076,11 @@ function setupAnimal(p, m, stage, t, ph) {
       // a sunfish beats its tall fins and holds its body rigid: only the clavus sculls a little, like a rudder
       const q = max(0, (-0.45 - x) / 0.8);
       th = (0.06 + 0.03 * sp) * q * q * sin(ph * 0.55 + 0.6);
+    } else if (stage === 9) {
+      // a great white: a stiff, muscular torpedo, the rear third and the tail sweeping with a little sway of the head;
+      // in a Threat Display the head swings wide, and in a breach the body arches into a curve
+      const q = max(0, (0.3 - x) / 1.6), hd = min(1, max(0, (x - 0.1) / 0.9));
+      th = (0.2 + 0.1 * sp) * (1 - 0.3 * pk9) * (0.05 + Math.pow(q, 1.9)) * sin(phw + 2.2 * x) + 0.2 * pk9 * hd * sin(phw + 0.6) + 0.3 * br9 * x;
     } else {
       // carangiform: a stiff front, the tail sweeps
       const q = max(0, (0.45 - x) / 1.45);
@@ -1071,6 +1094,11 @@ function setupAnimal(p, m, stage, t, ph) {
   if (stage === 7 && p.slashK > 0.001) {
     const a = (p.slashDir < 0 ? -1 : 1) * 0.62 * smooth01(min(1, p.slashK));
     for (let i = 0; i < n; i++) { const u = min(1, max(0, (x0 - i * dx + 0.15) / 1.05)); SPA[i] += a * smooth01(u); }
+  }
+  // Head Shake (stage 9): the head and jaws wrench round to the slashDir side, shuddering as they go
+  if (stage === 9 && p.slashK > 0.001) {
+    const k = min(1, p.slashK), a = (p.slashDir < 0 ? -1 : 1) * (0.48 * smooth01(k) + 0.17 * sin(k * PI * 6) * sin(k * PI));
+    for (let i = 0; i < n; i++) { const u = min(1, max(0, (x0 - i * dx - 0.02) / 0.95)); SPA[i] += a * smooth01(u); }
   }
   // keep the body's mean heading on +x and its centre of mass on the collision circle's centre
   const mt = wt / ws;
@@ -1149,7 +1177,7 @@ function outlineXs(st, lite) {
     for (let i = 1; i <= n1; i++) a.push(F3.xf - (i / n1) * (F3.xf - 0.55));
     for (let i = 1; i < n2; i++) a.push(0.55 - (i / n2) * (0.55 - F3.xr));
   } else {
-    const f = st === 4 ? F4 : st === 6 ? F6 : st === 7 ? F7 : st === 8 ? F8 : F5, n = st >= 7 ? (lite ? 18 : 40) : lite ? 16 : 34;
+    const f = st === 4 ? F4 : st === 6 ? F6 : st === 7 ? F7 : st === 8 ? F8 : st === 9 ? F9 : F5, n = st >= 7 ? (lite ? 18 : 40) : lite ? 16 : 34;
     for (let i = 1; i < n; i++) a.push(f.xf - ((f.xf - f.xr) * (1 - cos((PI * i) / n))) / 2);
     if (st >= 5) a.push(f.xr);
   }
@@ -1347,7 +1375,7 @@ function animalCnido(ctx, lv) {
 function caeca(ctx, lv) {
   // pyloric caeca (Feeding Polyps on a fish): finger-like blind pouches off the end of the stomach that soak up
   // more from every meal, seen through the body wall
-  const st = AN.st, t = AN.t, x0 = st === 4 ? 0.42 : st === 6 ? 0.34 : st === 7 ? 0.3 : st === 8 ? 0.26 : 0.4, n = 4 + 2 * lv, nk = n >> 1, L0 = (st === 4 ? 0.18 : 0.22) + 0.03 * lv;
+  const st = AN.st, t = AN.t, x0 = st === 4 ? 0.42 : st === 6 ? 0.34 : st === 7 ? 0.3 : st === 8 ? 0.26 : st === 9 ? 0.3 : 0.4, n = 4 + 2 * lv, nk = n >> 1, L0 = (st === 4 ? 0.18 : 0.22) + 0.03 * lv;
   skin(x0 + 0.03, 0); ctx.beginPath(); ctx.ellipse(SK[0], SK[1], st === 4 ? 0.08 : 0.11, st === 4 ? 0.05 : 0.075, SK[2], 0, TAU);
   ctx.fillStyle = rgbStr(POLYP_C, 0.38); ctx.fill();
   for (let pass = 0; pass < 2; pass++) {
@@ -1377,7 +1405,7 @@ function stingSlime(ctx, lv) {
   ctx.strokeStyle = rgbStr(SLIME_C, 0.2 + 0.06 * lv); ctx.lineWidth = lw(3 + 1.5 * lv); ctx.stroke();
   ctx.strokeStyle = 'rgba(250,228,255,0.5)'; ctx.lineWidth = lw(0.9); ctx.stroke();
   // strands pulled off the flanks by the water, a bead at each tip
-  const ns = 2 + lv, x0 = AN.xf - 0.45, x1 = AN.st === 5 || AN.st === 7 ? AN.xr + 0.3 : AN.st === 6 ? AN.xr + 0.22 : AN.xr + 0.4, B = [];
+  const ns = 2 + lv, x0 = AN.xf - 0.45, x1 = AN.st === 5 || AN.st === 7 || AN.st === 9 ? AN.xr + 0.3 : AN.st === 6 ? AN.xr + 0.22 : AN.xr + 0.4, B = [];
   ctx.beginPath();
   for (let i = 0; i < ns * 2; i++) {
     const sd = i & 1 ? 1 : -1, k = i >> 1;
@@ -1422,7 +1450,7 @@ function dashMuscle(ctx, lv) {
   // Fast Start (Enzyme Burst on a fish): white, fast-twitch muscle at the tail base that fires the escape snap;
   // it glows while the burst is ready
   const p = AN.p, ready = (p.dashCd || 0) <= 0, t = AN.t, pulse = 0.5 + 0.5 * sin(t * 5);
-  const xa = AN.st === 4 ? -0.5 : AN.st === 6 ? -0.28 : AN.st === 7 ? -0.55 : -0.38, xb = AN.st === 4 ? -1.0 : AN.st === 6 ? -0.72 : AN.st === 7 ? -1.2 : -0.8;
+  const xa = AN.st === 4 ? -0.5 : AN.st === 6 ? -0.28 : AN.st === 7 ? -0.55 : AN.st === 9 ? -0.45 : -0.38, xb = AN.st === 4 ? -1.0 : AN.st === 6 ? -0.72 : AN.st === 7 ? -1.2 : AN.st === 9 ? -1.12 : -0.8;
   ctx.globalCompositeOperation = 'lighter';
   for (const sd of SIDES) for (let i = 0; i < 3; i++) { const x = xa + ((xb - xa) * (i + 0.5)) / 3; glowAt(ctx, DASH_C, x, sd * AN.W(x) * 0.45, AN.W(x) * 0.55 + 0.015 * lv, ready ? 0.14 + 0.12 * pulse : 0.05, 1); }
   ctx.globalAlpha = AN.A0; ctx.globalCompositeOperation = 'source-over';
@@ -1434,7 +1462,7 @@ function dashMuscle(ctx, lv) {
 function dashWake(ctx, lv) {
   // the fast-start wake: a burst of bubbles and two spinning vortices shed by the tail
   const p = AN.p, k = min(1, p.dashT / 0.28), lw = AN.lw;
-  skin(AN.st === 5 ? AN.xr - 0.15 : AN.st === 6 ? AN.xr - 0.12 : AN.st === 7 ? AN.xr - 0.32 : AN.st === 8 ? AN.xr - 0.2 : AN.xr, 0);
+  skin(AN.st === 5 ? AN.xr - 0.15 : AN.st === 6 ? AN.xr - 0.12 : AN.st === 7 ? AN.xr - 0.32 : AN.st === 8 ? AN.xr - 0.2 : AN.st === 9 ? AN.xr - 0.55 : AN.xr, 0);
   ctx.save(); ctx.translate(SK[0], SK[1]); ctx.rotate(SK[2] + PI);
   ctx.globalCompositeOperation = 'lighter';
   const g = glowSprite([200, 240, 255], 1);
@@ -1475,7 +1503,7 @@ function mottle(ctx, lv) {
 }
 function mitoGlow(ctx, lv) {
   // mitochondria-packed muscle running warm along the flanks
-  const st = AN.st, t = AN.t, n = 2 + lv, x0 = st === 3 ? 0.42 : st === 4 ? 0.5 : st === 6 ? 0.45 : st === 7 ? 0.52 : 0.42, x1 = st === 3 ? -0.85 : st === 4 ? -1.05 : st === 6 ? -0.68 : st === 7 ? -1.15 : -0.85;
+  const st = AN.st, t = AN.t, n = 2 + lv, x0 = st === 3 ? 0.42 : st === 4 ? 0.5 : st === 6 ? 0.45 : st === 7 ? 0.52 : st === 9 ? 0.48 : 0.42, x1 = st === 3 ? -0.85 : st === 4 ? -1.05 : st === 6 ? -0.68 : st === 7 ? -1.15 : st === 9 ? -1.05 : -0.85;
   if (st >= 4) {
     ctx.beginPath();
     for (const sd of SIDES) for (let k = 0; k <= 10; k++) { const x = x0 + (x1 - x0) * (k / 10); k ? sl(ctx, x, sd * AN.W(x) * 0.5) : sm(ctx, x, sd * AN.W(x) * 0.5); }
@@ -1490,7 +1518,7 @@ function mitoGlow(ctx, lv) {
 }
 function novaOrgan(ctx, lv) {
   // electric organ: stacks of electrocytes along the rear flanks, flickering as they charge
-  const st = AN.st, t = AN.t, x0 = st === 3 ? -0.3 : st === 4 ? -0.3 : st === 6 ? -0.02 : st === 7 ? -0.22 : st === 8 ? -0.1 : -0.2, x1 = st === 3 ? -1.0 : st === 4 ? -1.15 : st === 6 ? -0.74 : st === 7 ? -1.24 : st === 8 ? -0.72 : -0.9;
+  const st = AN.st, t = AN.t, x0 = st === 3 ? -0.3 : st === 4 ? -0.3 : st === 6 ? -0.02 : st === 7 ? -0.22 : st === 8 ? -0.1 : st === 9 ? -0.22 : -0.2, x1 = st === 3 ? -1.0 : st === 4 ? -1.15 : st === 6 ? -0.74 : st === 7 ? -1.24 : st === 8 ? -0.72 : st === 9 ? -1.12 : -0.9;
   const v0 = 0.22, v1 = 0.82;
   ctx.beginPath();
   for (const sd of SIDES) {
@@ -1516,7 +1544,7 @@ function novaOrgan(ctx, lv) {
 }
 function biolumSpots(ctx, lv) {
   const st = AN.st, t = AN.t, n = st === 3 ? 3 + lv : 4 + 2 * lv;
-  const x0 = st === 3 ? 0.45 : st === 4 ? 0.55 : st === 6 ? 0.5 : st === 7 ? 0.62 : st === 8 ? 0.62 : 0.5, x1 = st === 3 ? -0.95 : st === 4 ? -1.1 : st === 6 ? -0.66 : st === 7 ? -1.18 : st === 8 ? -0.74 : -0.88, vk = st === 3 ? 0.72 : st === 6 ? 0.78 : 0.8;
+  const x0 = st === 3 ? 0.45 : st === 4 ? 0.55 : st === 6 ? 0.5 : st === 7 ? 0.62 : st === 8 ? 0.62 : st === 9 ? 0.62 : 0.5, x1 = st === 3 ? -0.95 : st === 4 ? -1.1 : st === 6 ? -0.66 : st === 7 ? -1.18 : st === 8 ? -0.74 : st === 9 ? -1.08 : -0.88, vk = st === 3 ? 0.72 : st === 6 ? 0.78 : 0.8;
   ctx.globalCompositeOperation = 'lighter';
   for (const sd of SIDES) for (let i = 0; i < n; i++) {
     const x = x0 + (x1 - x0) * (i / (n - 1)), pulse = 0.5 + 0.5 * sin(t * 3 - i * 0.8 + sd);
@@ -1540,7 +1568,7 @@ function nerveSys(ctx, lv) {
     for (const sd of SIDES) { sm(ctx, 0.72, sd * 0.05); sl(ctx, 0.8, sd * 0.115); sm(ctx, 0.73, sd * 0.1); sl(ctx, 0.83, sd * 0.32); }
   } else {
     // spinal cord down the back with a nerve to every muscle block
-    const x0 = st === 4 ? 0.8 : st === 6 ? 0.56 : st === 7 ? 0.7 : st === 8 ? 0.5 : 0.66, x1 = st === 4 ? -1.35 : st === 6 ? -0.8 : st === 7 ? -1.32 : st === 8 ? -0.74 : -0.98, step = st === 4 ? 0.105 : st === 7 ? 0.13 : 0.12;
+    const x0 = st === 4 ? 0.8 : st === 6 ? 0.56 : st === 7 ? 0.7 : st === 8 ? 0.5 : st === 9 ? 0.62 : 0.66, x1 = st === 4 ? -1.35 : st === 6 ? -0.8 : st === 7 ? -1.32 : st === 8 ? -0.74 : st === 9 ? -1.22 : -0.98, step = st === 4 ? 0.105 : st === 7 || st === 9 ? 0.13 : 0.12;
     sm(ctx, x0, 0); for (let k = 1; k <= 12; k++) sl(ctx, x0 + (x1 - x0) * (k / 12), 0);
     if (lv >= 2 || st === 4) for (let x = x0 - 0.1; x > x1 + 0.05; x -= step) for (const sd of SIDES) { sm(ctx, x, 0); sl(ctx, x - 0.05, sd * AN.W(x) * 0.6); }
   }
@@ -1550,7 +1578,7 @@ function nerveSys(ctx, lv) {
   const g = glowSprite(NERVE_C, 1);
   for (let i = 0; i < 2 + lv; i++) {
     let f = t * 0.7 + i / (2 + lv); f -= Math.floor(f);
-    const x = st === 3 ? 0.7 - f * 1.75 : (st === 4 ? 0.8 : st === 6 ? 0.56 : st === 7 ? 0.7 : st === 8 ? 0.5 : 0.66) - f * (st === 4 ? 2.1 : st === 6 ? 1.36 : st === 7 ? 2.02 : st === 8 ? 1.24 : 1.6), sz = 0.07 + 0.015 * lv;
+    const x = st === 3 ? 0.7 - f * 1.75 : (st === 4 ? 0.8 : st === 6 ? 0.56 : st === 7 ? 0.7 : st === 8 ? 0.5 : st === 9 ? 0.62 : 0.66) - f * (st === 4 ? 2.1 : st === 6 ? 1.36 : st === 7 ? 2.02 : st === 8 ? 1.24 : st === 9 ? 1.84 : 1.6), sz = 0.07 + 0.015 * lv;
     for (const sd of st === 3 ? SIDES : [0]) { skin(x, sd * (st === 3 ? cordV(x) : 0)); ctx.globalAlpha = AN.A0 * (0.5 + 0.3 * sin(f * PI)); ctx.drawImage(g, SK[0] - sz, SK[1] - sz, sz * 2, sz * 2); }
   }
   ctx.globalAlpha = AN.A0; ctx.globalCompositeOperation = 'source-over';
@@ -1563,7 +1591,7 @@ function brain(ctx, a, lit, c = NERVE_C) {
   ctx.beginPath();
   if (st === 3) { for (const sd of SIDES) { skin(0.72, sd * 0.055); ctx.moveTo(SK[0] + 0.09, SK[1]); ctx.ellipse(SK[0], SK[1], 0.085, 0.06, SK[2], 0, TAU); } }
   else {
-    const bx = st === 4 ? 0.82 : st === 6 ? 0.6 : st === 7 ? 0.72 : st === 8 ? 0.5 : 0.7, k = st === 4 ? 1 : st === 6 ? 1.45 : st === 7 ? 1.12 : st === 8 ? 1.3 : 1.25;
+    const bx = st === 4 ? 0.82 : st === 6 ? 0.6 : st === 7 ? 0.72 : st === 8 ? 0.5 : st === 9 ? 0.6 : 0.7, k = st === 4 ? 1 : st === 6 ? 1.45 : st === 7 ? 1.12 : st === 8 ? 1.3 : st === 9 ? 1.15 : 1.25;
     for (const sd of SIDES) {
       skin(bx + 0.13 * k, sd * 0.03 * k); ctx.moveTo(SK[0] + 0.035 * k, SK[1]); ctx.ellipse(SK[0], SK[1], 0.035 * k, 0.026 * k, SK[2], 0, TAU);
       skin(bx + 0.05 * k, sd * 0.045 * k); ctx.moveTo(SK[0] + 0.05 * k, SK[1]); ctx.ellipse(SK[0], SK[1], 0.05 * k, 0.038 * k, SK[2], 0, TAU);
@@ -1582,6 +1610,7 @@ function cystShell(ctx, t, lw) {
   if (AN.st === 6) { const k = AN.pk; cx = 0.08 * (1 - k); rx = 1.52 + 0.58 * k; ry = 1.08 + 1.02 * k; } // round, and rounder still inflated
   else if (AN.st === 7) { cx = 0.14; rx = 2.32; ry = 1.08; } // long enough for the bill and the tail
   else if (AN.st === 8) { cx = -0.04; rx = 1.38; ry = 1.4; } // (the sunfish folds its tall fins in: molaFin)
+  else if (AN.st === 9) { cx = -0.42; rx = 1.76; ry = 0.98; } // (the shark sweeps its pectorals back: sharkPecs)
   if (AN.st >= 4) {
     // a fish seals itself in a glossy mucus cocoon (like a lungfish's, or a sleeping parrotfish's bubble)
     const k = 1 + 0.02 * sin(t * 2.2);
@@ -1902,10 +1931,10 @@ function myomeres(ctx, m, x0, x1, n, vk, base) {
 function swimBladder(ctx, lv) {
   // a silvery, gas-filled float seen through the body
   const s5 = AN.st === 5, lw = AN.lw;
-  if (AN.st === 7) {
-    // a billfish's swim bladder: one long float, made of many small gas chambers
+  if (AN.st === 7 || AN.st === 9) {
+    // a billfish's swim bladder: one long float, made of many small gas chambers (the shark's buoyant oily liver sits there too)
     const rx = 0.36 + 0.03 * lv, ry = 0.07 + 0.012 * lv;
-    at(ctx, -0.14, 0);
+    at(ctx, AN.st === 9 ? -0.06 : -0.14, 0);
     ctx.beginPath(); ctx.ellipse(0, 0, rx, ry, 0, 0, TAU);
     ctx.save(); ctx.scale(rx, ry); ctx.fillStyle = glassGrad(ctx, [205, 228, 240]); ctx.fill(); ctx.restore();
     ctx.strokeStyle = 'rgba(240,255,255,0.8)'; ctx.lineWidth = lw(1); ctx.stroke();
@@ -1931,10 +1960,10 @@ function swimBladder(ctx, lv) {
 }
 function lateralLine(ctx, lv) {
   // the lateral line: a canal of pressure-sensing neuromasts along each flank (and around the eyes)
-  const st = AN.st, t = AN.t, lw = AN.lw, x0 = st === 4 ? 0.64 : st === 6 ? 0.5 : st === 7 ? 0.64 : 0.62, x1 = st === 4 ? -1.15 : st === 6 ? -0.76 : st === 7 ? -1.3 : -0.95, vk = st === 4 ? 0.42 : st === 6 ? 0.62 : 0.5;
+  const st = AN.st, t = AN.t, lw = AN.lw, x0 = st === 4 ? 0.64 : st === 6 ? 0.5 : st === 7 ? 0.64 : 0.62, x1 = st === 4 ? -1.15 : st === 6 ? -0.76 : st === 7 ? -1.3 : st === 9 ? -1.2 : -0.95, vk = st === 4 ? 0.42 : st === 6 ? 0.62 : 0.5;
   ctx.beginPath();
   for (const sd of SIDES) for (let k = 0; k <= 12; k++) { const x = x0 + (x1 - x0) * (k / 12); k ? sl(ctx, x, sd * AN.W(x) * vk) : sm(ctx, x, sd * AN.W(x) * vk); }
-  if (lv >= 2) for (const sd of SIDES) { const ex = st === 4 ? 0.9 : st === 6 ? 0.62 : st === 7 ? 0.86 : 0.8; smoothLine(ctx, [x0, AN.W(x0) * vk, ex - 0.02, AN.W(ex) * 0.62, ex + 0.16, AN.W(ex + 0.16) * 0.45, ex + 0.3, 0.06], sd); }
+  if (lv >= 2) for (const sd of SIDES) { const ex = st === 4 ? 0.9 : st === 6 ? 0.62 : st === 7 ? 0.86 : st === 9 ? 0.76 : 0.8; smoothLine(ctx, [x0, AN.W(x0) * vk, ex - 0.02, AN.W(ex) * 0.62, ex + 0.16, AN.W(ex + 0.16) * 0.45, ex + 0.3, 0.06], sd); }
   ctx.strokeStyle = rgbStr(AN.mem, 0.3 + 0.06 * lv); ctx.lineWidth = lw(1); ctx.stroke();
   // the neuromasts: pale rims round dark pores
   const n = 6 + 3 * lv, r = 0.02 + 0.003 * lv;
@@ -1949,7 +1978,7 @@ function lateralLine(ctx, lv) {
 }
 function scutes(ctx, lv) {
   // bony scutes in rows along the flanks (and down the back at higher levels), like a sturgeon's
-  const st = AN.st, n = (st === 7 ? 5 : 4) + 2 * lv, x0 = st === 7 ? 0.48 : st === 8 ? 0.36 : 0.4, x1 = st === 4 ? -1.0 : st === 6 ? -0.68 : st === 7 ? -1.22 : st === 8 ? -0.66 : -0.85, sz = 0.058 + 0.012 * lv, t = AN.t;
+  const st = AN.st, n = (st === 7 || st === 9 ? 5 : 4) + 2 * lv, x0 = st === 7 ? 0.48 : st === 8 ? 0.36 : st === 9 ? 0.42 : 0.4, x1 = st === 4 ? -1.0 : st === 6 ? -0.68 : st === 7 ? -1.22 : st === 8 ? -0.66 : st === 9 ? -1.1 : -0.85, sz = 0.058 + 0.012 * lv, t = AN.t;
   ctx.beginPath();
   for (let row = 0; row < (lv >= 2 ? 3 : 2); row++) {
     const vk = row === 2 ? 0 : row ? 0.62 : -0.62, nn = row === 2 ? n - 1 : n;
@@ -1993,6 +2022,12 @@ function fishSpines(ctx, m) {
     if (sp >= 2) for (const sd of SIDES) for (let j = 0; j < sp - 1; j++) add(0.06 - j * 0.34, sd, 1.2, L * (0.9 - 0.1 * j));
     add(0.74, 0, 0, 0); add(0.52, 0, 0, 0);
     if (tx || sp) for (const sd of SIDES) add(0.52, sd, 0.95, 0); // pectoral spines: drawn with the fins (sailPecs)
+  } else if (st === 9) {
+    // a spiny dogfish's: a stout spine leads each dorsal fin (drawn with the fins: sharkDorsals), spines along the belly;
+    // glands at their bases
+    if (sp >= 2) for (const sd of SIDES) for (let j = 0; j < sp - 1; j++) add(-0.08 - j * 0.3, sd, 1.2, L * (0.9 - 0.1 * j));
+    add(DORS9_A, 0, 0, 0); add(DORS9_2A, 0, 0, 0);
+    if (tx || sp) for (const sd of SIDES) add(PEC9_X + 0.1, sd, 0.95, 0); // pectoral spines: drawn with the fins (sharkPecs)
   } else {
     // spiny-shark style: a stout spine leading each dorsal fin, spines along the belly
     add(0.24, 0, 0, L * 1.45);
@@ -2249,7 +2284,7 @@ function fishBack(ctx, m) {
 function gillFilaments(ctx, lv) {
   // crimson gill filaments fanning out from under the gill cover with every breath
   // (a pufferfish's gill opening is a small slit just in front of the pectoral fin)
-  const t = AN.t, lw = AN.lw, br = 0.5 + 0.5 * sin(t * 2.2), L = (0.1 + 0.05 * lv) * (0.7 + 0.3 * br), gx = AN.st === 6 ? 0.4 : AN.st === 7 ? 0.55 : 0.47;
+  const t = AN.t, lw = AN.lw, br = 0.5 + 0.5 * sin(t * 2.2), L = (0.1 + 0.05 * lv) * (0.7 + 0.3 * br), gx = AN.st === 6 ? 0.4 : AN.st === 7 ? 0.55 : AN.st === 9 ? 0.52 : 0.47;
   ctx.globalCompositeOperation = 'lighter';
   for (const sd of SIDES) glowAt(ctx, GILL_C, gx, sd * (AN.W(gx) + L * 0.3), L * 2.2, 0.25 + 0.08 * lv + 0.15 * br);
   ctx.globalAlpha = AN.A0; ctx.globalCompositeOperation = 'source-over';
@@ -3138,10 +3173,11 @@ function sailEyes(ctx, m) {
   const iris = rgbStr(lv ? mixRGB([150, 196, 230], EYE_GLOW, 0.2 + 0.1 * lv, TMPC) : [150, 196, 230], 0.97);
   for (const sd of SIDES) fishEye(ctx, x, sd * v, r, lv, iris);
 }
-function warmEyes(ctx, lv) {
+function warmEyes(ctx, lv, x = 0.88, r = 0.072 + 0.024 * (AN.m.eyes || 0), bx = 0.74) {
   // Warm Eyes: a heater organ (an eye muscle turned into a heater, packed with mitochondria) beside each eye keeps
   // the eyes and brain warm: a warm orange glow round them, the brown heater tissue showing through the skin
-  const t = AN.t, lw = AN.lw, pulse = 0.5 + 0.5 * sin(t * 2.1), x = 0.88, r = 0.072 + 0.024 * (AN.m.eyes || 0);
+  // (x, r: the eyes' place and size; bx: the brain's)
+  const t = AN.t, lw = AN.lw, pulse = 0.5 + 0.5 * sin(t * 2.1);
   ctx.beginPath();
   for (const sd of SIDES) { skin(x - 0.06, sd * (AN.W(x) - r * 1.55)); const rx = 0.085 + 0.012 * lv, ry = 0.045 + 0.007 * lv; ctx.moveTo(SK[0] + rx, SK[1]); ctx.ellipse(SK[0], SK[1], rx, ry, SK[2], 0, TAU); }
   ctx.fillStyle = rgbStr([176, 72, 40], 0.5 + 0.08 * lv); ctx.fill();
@@ -3154,7 +3190,7 @@ function warmEyes(ctx, lv) {
   brain(ctx, 0.16 + 0.07 * lv, true, WARM_C);
   ctx.globalCompositeOperation = 'lighter';
   for (const sd of SIDES) glowAt(ctx, WARM_C, x - 0.02, sd * (AN.W(x) - r * 0.8), r * (3 + 0.5 * lv), 0.24 + 0.1 * lv + 0.12 * pulse);
-  glowAt(ctx, WARM_C, 0.74, 0, 0.17 + 0.03 * lv, 0.2 + 0.08 * lv + 0.1 * pulse); // the warmed brain
+  glowAt(ctx, WARM_C, bx, 0, 0.17 + 0.03 * lv, 0.2 + 0.08 * lv + 0.1 * pulse); // the warmed brain
   ctx.globalAlpha = AN.A0; ctx.globalCompositeOperation = 'source-over';
 }
 function sailMouth(ctx) {
@@ -3245,13 +3281,14 @@ function sailBill(ctx, m) {
   }
   ctx.restore();
 }
-function slashArc(ctx) {
-  // Bill Slash: the arc the bill tip has just swept through, a crescent of churned, glittering water
+function slashArc(ctx, px0 = 0.42, tx0 = BILL_X) {
+  // Bill Slash: the arc the bill tip has just swept through, a crescent of churned, glittering water (px0: where the
+  // head turns, tx0: the tip that sweeps; the shark's Head Shake uses it too)
   const p = AN.p, k = min(1, max(0, p.slashK || 0)), lw = AN.lw;
   if (k < 0.02) return;
   const d = p.slashDir < 0 ? -1 : 1;
-  skin(0.42, 0); const px = SK[0], py = SK[1];
-  skin(BILL_X, 0);
+  skin(px0, 0); const px = SK[0], py = SK[1];
+  skin(tx0, 0);
   const R = Math.hypot(SK[0] - px, SK[1] - py), a1 = Math.atan2(SK[1] - py, SK[0] - px), span = 1.25 * (0.55 + 0.45 * k), a0 = a1 - d * span;
   ctx.save(); ctx.translate(px, py);
   ctx.globalCompositeOperation = 'lighter';
@@ -3981,12 +4018,13 @@ function wrasse(ctx, L, t, i) {
   body(); ctx.strokeStyle = 'rgba(225,240,255,0.8)'; ctx.lineWidth = lw(0.8); ctx.stroke();
   if (AN.s * L > 10) { ctx.beginPath(); for (const sd of SIDES) { ctx.moveTo(L * 0.33, sd * L * 0.08); ctx.arc(L * 0.3, sd * L * 0.08, L * 0.03, 0, TAU); } ctx.fillStyle = '#0d1a2a'; ctx.fill(); }
 }
-function cleanerWrasses(ctx, lv) {
-  const t = AN.t, p = AN.p, n = min(3, lv), L = 0.34, busy = p.latched > 0 ? 1.8 : 1, lw = AN.lw;
+function cleanerWrasses(ctx, lv, cx = 0.12, sx = 0.56, vk = 0.66, L = 0.34) {
+  // (cx ± sx: the stretch of flank they roam along; vk: how far out across it; L: their length)
+  const t = AN.t, p = AN.p, n = min(3, lv), busy = p.latched > 0 ? 1.8 : 1, lw = AN.lw;
   for (let i = 0; i < n; i++) {
     // each wanders over your flank, stops to peck at the skin, and darts on
     const s = t * 0.85 * busy + i * 0.37, c = Math.floor(s), f = s - c, run = f < 0.7 ? f / 0.7 : 1, u = (c + run) * 0.55 + i * 2.4;
-    const pos = (q) => { const x = 0.12 + 0.56 * sin(q + i * 2.1), v = 0.66 * sin(q * 1.37 + i * 1.3) * AN.W(x); return skin(x, v); };
+    const pos = (q) => { const x = cx + sx * sin(q + i * 2.1), v = vk * sin(q * 1.37 + i * 1.3) * AN.W(x); return skin(x, v); };
     pos(u + 0.04); const x1 = SK[0], y1 = SK[1];
     pos(u); const x0 = SK[0], y0 = SK[1];
     let a = Math.atan2(y1 - y0, x1 - x0);
@@ -4034,6 +4072,661 @@ function molaFront(ctx, m) {
   if (m.cleaners) cleanerWrasses(ctx, m.cleaners);
 }
 
+// ============================ stage 9: great white shark ============================
+// Seen from above, heading +x: a thick, muscular torpedo (F9, w9) with a conical snout, small black eyes set wide on the
+// head and five gill slits each side just in front of the big, stiff pectoral fins, swept back like wings. A tall
+// triangular first dorsal fin stands on the midline (from above a thick blade, tipped over as the body rolls with each
+// tail beat), then a small second dorsal and anal fin, a narrow tail stock with lateral keels and a tall crescent tail.
+// A slate-grey back (the player's teal blended into it) meets the white belly in a crisp, ragged line down each flank.
+// Hooks: senseK = Electrosense (the pores dotted over the snout glow violet-blue, electric ripples pulse out ahead);
+// puffK = Threat Display (back hunched, pectorals dropped down and back, stiff jerky swimming, jaws agape);
+// slashK + slashDir = Head Shake (the head and jaws wrench round to the slashDir side, mouth wide, leaving an arc);
+// sailK = the dorsal fin standing taller; stripeK = Ambush Rush (the countershading sharpens, a surge of speed lines);
+// breachK = Breach (arched and half rolled, water pouring off); rollK (optional, 0…1) = rolled onto its side, flashing
+// the white belly (Belly Flash).
+const SHARK_SLATE = [62, 70, 86], SHARK_DEEP = [22, 28, 40], SHARK_BELLY = [242, 248, 250], SENSE_C = [176, 150, 255], WARMB_C = [255, 96, 50];
+const SPEED_C = [205, 236, 255], SCENT_C = [255, 176, 186], TOOTH_C = [252, 249, 238];
+const DORS9_A = 0.22, DORS9_B = -0.15, DORS9_2A = -0.84, DORS9_2B = -0.93, EYE9_X = 0.74, PEC9_X = 0.25, GILL9_X = 0.62, MOUTH9_X = 0.58;
+// this frame's colours and state: sk = Ambush Rush colours 0…1 (rush: its speed lines), cs = Countershading level,
+// ct = how sharp the countershading is, pk = Threat Display, sl / dir = Head Shake, br = Breach, sn = Electrosense,
+// up = dorsal fin raised, roll = rolled over (+: the back turned towards rest +v), gape = jaws open, lean = the dorsal
+// fin's tilt (radians, + towards rest +v)
+const S9 = { back: [0, 0, 0], deep: [0, 0, 0], belly: [0, 0, 0], fin: [0, 0, 0], sk: 0, rush: 0, cs: 0, ct: 0, pk: 0, sl: 0, dir: 1, br: 0, sn: 0, up: 0, roll: 0, gape: 0, lean: 0 };
+const c01 = (v) => (v > 0 ? (v < 1 ? v : 1) : 0);
+function sharkPalette(m) {
+  const b = AN.body, p = AN.p, t = AN.t;
+  S9.sk = min(1, max(p.stripeK || 0, m.stripes ? 0.2 + 0.15 * min(3, m.stripes) : 0));
+  S9.rush = smooth01(c01(((p.stripeK || 0) - 0.78) / 0.22)); // (the speed lines only in the charge itself)
+  S9.cs = min(3, m.countershade || 0);
+  const ct = S9.ct = min(1, 0.25 * S9.cs + 0.6 * S9.sk);
+  mixRGB(b, SHARK_SLATE, 0.8, S9.back); mixRGB(S9.back, SHARK_DEEP, 0.5 * ct, S9.back);
+  mixRGB(b, SHARK_DEEP, 0.84 + 0.08 * ct, S9.deep);
+  mixRGB(b, SHARK_BELLY, 0.8 + 0.18 * ct, S9.belly);
+  mixRGB(S9.back, SHARK_DEEP, 0.3, S9.fin);
+  S9.pk = smooth01(c01(p.puffK || 0));
+  S9.sl = smooth01(c01(p.slashK || 0)); S9.dir = p.slashDir < 0 ? -1 : 1;
+  S9.br = c01(p.breachK || 0); S9.sn = c01(p.senseK || 0);
+  S9.up = smooth01(min(1, max(p.sailK || 0, m.sail ? 0.2 + 0.1 * min(3, m.sail) : 0)));
+  S9.roll = max(c01(p.rollK || 0), 0.35 * S9.br);
+  // the jaws hang a little open (a shark breathes as it swims); Shark Jaws bite now and then; wide in a Head Shake
+  const s = sin(t * 1.6), bite = m.jaws ? (s > 0.2 ? Math.pow((s - 0.2) / 0.8, 1.5) : 0) : 0;
+  S9.gape = max(0.1 + 0.9 * bite, S9.sl, 0.45 * S9.pk, 0.55 * S9.br);
+  // the dorsal fin tips over towards rest +v as the body rolls with each beat, swings over away from a Head Shake and
+  // stands stiffer in a Threat Display
+  const side = 1 + (-S9.dir - 1) * S9.sl;
+  S9.lean = side * (0.5 + 0.1 * sin(AN.phw + 0.9)) * (1 - 0.4 * S9.pk) + 0.5 * S9.roll;
+}
+
+// ----- the countershading -----
+// the white belly's edge: the fraction of the half-width the slate back covers at rest x on side sd, ragged (bolder with
+// Countershading and Ambush Rush)
+function csFrac(x, sd) {
+  const g = 1 + 0.3 * S9.cs + 0.3 * S9.ct;
+  let f = 0.78 - 0.045 * g * (0.6 * sin(12.5 * x + 1.1 + sd * 1.9) + 0.4 * sin(27 * x + 0.4 + sd * 0.7) + 0.28 * sin(49 * x + sd * 2.6));
+  const d = (x - 0.1) / 0.14; f -= 0.12 * exp(-d * d); // (the white rises up the flank behind the gills)
+  if (x > 0.6) f += (x - 0.6) * 0.36; // (round the head it tucks under the snout)
+  if (x < -0.55) f += (-0.55 - x) * 0.34; // (the back wraps right round the tail stock)
+  return f;
+}
+// the line's offset across the body (rolled over, the back slides towards +v and the belly shows on the -v flank)
+function csEdge(x, sd, k = 1) { const r = S9.roll; return AN.W(x) * (sd * k * csFrac(x, sd) * (1 - 0.62 * r) + 0.7 * r); }
+// a smooth band down the middle of the back, k × the half-width (it follows a roll)
+function sharkBand(ctx, k) {
+  const N = AN.lo ? 10 : 18, xa = AN.xf - 0.04, xb = AN.xr - 0.02, r = S9.roll;
+  ctx.beginPath(); sm(ctx, xa, 0.7 * r * AN.W(xa));
+  for (let i = 1; i <= N; i++) { const x = xa - (xa - xb) * (i / N); sl(ctx, x, AN.W(x) * (-k * (1 - 0.62 * r) + 0.7 * r)); }
+  for (let i = N; i >= 1; i--) { const x = xa - (xa - xb) * (i / N); sl(ctx, x, AN.W(x) * (k * (1 - 0.62 * r) + 0.7 * r)); }
+  ctx.closePath();
+}
+function sharkBody(ctx, n) {
+  const ct = S9.ct, lw = AN.lw, N = AN.lo ? 22 : 56, xa = AN.xf + 0.02, xb = AN.xr - 0.04;
+  ctx.fillStyle = rgbStr(S9.belly, 0.97); ctx.fill();
+  ctx.save(); ctx.clip();
+  // the slate back over the top, its edge ragged
+  ctx.beginPath(); sm(ctx, xa + 0.03, 0);
+  for (let i = 1; i < N; i++) { const x = xa - (xa - xb) * (i / N); sl(ctx, x, csEdge(x, -1)); }
+  sl(ctx, xb - 0.08, 0);
+  for (let i = N - 1; i >= 1; i--) { const x = xa - (xa - xb) * (i / N); sl(ctx, x, csEdge(x, 1)); }
+  ctx.closePath();
+  ctx.fillStyle = rgbStr(S9.back, 0.97); ctx.fill();
+  // a rounded, muscular back: darker down the spine
+  sharkBand(ctx, 0.52); ctx.fillStyle = rgbStr(S9.deep, 0.16 + 0.08 * ct); ctx.fill();
+  sharkBand(ctx, 0.24); ctx.fillStyle = rgbStr(S9.deep, 0.16 + 0.08 * ct); ctx.fill();
+  if (S9.pk > 0.02) {
+    // Threat Display: the back arched up into a lit ridge, the flanks turned down into shadow
+    sharkBand(ctx, 0.9); ctx.fillStyle = rgbStr(S9.deep, 0.22 * S9.pk); ctx.fill();
+    ctx.beginPath(); sm(ctx, 0.75, 0); for (let i = 1; i <= 8; i++) sl(ctx, 0.75 - i * 0.2, 0);
+    ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = rgbStr(S9.belly, 0.13 * S9.pk); ctx.lineWidth = 0.12; ctx.lineCap = 'round'; ctx.stroke();
+    ctx.strokeStyle = rgbStr(WHITE, 0.1 * S9.pk); ctx.lineWidth = 0.04; ctx.stroke(); ctx.globalCompositeOperation = 'source-over';
+  }
+  if (!AN.lo) {
+    // the line itself: a crisp dark edge, and a bright white rim on the belly side (bolder with Countershading)
+    ctx.beginPath();
+    for (const sd of SIDES) for (let i = 2; i < N - 1; i++) { const x = xa - (xa - xb) * (i / N); i > 2 ? sl(ctx, x, csEdge(x, sd)) : sm(ctx, x, csEdge(x, sd)); }
+    ctx.strokeStyle = rgbStr(S9.deep, 0.28 + 0.3 * ct); ctx.lineWidth = lw(0.8 + 0.6 * ct); ctx.lineJoin = 'round'; ctx.stroke();
+    if (ct > 0.05) {
+      ctx.beginPath();
+      for (const sd of SIDES) for (let i = 4; i < N - 6; i++) { const x = xa - (xa - xb) * (i / N), v = csEdge(x, sd) + sd * (0.014 + 0.01 * ct) * (1 - S9.roll); i > 4 ? sl(ctx, x, v) : sm(ctx, x, v); }
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = rgbStr(WHITE, 0.3 * ct); ctx.lineWidth = lw(1.4 + ct); ctx.stroke();
+      ctx.globalCompositeOperation = 'source-over';
+    }
+  }
+  ctx.restore();
+  emitPath(ctx, n);
+}
+
+// ----- fins -----
+// the tall crescent tail in its own frame (+x backward): the upper lobe (-y) a little longer than the lower
+function sharkTailPath(ctx, L, S, f, ext) {
+  const lu = L * (1 + ext), ll = L * (0.86 + 0.8 * ext), Sl = S * 0.84;
+  ctx.beginPath(); ctx.moveTo(0, -0.06);
+  ctx.quadraticCurveTo(L * 0.22, -S * 0.6, lu, -S + f);
+  ctx.quadraticCurveTo(L * 0.52, -S * 0.48 + f * 0.6, L * 0.32, f * 0.45);
+  ctx.quadraticCurveTo(L * 0.5, Sl * 0.48 + f * 0.6, ll, Sl + f);
+  ctx.quadraticCurveTo(L * 0.22, Sl * 0.6, 0, 0.06);
+  ctx.closePath();
+}
+function sharkTail(ctx, m) {
+  // (bigger and longer-tipped with Tail Fin; flung back in a breach)
+  const lw = AN.lw, fl = min(5, m.flagellum || 0), fins = m.fins || 0, br = S9.br;
+  const L = 0.66 * (1 + 0.1 * fl + 0.05 * fins), S = 0.6 * (1 + 0.08 * fl + 0.05 * fins), ext = fl >= 2 ? 0.1 * (fl - 1) : 0;
+  const lag = (0.24 + 0.1 * AN.sp) * 0.6 * (1 - 0.4 * S9.pk) * sin(AN.phw + 2.2 * F9.xr - 1.2) - 0.25 * br, f = 0.07 * sin(AN.phw + 2.2 * F9.xr - 2.2);
+  at(ctx, F9.xr + 0.04, 0); ctx.rotate(PI + lag);
+  sharkTailPath(ctx, L, S, f, ext);
+  ctx.fillStyle = rgbStr(S9.fin, 0.97); ctx.fill();
+  ctx.strokeStyle = rgbStr(mixRGB(AN.mem, S9.fin, 0.35, TMPC), 0.8); ctx.lineWidth = lw(1.2 + 0.15 * fl); ctx.stroke();
+  if (!AN.lo) {
+    // the paler leading edges, and the dark trailing margin
+    const lu = L * (1 + ext), ll = L * (0.86 + 0.8 * ext), Sl = S * 0.84;
+    ctx.beginPath(); ctx.moveTo(0.05, -0.07); ctx.quadraticCurveTo(L * 0.22, -S * 0.6, lu * 0.97, -S * 0.97 + f);
+    ctx.moveTo(0.05, 0.07); ctx.quadraticCurveTo(L * 0.22, Sl * 0.6, ll * 0.97, Sl * 0.97 + f);
+    ctx.strokeStyle = rgbStr(mixRGB(S9.fin, S9.belly, 0.45, TMPC), 0.6); ctx.lineWidth = lw(1.2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(lu, -S + f); ctx.quadraticCurveTo(L * 0.52, -S * 0.48 + f * 0.6, L * 0.32, f * 0.45); ctx.quadraticCurveTo(L * 0.5, Sl * 0.48 + f * 0.6, ll, Sl + f);
+    ctx.strokeStyle = rgbStr(SHARK_DEEP, 0.5); ctx.lineWidth = lw(1.6); ctx.stroke();
+  }
+  ctx.restore();
+}
+// a stiff, triangular fin in its own frame (span along +x, the leading edge towards y < 0): a slightly convex leading
+// edge, a pointed tip swept back, a concave trailing edge
+function sharkFinPath(ctx, L, C) {
+  ctx.beginPath(); ctx.moveTo(0, -C * 0.5);
+  ctx.quadraticCurveTo(L * 0.55, -C * 0.42, L, C * 0.2);
+  ctx.quadraticCurveTo(L * 0.6, C * 0.22, L * 0.36, C * 0.44);
+  ctx.quadraticCurveTo(L * 0.14, C * 0.5, 0, C * 0.5);
+  ctx.closePath();
+}
+// the frame of a paired fin rooted at rest x on side sd, swept back by sw (call ctx.restore() after)
+function sharkFinAt(ctx, x, sd, sw, inset) {
+  skin(x, sd * (AN.W(x) - inset));
+  ctx.save(); ctx.translate(SK[0], SK[1]); ctx.rotate(SK[2] + sd * (PI / 2 + sw)); ctx.scale(1, sd);
+}
+function sharkPecs(ctx, m) {
+  // the big, stiff pectorals, swept back like wings (Pectoral Fins: bigger, with a stiff bright leading edge; Lobe Fins:
+  // fleshy lobes). Threat Display: dropped down and back (foreshortened, in shadow); spread wide in a breach; rolled
+  // over, the white underside with its black tip shows
+  const t = AN.t, lw = AN.lw, fins = m.fins || 0, hv = min(3, m.hover || 0), pp = m.pseudopod || 0, pk = S9.pk, br = S9.br, cy = AN.p.cyst > 0 ? 1 : 0;
+  const L = 0.68 * (1 + 0.1 * fins) * (1 + 0.16 * hv) * (1 - 0.4 * pk), C = 0.33 * (1 + 0.08 * fins) * (1 + 0.12 * hv);
+  const b0 = AN.body; AN.body = S9.fin; // (lobeFin takes its colour from AN.body)
+  for (const sd of SIDES) {
+    const sw = 0.8 + 0.12 * min(1, AN.sp) + 0.5 * pk - 0.38 * br + 0.45 * cy + 0.035 * sin(t * 1.7 + sd);
+    if (pp) { lobeFin(ctx, PEC9_X, sd, 0.4 + 0.08 * pp, sw - 0.1); continue; }
+    const und = S9.roll * (sd < 0 ? 1 : 0.35);
+    sharkFinAt(ctx, PEC9_X, sd, sw, 0.07);
+    sharkFinPath(ctx, L, C);
+    ctx.fillStyle = rgbStr(mixRGB(mixRGB(S9.fin, SHARK_DEEP, 0.3 * pk, TMPC), S9.belly, 0.85 * und, TMPC), 0.97); ctx.fill();
+    if (und > 0.05 && !AN.lo) {
+      // the underside's black tip
+      ctx.save(); ctx.clip(); ctx.beginPath(); ctx.arc(L, C * 0.2, L * 0.3, 0, TAU); ctx.fillStyle = rgbStr(SHARK_DEEP, 0.85 * und); ctx.fill(); ctx.restore();
+      sharkFinPath(ctx, L, C);
+    }
+    ctx.strokeStyle = rgbStr(mixRGB(AN.mem, S9.fin, 0.35, TMPD), 0.85); ctx.lineWidth = lw(1.1); ctx.stroke();
+    if (!AN.lo) {
+      ctx.beginPath(); ctx.moveTo(0.02, -C * 0.46); ctx.quadraticCurveTo(L * 0.55, -C * 0.39, L * 0.97, C * 0.18);
+      ctx.strokeStyle = rgbStr(hv ? mixRGB(S9.belly, [170, 235, 255], 0.4, TMPC) : S9.belly, 0.32 + 0.14 * hv); ctx.lineWidth = lw(1.3 + 0.4 * hv); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(L, C * 0.2); ctx.quadraticCurveTo(L * 0.6, C * 0.22, L * 0.36, C * 0.44);
+      ctx.strokeStyle = rgbStr(SHARK_DEEP, 0.4); ctx.lineWidth = lw(1.4); ctx.stroke();
+      if (AN.fine) {
+        // a couple of faint radials (the fin's cartilage)
+        ctx.beginPath(); for (let k = 1; k <= 3; k++) { const u = k / 4; ctx.moveTo(0.03, -C * 0.4 + C * 0.8 * u); ctx.lineTo(L * (0.85 - 0.45 * u), C * (0.18 + 0.12 * u)); }
+        ctx.strokeStyle = rgbStr(SHARK_DEEP, 0.12); ctx.lineWidth = lw(0.8); ctx.stroke();
+      }
+    }
+    if (m.spikes || m.toxin) {
+      // Fin Spines: a stout spine along the leading edge
+      const Ls = L * (0.9 + 0.08 * max(m.spikes || 0, 1));
+      ctx.beginPath(); ctx.moveTo(0, -C * 0.56); ctx.quadraticCurveTo(Ls * 0.5, -C * 0.6, Ls, -C * 0.05); ctx.lineTo(0, -C * 0.3); ctx.closePath();
+      ctx.fillStyle = 'rgba(236,255,250,0.95)'; ctx.fill(); ctx.strokeStyle = 'rgba(30,80,85,0.55)'; ctx.lineWidth = lw(0.9); ctx.stroke();
+    }
+    ctx.restore();
+  }
+  AN.body = b0;
+}
+// the pelvic fins (small and triangular, peeking out from under the belly) and the anal fin (on the midline under the
+// tail stock, its tip showing past the flank as the body rolls)
+function sharkLowerFins(ctx, m) {
+  const lw = AN.lw, fins = m.fins || 0, pp = m.pseudopod || 0, x = -0.6;
+  const b0 = AN.body; AN.body = S9.fin;
+  for (const sd of SIDES) {
+    if (pp >= 2) { lobeFin(ctx, x, sd, 0.2 + 0.04 * pp, 1.05); continue; }
+    sharkFinAt(ctx, x, sd, 1.0 + 0.2 * S9.pk, 0.05);
+    sharkFinPath(ctx, 0.24 * (1 + 0.1 * fins), 0.15);
+    ctx.fillStyle = rgbStr(S9.fin, 0.95); ctx.fill(); ctx.strokeStyle = rgbStr(mixRGB(AN.mem, S9.fin, 0.35, TMPC), 0.8); ctx.lineWidth = lw(1); ctx.stroke();
+    ctx.restore();
+  }
+  AN.body = b0;
+  const s = -sin(S9.lean) * 1.15;
+  medianPath(ctx, -0.9, -1.02, 0.14 * (1 + 0.1 * fins), s, false);
+  ctx.fillStyle = rgbStr(S9.fin, 0.95); ctx.fill(); ctx.strokeStyle = rgbStr(mixRGB(AN.mem, S9.fin, 0.35, TMPC), 0.8); ctx.lineWidth = lw(1); ctx.stroke();
+}
+// a median fin seen from above: its side profile (X along the body, h up off the back) squashed across the body by s
+// (the sine of its tilt). From the front root a convex leading edge rakes back to the apex, a concave trailing edge falls
+// to the free rear tip (nicked by old fights with nick = true), and it meets the back again at xb
+function medianPath(ctx, xa, xb, H, s, nick) {
+  const ax = xa - 0.6 * H, ex = xb - 0.12 * H, cx0 = ax + (ex - ax) * 0.25 + 0.14 * H;
+  ctx.beginPath(); sm(ctx, xa + 0.02, 0);
+  skin(xa - 0.08 * H, 0.62 * H * s); const cx = SK[0], cy = SK[1];
+  skin(ax, H * s); ctx.quadraticCurveTo(cx, cy, SK[0], SK[1]);
+  const N = nick ? 9 : 3;
+  for (let i = 1; i <= N; i++) {
+    const u = i / N, a = 1 - u, X = a * a * ax + 2 * a * u * cx0 + u * u * ex, h = a * a * H + 2 * a * u * 0.42 * H + u * u * 0.1 * H;
+    const d = nick && (i === 3 || i === 6) ? 0.05 * H : 0; // (a notch bitten out of the edge)
+    sl(ctx, X + d, (h - d * 0.6) * s);
+  }
+  sl(ctx, xb, 0.02 * H * s);
+  ctx.closePath();
+}
+function sharkDorsals(ctx, m) {
+  // the tall first dorsal fin (Tall Dorsal Fin and sailK: taller; Fin Spines: a stout white spine leading each), and the
+  // small second dorsal; each a thick blade, tipped over with the body's roll, casting a shadow on the back
+  const lw = AN.lw, fins = m.fins || 0, lvS = min(3, m.sail || 0), spn = (m.spikes || 0) + (m.toxin ? 1 : 0);
+  const s = sin(S9.lean), sg = s < 0 ? -1 : 1;
+  const fin = (xa, xb, H, nick) => {
+    medianPath(ctx, xa, xb, H, s * 1.3 + sg * 0.12, false); ctx.fillStyle = rgbStr(SHARK_DEEP, 0.32); ctx.fill(); // (its shadow)
+    // the thick base: a lens down the back that the blade rises out of
+    const bw = H * 0.075;
+    ctx.beginPath(); sm(ctx, xa + 0.04, 0); skin((xa + xb) / 2 + 0.02, -bw * 1.3); let cx = SK[0], cy = SK[1]; skin(xb - 0.01, 0); ctx.quadraticCurveTo(cx, cy, SK[0], SK[1]);
+    skin((xa + xb) / 2 + 0.02, bw * 1.3); cx = SK[0]; cy = SK[1]; skin(xa + 0.04, 0); ctx.quadraticCurveTo(cx, cy, SK[0], SK[1]);
+    ctx.fillStyle = rgbStr(mixRGB(S9.fin, SHARK_DEEP, 0.12, TMPD), 0.98); ctx.fill();
+    medianPath(ctx, xa, xb, H, s, nick && AN.fine);
+    ctx.fillStyle = rgbStr(mixRGB(S9.fin, SHARK_DEEP, 0.12, TMPD), 0.98); ctx.fill();
+    ctx.strokeStyle = rgbStr(mixRGB(AN.mem, S9.fin, 0.3, TMPC), 0.82); ctx.lineWidth = lw(1.1); ctx.stroke();
+    if (!AN.lo) {
+      // the thick, rounded leading edge catching the light
+      ctx.beginPath(); sm(ctx, xa + 0.01, -sg * bw * 0.5); skin(xa - 0.08 * H, 0.6 * H * s); cx = SK[0]; cy = SK[1]; skin(xa - 0.6 * H, H * s * 0.98); ctx.quadraticCurveTo(cx, cy, SK[0], SK[1]);
+      ctx.strokeStyle = rgbStr(mixRGB(S9.fin, S9.belly, 0.55, TMPD), 0.6); ctx.lineWidth = max(lw(1.4), H * 0.035); ctx.lineCap = 'round'; ctx.stroke();
+      // the base, where it joins the back
+      ctx.beginPath(); sm(ctx, xa + 0.03, -sg * bw); skin((xa + xb) / 2, -sg * bw * 1.25); cx = SK[0]; cy = SK[1]; skin(xb, -sg * bw * 0.2); ctx.quadraticCurveTo(cx, cy, SK[0], SK[1]);
+      ctx.strokeStyle = rgbStr(S9.belly, 0.22); ctx.lineWidth = lw(0.9); ctx.stroke();
+    }
+    if (spn) {
+      const L = H * (0.62 + 0.06 * min(4, spn)), b = 0.02 + 0.004 * min(4, spn);
+      ctx.beginPath(); sm(ctx, xa + 0.07, -sg * b); sl(ctx, xa - 0.3 * L, 1.02 * L * s); sl(ctx, xa + 0.02, sg * b); ctx.closePath();
+      ctx.fillStyle = 'rgba(240,255,250,0.97)'; ctx.fill(); ctx.strokeStyle = 'rgba(20,60,65,0.7)'; ctx.lineWidth = lw(0.9); ctx.stroke();
+    }
+  };
+  fin(DORS9_2A, DORS9_2B, 0.1 * (1 + 0.15 * fins), false);
+  fin(DORS9_A, DORS9_B, 0.48 * (1 + 0.07 * fins) * (1 + 0.14 * lvS) * (1 + 0.16 * S9.up) * (1 - 0.3 * (AN.p.cyst > 0 ? 1 : 0)), true);
+}
+
+// ----- skin -----
+function sharkGills(ctx, m) {
+  // five gill slits down each side, just in front of the pectorals (lit by Salt Pumps)
+  const lw = AN.lw, os = m.osmo || 0;
+  ctx.beginPath();
+  for (const sd of SIDES) for (let i = 0; i < 5; i++) {
+    const x = GILL9_X - i * 0.045, w = AN.W(x);
+    sm(ctx, x + 0.008, sd * w * 0.6); skin(x - 0.02, sd * w * 0.82); const cx = SK[0], cy = SK[1]; skin(x + 0.004, sd * w * 1.04); ctx.quadraticCurveTo(cx, cy, SK[0], SK[1]);
+  }
+  ctx.strokeStyle = rgbStr(SHARK_DEEP, 0.72); ctx.lineWidth = lw(1.5); ctx.lineCap = 'round'; ctx.stroke();
+  if (!AN.lo) {
+    ctx.beginPath();
+    for (const sd of SIDES) for (let i = 0; i < 5; i++) { const x = GILL9_X - i * 0.045 - 0.016, w = AN.W(x); sm(ctx, x + 0.008, sd * w * 0.64); skin(x - 0.02, sd * w * 0.84); const cx = SK[0], cy = SK[1]; skin(x + 0.004, sd * w * 1.04); ctx.quadraticCurveTo(cx, cy, SK[0], SK[1]); }
+    ctx.strokeStyle = rgbStr(os ? OSMO_C : S9.belly, os ? 0.7 : 0.26); ctx.lineWidth = lw(1); ctx.stroke();
+  }
+  if (os) gillGlow(ctx, os, GILL9_X, 0.045, 5, 0.85);
+}
+// old scars: pale scratches behind the head and a raking bite scar on the flank (seen up close)
+const SCAR9 = [0.58, -0.2, 0.52, -0.17, 0.44, -0.16, 0.08, 0.24, 0.0, 0.25, -0.1, 0.22,
+  -0.32, 0.1, -0.38, 0.17, -0.44, 0.23, -0.37, 0.07, -0.43, 0.14, -0.49, 0.2, -0.42, 0.04, -0.48, 0.11, -0.54, 0.17, -0.76, -0.14, -0.84, -0.12, -0.92, -0.13];
+function sharkScars(ctx) {
+  if (!AN.fine) return;
+  const lw = AN.lw;
+  for (let pass = 0; pass < 2; pass++) {
+    ctx.beginPath();
+    for (let i = 0; i < SCAR9.length; i += 6) {
+      const o = pass ? 0 : 0.012;
+      sm(ctx, SCAR9[i], SCAR9[i + 1] + o); skin(SCAR9[i + 2], SCAR9[i + 3] + o); const cx = SK[0], cy = SK[1]; skin(SCAR9[i + 4], SCAR9[i + 5] + o); ctx.quadraticCurveTo(cx, cy, SK[0], SK[1]);
+    }
+    ctx.strokeStyle = pass ? rgbStr(mixRGB(S9.back, S9.belly, 0.45, TMPC), 0.4) : rgbStr(SHARK_DEEP, 0.2); ctx.lineWidth = lw(pass ? 0.9 : 1.1); ctx.lineCap = 'round'; ctx.stroke();
+  }
+}
+// Dermal Denticles (hide): skin of tiny tooth-like scales, a fine sandpaper texture (the sunfish's rough tile, finer)
+// with a shimmer sliding over it
+function denticles(ctx, lv) {
+  insetFill(ctx, 1, rgbStr(HIDE_C, 0.05 + 0.03 * lv));
+  if (AN.lo) return;
+  const m = grads(ctx);
+  let pat = m.get('denti');
+  if (pat === undefined) {
+    roughPattern(ctx); // (builds ROUGH_TILE)
+    pat = ROUGH_TILE ? ctx.createPattern(ROUGH_TILE, 'repeat') : null;
+    if (pat && pat.setTransform && typeof DOMMatrix === 'function') pat.setTransform(new DOMMatrix([0.17 / 64, 0, 0, 0.17 / 64, 0, 0]));
+    m.set('denti', pat);
+  }
+  if (pat && AN.s > 80) { ctx.globalAlpha = AN.A0 * (0.12 + 0.06 * lv) * min(1, (AN.s - 80) / 40); ctx.fillStyle = pat; ctx.fillRect(-2.2, -1.6, 4.4, 3.2); ctx.globalAlpha = AN.A0; } // (only where each scale is a couple of pixels)
+  // (smaller: a fine speckle of pale scale tips)
+  if (AN.s <= 80) { ctx.beginPath(); scatter(ctx, 30 + 10 * lv, 17, 0.04, 0.96, 0.92, 0.006, 0.011); ctx.fillStyle = rgbStr(HIDE_EDGE, 0.22 + 0.06 * lv); ctx.fill(); }
+  let f = AN.t * 0.4; f -= Math.floor(f);
+  ctx.globalCompositeOperation = 'lighter';
+  glowAt(ctx, HIDE_EDGE, AN.xf - 0.2 - f * 2.0, 0.15 * sin(f * 5), 0.42, (0.1 + 0.05 * lv) * sin(f * PI), 1);
+  ctx.globalAlpha = AN.A0; ctx.globalCompositeOperation = 'source-over';
+}
+// Warm Muscles (warmblood): the red swimming muscle deep along each flank, kept warm: a red-orange glow under the skin,
+// heat pulsing back along it, brighter with each level (and the rete, the heat-exchanging blood vessels, at level 2+)
+function warmMuscle(ctx, lv) {
+  const t = AN.t, lw = AN.lw, x0 = 0.42, x1 = -0.98;
+  ctx.beginPath();
+  for (const sd of SIDES) {
+    for (let k = 0; k <= 10; k++) { const x = x0 + (x1 - x0) * (k / 10), w = AN.W(x); k ? sl(ctx, x, sd * w * 0.66) : sm(ctx, x, sd * w * 0.66); }
+    for (let k = 10; k >= 0; k--) { const x = x0 + (x1 - x0) * (k / 10); sl(ctx, x, sd * AN.W(x) * 0.3); }
+    ctx.closePath();
+  }
+  ctx.fillStyle = rgbStr([214, 46, 40], 0.16 + 0.06 * lv); ctx.fill();
+  ctx.globalCompositeOperation = 'lighter';
+  for (const sd of SIDES) for (let i = 0; i < 3 + lv; i++) {
+    let f = t * 0.45 + i / (3 + lv); f -= Math.floor(f);
+    const x = x0 + (x1 - x0) * f;
+    glowAt(ctx, WARMB_C, x, sd * AN.W(x) * 0.48, AN.W(x) * 0.75 + 0.03 * lv, (0.13 + 0.07 * lv) * sin(f * PI));
+  }
+  ctx.globalAlpha = AN.A0; ctx.globalCompositeOperation = 'source-over';
+  if (lv >= 2 && !AN.lo) {
+    ctx.beginPath();
+    for (const sd of SIDES) for (let k = 0; k < 4 + 2 * lv; k++) { const x = 0.34 - k * 0.07, w = AN.W(x); sm(ctx, x + 0.02, sd * w * 0.3); sl(ctx, x - 0.03, sd * w * 0.64); }
+    ctx.strokeStyle = rgbStr([255, 170, 130], 0.3 + 0.08 * lv); ctx.lineWidth = lw(0.8); ctx.stroke();
+  }
+}
+// Tough Gullet (stingproof): a thick, ridged gullet seen through the skin behind the mouth, lined with backward spines
+function sharkGullet(ctx, lv) {
+  const lw = AN.lw, x0 = 0.92, x1 = 0.34, n = 6 + 2 * lv;
+  ctx.beginPath(); sm(ctx, x0, 0); for (let k = 1; k <= 6; k++) sl(ctx, x0 - (x0 - x1) * (k / 6), 0.01 * sin(k * 1.7));
+  ctx.strokeStyle = rgbStr(mixRGB(LINING_C, [120, 100, 116], 0.4, TMPC), 0.3 + 0.08 * lv); ctx.lineWidth = 0.11 + 0.02 * lv; ctx.lineCap = 'round'; ctx.stroke();
+  if (AN.lo) return;
+  const h = 0.05 + 0.01 * lv;
+  ctx.beginPath();
+  for (let i = 0; i < n; i++) { const x = x0 - 0.04 - i * ((x0 - x1 - 0.08) / (n - 1)); sm(ctx, x + 0.01, -h); skin(x - 0.025, 0); const cx = SK[0], cy = SK[1]; skin(x + 0.01, h); ctx.quadraticCurveTo(cx, cy, SK[0], SK[1]); }
+  ctx.strokeStyle = 'rgba(255,226,232,0.55)'; ctx.lineWidth = lw(1); ctx.stroke();
+  if (lv >= 2) {
+    ctx.beginPath();
+    for (let i = 0; i < n; i++) for (const sd of SIDES) { const x = x0 - 0.06 - i * ((x0 - x1 - 0.1) / (n - 1)); sm(ctx, x, sd * h * 0.9); sl(ctx, x - 0.035, sd * h * 0.45); }
+    ctx.strokeStyle = 'rgba(255,252,246,0.85)'; ctx.lineWidth = lw(1); ctx.stroke();
+  }
+}
+// Belly Flash (Photophore Flash on this body): the white belly bright as a mirror along the flanks, a glint sliding along
+function bellyFlash(ctx, lv) {
+  const n = bodyPts(1, true, TX, TY); emitPath(ctx, n, TX, TY);
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.strokeStyle = rgbStr(WHITE, 0.14 + 0.06 * lv); ctx.lineWidth = 0.1 + 0.02 * lv; ctx.stroke();
+  let f = AN.t * 0.35; f -= Math.floor(f);
+  for (const sd of SIDES) { const x = 0.7 - f * 1.7; glowAt(ctx, WHITE, x, sd * AN.W(x) * 0.95, 0.2 + 0.04 * lv, (0.16 + 0.06 * lv) * sin(f * PI), 1); }
+  ctx.globalAlpha = AN.A0; ctx.globalCompositeOperation = 'source-over';
+}
+// Thick Skin (gelskin): a thick, leathery rim of skin round the body over a pale layer of fat (back), with a dull sheen
+// on its lit side (front)
+function thickSkin(ctx, lv, front) {
+  const lw = AN.lw;
+  if (!front) {
+    const n = bodyPts(1.06 + 0.03 * lv, true, TX, TY); emitPath(ctx, n, TX, TY);
+    ctx.fillStyle = rgbStr(mixRGB(S9.belly, [255, 236, 200], 0.3, TMPC), 0.45 + 0.08 * lv); ctx.fill();
+    ctx.strokeStyle = rgbStr(mixRGB(S9.back, S9.deep, 0.4, TMPD), 0.7); ctx.lineWidth = lw(1.2 + 0.4 * lv); ctx.stroke();
+    return;
+  }
+  const ca = cos(-AN.ang), sa = sin(-AN.ang), lx = -0.67 * ca + 0.74 * sa, ly = -0.67 * sa - 0.74 * ca, k = 1.03 + 0.015 * lv;
+  ctx.beginPath();
+  for (const sd of SIDES) {
+    let on = false;
+    for (let i = 0; i <= 24; i++) {
+      const x = 0.95 - (i / 24) * 2.1; edge(x, sd, k);
+      if (EP[2] * lx + EP[3] * ly > 0.5) { on ? ctx.lineTo(EP[0], EP[1]) : ctx.moveTo(EP[0], EP[1]); on = true; } else on = false;
+    }
+  }
+  ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = lw(1.3 + 0.4 * lv); ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke();
+}
+
+// ----- head -----
+function sharkEyeR(m) { return 0.042 + 0.02 * (m.eyes || 0); }
+function sharkEyes(ctx, m) {
+  // small, black eyes set wide on the head
+  const lv = m.eyes || 0, r = sharkEyeR(m), v = AN.W(EYE9_X) - r * 0.55;
+  const iris = rgbStr(lv ? mixRGB([34, 44, 56], EYE_GLOW, 0.18 + 0.12 * lv, TMPC) : [24, 32, 42], 0.97);
+  for (const sd of SIDES) fishEye(ctx, EYE9_X, sd * v, r, lv, iris);
+}
+// Crushing Bite (beak): heavy jaw muscles bulging at the corners of the head (the bulge is also in the outline: w9),
+// bunching as the jaws close
+function sharkCheeks(ctx, lv) {
+  const lw = AN.lw, x = 0.6, sh = 1 - S9.gape, rx = 0.1 + 0.015 * lv, ry = 0.05 + 0.012 * lv;
+  ctx.beginPath();
+  for (const sd of SIDES) { skin(x, sd * (AN.W(x) - ry * 1.15)); const a = SK[2] - sd * 0.22, ex = rx * (1 + 0.05 * sh); ctx.moveTo(SK[0] + cos(a) * ex, SK[1] + sin(a) * ex); ctx.ellipse(SK[0], SK[1], ex, ry * (1 + 0.1 * sh), a, 0, TAU); }
+  ctx.fillStyle = rgbStr(mixRGB(MUSCLE_C, S9.back, 0.45, TMPC), 0.14 + 0.05 * lv + 0.06 * sh); ctx.fill();
+  if (AN.lo) return;
+  ctx.strokeStyle = rgbStr(S9.belly, 0.25); ctx.lineWidth = lw(0.9); ctx.stroke();
+  ctx.beginPath();
+  for (const sd of SIDES) for (let k = -2; k <= 2; k++) { const v0 = sd * (AN.W(x) - ry * 1.15 + k * ry * 0.32); sm(ctx, x + rx * 0.8, v0 - sd * 0.012); sl(ctx, x - rx * 0.8, v0 + sd * 0.012); }
+  ctx.strokeStyle = rgbStr(mixRGB(MUSCLE_C, [120, 20, 40], 0.3, TMPC), 0.45 + 0.2 * sh); ctx.lineWidth = lw(1); ctx.lineCap = 'round'; ctx.stroke();
+}
+// a triangular tooth standing on the jaw at rest (x, v0), pointing across the body (towards sd·dv) and a little back;
+// saw-edged (Serrated Teeth) when ser
+function tooth(ctx, x, v0, dv, hw, ser) {
+  if (!ser) { sm(ctx, x + hw, v0); sl(ctx, x - hw * 0.35, v0 + dv); sl(ctx, x - hw, v0); ctx.closePath(); return; }
+  const tx = x - hw * 0.3, tv = v0 + dv, Z = 3, z = hw * 0.07;
+  sm(ctx, x + hw, v0);
+  for (let i = 1; i < Z; i++) { const u = i / Z; sl(ctx, x + hw + (tx - x - hw) * u + z, v0 + dv * u - z * Math.sign(dv)); sl(ctx, x + hw + (tx - x - hw) * (u + 0.5 / Z), v0 + dv * (u + 0.5 / Z)); }
+  sl(ctx, tx, tv);
+  for (let i = Z - 1; i >= 1; i--) { const u = i / Z; sl(ctx, x - hw + (tx - x + hw) * (u + 0.5 / Z), v0 + dv * (u + 0.5 / Z)); sl(ctx, x - hw + (tx - x + hw) * u - z, v0 + dv * u - z * Math.sign(dv)); }
+  sl(ctx, x - hw, v0); ctx.closePath();
+}
+// the mouth, under the snout, its corners at the sides of the head. Opening (S9.gape), the jaws thrust out round the
+// head and the dark gape shows, lined with triangular teeth (Shark Jaws: more and bigger rows, showing even with the jaws
+// shut; Serrated Teeth: big saw-edged teeth at the corners)
+function sharkMouth(ctx, m) {
+  const lw = AN.lw, jw = min(3, m.jaws || 0), sr = min(3, m.serrated || 0), g = S9.gape, N = 12, R = JAW_RIM;
+  const x0 = MOUTH9_X, xt = 1.0, gw = g * (0.05 + 0.012 * jw + 0.008 * sr);
+  for (let i = 0; i <= N; i++) {
+    const u = i / N, x = x0 + (xt - x0) * u;
+    R[i * 2] = x; R[i * 2 + 1] = AN.W(x) * (0.99 - 0.3 * u * u * u) + gw * Math.pow(sin(PI * min(1, 1.08 * Math.pow(u, 1.35))), 0.75);
+  }
+  if (gw > 0.009) {
+    // the gape, dark and red-lined, showing round the sides of the head
+    ctx.beginPath();
+    for (const sd of SIDES) {
+      for (let i = 0; i <= N; i++) i ? sl(ctx, R[i * 2], sd * R[i * 2 + 1]) : sm(ctx, R[i * 2], sd * R[i * 2 + 1]);
+      for (let i = N; i >= 0; i--) { const x = R[i * 2]; sl(ctx, x, sd * min(R[i * 2 + 1], AN.W(x) * 0.95)); }
+      ctx.closePath();
+    }
+    ctx.fillStyle = 'rgba(58,10,24,0.96)'; ctx.fill();
+    // the lower jaw's pale rim (where it shows past the head)
+    ctx.beginPath();
+    for (const sd of SIDES) { let on = false; for (let i = 0; i <= N; i++) { const x = R[i * 2], v = R[i * 2 + 1]; if (v > AN.W(x) * 0.97) { on ? sl(ctx, x, sd * v) : sm(ctx, x, sd * v); on = true; } else on = false; } }
+    ctx.strokeStyle = rgbStr(S9.belly, 0.92); ctx.lineWidth = lw(1.3 + 0.3 * jw); ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke();
+  }
+  // where the jaws meet: a line along each side of the head from the corner
+  ctx.beginPath();
+  for (const sd of SIDES) for (let i = 0; i <= 8; i++) { const x = x0 - 0.02 + i * 0.035, v = sd * AN.W(x) * (0.95 - 0.02 * i); i ? sl(ctx, x, v) : sm(ctx, x, v); }
+  ctx.strokeStyle = rgbStr(SHARK_DEEP, 0.5); ctx.lineWidth = lw(1.1); ctx.lineCap = 'round'; ctx.stroke();
+  if (AN.lo && !sr && g < 0.5) return;
+  // the teeth: the upper jaw's, hanging over the edge of the head (showing when it opens, or always with Shark Jaws;
+  // bigger and saw-edged with Serrated Teeth), and the lower jaw's along its rim; a row of replacement teeth behind with
+  // Shark Jaws 2+
+  const tl = 0.024 + 0.008 * jw + 0.01 * sr, show = jw || sr ? 0.45 + 0.55 * g : g, nt = AN.lo ? 4 : 5 + 2 * jw, ser = sr && AN.fine;
+  ctx.beginPath();
+  if (show > 0.15) for (const sd of SIDES) for (let i = 0; i < nt; i++) {
+    const u = 0.06 + 0.72 * ((i + 0.5) / nt), x = x0 + (xt - x0) * u, w = AN.W(x) * 0.97, l = tl * (1 - 0.35 * u) * show;
+    tooth(ctx, x, sd * w, sd * l, min(l * 0.45, (0.36 * (xt - x0)) / nt), ser);
+  }
+  if (g > 0.3) for (const sd of SIDES) for (let i = 0; i < nt; i++) {
+    const j = Math.round((0.1 + 0.7 * ((i + 0.5) / nt)) * N), l = tl * 0.8 * (1 - 0.3 * j / N) * g;
+    tooth(ctx, R[j * 2], sd * R[j * 2 + 1], -sd * l, min(l * 0.45, (0.36 * (xt - x0)) / nt), ser);
+  }
+  ctx.fillStyle = rgbStr(TOOTH_C, 0.96); ctx.fill();
+  if (!AN.lo) { ctx.strokeStyle = 'rgba(80,40,40,0.45)'; ctx.lineWidth = lw(0.6); ctx.stroke(); }
+  if (jw >= 2 && g > 0.4 && !AN.lo) {
+    ctx.beginPath();
+    for (const sd of SIDES) for (let i = 0; i < nt - 1; i++) { const u = 0.1 + 0.62 * ((i + 0.5) / nt), x = x0 + (xt - x0) * u, l = tl * 0.6 * g; tooth(ctx, x, sd * (AN.W(x) * 0.97 + gw * 0.42), sd * l, l * 0.42, false); }
+    ctx.fillStyle = rgbStr(TOOTH_C, 0.6); ctx.fill();
+  }
+  if (sr) {
+    // Serrated Teeth: big, white, saw-edged triangles jutting from the corners of the mouth even when it is shut, set in
+    // a dark gum line
+    const ns = 1 + sr, L = (0.045 + 0.014 * sr) * (0.75 + 0.25 * g), hw = 0.016 + 0.003 * sr;
+    ctx.beginPath();
+    for (const sd of SIDES) for (let i = 0; i <= 6; i++) { const x = x0 - 0.01 + i * 0.022, v = sd * AN.W(x) * 0.97; i ? sl(ctx, x, v) : sm(ctx, x, v); }
+    ctx.strokeStyle = 'rgba(70,14,26,0.85)'; ctx.lineWidth = lw(1.6 + 0.3 * sr); ctx.lineCap = 'round'; ctx.stroke();
+    ctx.beginPath();
+    for (const sd of SIDES) for (let i = 0; i < ns; i++) { const x = x0 + 0.012 + i * hw * 2.3; tooth(ctx, x, sd * AN.W(x) * 0.96, sd * L * (1 - 0.15 * i), hw, AN.fine); }
+    ctx.fillStyle = 'rgba(255,253,246,0.98)'; ctx.fill(); ctx.strokeStyle = 'rgba(70,40,34,0.6)'; ctx.lineWidth = lw(0.8); ctx.stroke();
+  }
+}
+// the nostrils under the snout (Keen Nose, tentacles: big and flared, with faint wisps of scent drifting in to them)
+function sharkNose(ctx, m) {
+  const tn = min(3, m.tentacles || 0), lw = AN.lw, t = AN.t, x = 0.97;
+  if (!tn && !AN.fine) return;
+  const v0 = AN.W(x) * 0.6, rx = 0.019 + 0.006 * tn, ry = 0.0065 + 0.0025 * tn;
+  if (tn && !AN.lo) {
+    // each wisp drifts in from ahead, fading in and out, curling as it comes
+    ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
+    for (const sd of SIDES) for (let j = 0; j < 1 + tn; j++) {
+      let f = t * 0.55 + j / (1 + tn) + (sd > 0 ? 0.37 : 0); f -= Math.floor(f);
+      const d = 0.1 + (1 - f) * (0.55 + 0.1 * tn), spread = sd * (0.05 + 0.25 * (1 - f) * (0.4 + 0.6 * ((j * 0.618) % 1)));
+      ctx.beginPath();
+      for (let k = 0; k <= 5; k++) { const u = k / 5, xx = x + d + u * 0.18, vv = sd * v0 + spread * (1 + 0.6 * u) + 0.022 * sin(t * 3 + u * 3.2 + j * 2.1); k ? sl(ctx, xx, vv) : sm(ctx, xx, vv); }
+      ctx.strokeStyle = rgbStr(SCENT_C, (0.1 + 0.04 * tn) * sin(f * PI)); ctx.lineWidth = lw(2.4); ctx.stroke();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+  ctx.beginPath();
+  for (const sd of SIDES) { skin(x, sd * v0); const a = SK[2] + sd * 0.4; ctx.moveTo(SK[0] + cos(a) * rx, SK[1] + sin(a) * rx); ctx.ellipse(SK[0], SK[1], rx, ry, a, 0, TAU); }
+  ctx.fillStyle = tn ? 'rgba(12,20,28,0.8)' : 'rgba(12,20,28,0.5)'; ctx.fill();
+  if (tn && !AN.lo) {
+    // the skin flap that steers the water through each nostril
+    ctx.beginPath(); for (const sd of SIDES) { sm(ctx, x + 0.012, sd * (v0 - ry * 2)); skin(x + 0.03, sd * v0); const cx = SK[0], cy = SK[1]; skin(x + 0.005, sd * (v0 + ry * 2.4)); ctx.quadraticCurveTo(cx, cy, SK[0], SK[1]); }
+    ctx.strokeStyle = rgbStr(S9.belly, 0.5); ctx.lineWidth = lw(1); ctx.stroke();
+  }
+}
+// the ampullae of Lorenzini: dark, jelly-filled pores dotted over the snout. Electrosense (senseK): they glow violet-blue
+// and faint electric ripples pulse out ahead
+const PORE9 = [];
+{ let sd = 9091; const r = () => ((sd = (sd * 16807) % 2147483647) / 2147483647); for (let i = 0; i < 26; i++) { const x = 1.07 - 0.27 * Math.pow(r(), 0.8); PORE9.push(x, (r() * 2 - 1) * 0.8); } }
+function sharkPores(ctx) {
+  const k = S9.sn, t = AN.t, lw = AN.lw, n = PORE9.length >> 1;
+  if (k > 0.02) {
+    ctx.globalCompositeOperation = 'lighter';
+    skin(F9.xf - 0.02, 0); const sx = SK[0], sy = SK[1], a = SK[2];
+    ctx.lineCap = 'round';
+    for (let i = 0; i < 3; i++) {
+      let f = t * 0.9 + i / 3; f -= Math.floor(f);
+      const R = 0.14 + f * 1.15, span = 0.95 - 0.35 * f;
+      ctx.beginPath(); ctx.arc(sx, sy, R, a - span, a + span);
+      ctx.strokeStyle = rgbStr(SENSE_C, k * 0.6 * (1 - f)); ctx.lineWidth = lw(1.4 + 1.4 * (1 - f)); ctx.stroke();
+      if (!AN.lo) {
+        // a flicker of tiny sparks along each ripple
+        ctx.beginPath();
+        for (let j = 0; j < 5; j++) { const b = a - span + (2 * span * (j + 0.5)) / 5 + 0.1 * sin(t * 7 + j * 2.3 + i), rr = R + 0.03 * sin(t * 11 + j * 1.7); ctx.moveTo(sx + cos(b) * rr, sy + sin(b) * rr); ctx.lineTo(sx + cos(b + 0.06) * (rr + 0.05), sy + sin(b + 0.06) * (rr + 0.05)); }
+        ctx.strokeStyle = rgbStr(mixRGB(SENSE_C, WHITE, 0.5, TMPC), k * 0.7 * (1 - f)); ctx.lineWidth = lw(1); ctx.stroke();
+      }
+    }
+    glowAt(ctx, SENSE_C, 0.92, 0, 0.34, 0.35 * k, 0);
+    for (let i = 0; i < n; i += AN.lo ? 3 : 1) { const f = 0.5 + 0.5 * sin(t * 6 + i * 1.7), x = PORE9[i * 2]; glowAt(ctx, SENSE_C, x, PORE9[i * 2 + 1] * AN.W(x), 0.035 + 0.02 * f, k * (0.55 + 0.4 * f), 1); }
+    ctx.globalAlpha = AN.A0; ctx.globalCompositeOperation = 'source-over';
+  }
+  if (!AN.fine && k < 0.3) return;
+  ctx.beginPath();
+  for (let i = 0; i < n; i++) { const x = PORE9[i * 2], r = 0.0075 + 0.005 * k; skin(x, PORE9[i * 2 + 1] * AN.W(x)); ctx.moveTo(SK[0] + r, SK[1]); ctx.arc(SK[0], SK[1], r, 0, TAU); }
+  ctx.fillStyle = k > 0.02 ? rgbStr(mixRGB([20, 26, 34], [244, 236, 255], k, TMPC), 0.4 + 0.5 * k) : 'rgba(18,26,34,0.36)'; ctx.fill();
+}
+
+// ----- in action -----
+// Ambush Rush: a surge of speed lines streaming back past the flanks
+function rushLines(ctx) {
+  const k = S9.rush, t = AN.t, lw = AN.lw;
+  ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
+  for (let i = 0; i < (AN.lo ? 8 : 14); i++) {
+    const sd = i & 1 ? 1 : -1, j = i >> 1;
+    let f = t * 2.6 + j * 0.383 + (sd > 0 ? 0.5 : 0); f -= Math.floor(f);
+    const off = 0.08 + 0.08 * j, xa = 1.0 - 0.1 * j - f * 1.5, L = 0.55 + 0.4 * ((j * 0.618) % 1);
+    ctx.beginPath();
+    for (let q = 0; q <= 5; q++) { const x = xa - (q / 5) * L, w = x > AN.xf ? 0 : x < AN.xr ? 0.05 : AN.W(x); q ? sl(ctx, x, sd * (w + off)) : sm(ctx, x, sd * (w + off)); }
+    ctx.strokeStyle = rgbStr(SPEED_C, k * 0.55 * sin(f * PI)); ctx.lineWidth = lw(1.2 + 0.6 * (j & 1)); ctx.stroke();
+  }
+  ctx.globalCompositeOperation = 'source-over';
+}
+// Breach: water pouring off as it leaps clear (back: sheets of spray off the tail and fins; front: a wet sheen, droplets
+// flung from the flanks, streaks running off)
+function sharkSpray(ctx, front) {
+  const k = S9.br, t = AN.t, lw = AN.lw;
+  if (!front) {
+    ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
+    skin(F9.xr - 0.15, 0); const x0 = SK[0], y0 = SK[1], a0 = SK[2] + PI;
+    ctx.beginPath();
+    for (let i = 0; i < 7; i++) { const a = a0 + (i - 3) * 0.17, L = (0.4 + 0.35 * ((i * 0.618) % 1)) * k; ctx.moveTo(x0 + cos(a) * 0.08, y0 + sin(a) * 0.08); ctx.quadraticCurveTo(x0 + cos(a) * L * 0.55, y0 + sin(a) * L * 0.55 + 0.04 * sin(t * 9 + i), x0 + cos(a) * L, y0 + sin(a) * L); }
+    ctx.strokeStyle = rgbStr([225, 245, 255], 0.22 * k); ctx.lineWidth = lw(3.2); ctx.stroke();
+    ctx.strokeStyle = rgbStr(WHITE, 0.4 * k); ctx.lineWidth = lw(1.1); ctx.stroke();
+    glowAt(ctx, [215, 240, 255], F9.xr - 0.45, 0, 0.7, 0.4 * k, 0);
+    ctx.globalAlpha = AN.A0; ctx.globalCompositeOperation = 'source-over';
+    return;
+  }
+  ctx.globalCompositeOperation = 'lighter';
+  glowAt(ctx, WHITE, 0.25, 0, 0.55, 0.26 * k, 1);
+  ctx.beginPath(); smoothLine(ctx, [0.9, 0.02, 0.45, -0.03, -0.05, -0.05, -0.65, -0.03]);
+  ctx.strokeStyle = rgbStr(WHITE, 0.42 * k); ctx.lineWidth = lw(2.2); ctx.lineCap = 'round'; ctx.stroke();
+  ctx.globalAlpha = AN.A0; ctx.globalCompositeOperation = 'source-over';
+  const nd = AN.lo ? 12 : 24;
+  ctx.globalAlpha = AN.A0 * min(1, k * 1.6);
+  for (let pass = 0; pass < 2; pass++) {
+    ctx.beginPath();
+    for (let i = 0; i < nd; i++) {
+      let f = t * 1.6 + i * 0.381; f -= Math.floor(f);
+      const sd = i & 1 ? 1 : -1, x = 1.0 - ((i * 0.618) % 1) * 2.2;
+      edge(x, sd); const r0 = (0.025 + 0.022 * ((i * 0.37) % 1)) * (1 - 0.45 * f), r = pass ? r0 * 0.38 : r0;
+      skin(x, 0); const bx = -cos(SK[2]), by = -sin(SK[2]), out = 0.06 + 0.3 * f, back = 0.6 * f * (0.6 + 0.6 * k);
+      const px = EP[0] + EP[2] * out + bx * back - (pass ? r0 * 0.35 : 0), py = EP[1] + EP[3] * out + by * back - (pass ? r0 * 0.35 : 0);
+      ctx.moveTo(px + r, py); ctx.arc(px, py, r, 0, TAU);
+    }
+    ctx.fillStyle = pass ? 'rgba(255,255,255,0.95)' : 'rgba(205,238,255,0.75)'; ctx.fill();
+    if (!pass && !AN.lo) { ctx.strokeStyle = 'rgba(240,252,255,0.85)'; ctx.lineWidth = lw(0.8); ctx.stroke(); }
+  }
+  ctx.globalAlpha = AN.A0;
+  if (!AN.lo) {
+    ctx.beginPath();
+    for (let i = 0; i < 12; i++) {
+      const sd = i & 1 ? 1 : -1, x = 0.75 - (i >> 1) * 0.32; let f = t * 1.3 + i * 0.29; f -= Math.floor(f);
+      edge(x, sd, 0.98); const L = 0.14 + 0.16 * f;
+      skin(x, 0); const bx = -cos(SK[2]), by = -sin(SK[2]);
+      ctx.moveTo(EP[0], EP[1]); ctx.quadraticCurveTo(EP[0] + bx * L * 0.5, EP[1] + by * L * 0.5, EP[0] + (bx * 0.85 + EP[2] * 0.35) * L, EP[1] + (by * 0.85 + EP[3] * 0.35) * L);
+    }
+    ctx.strokeStyle = rgbStr(WHITE, 0.6 * k); ctx.lineWidth = lw(1.6); ctx.lineCap = 'round'; ctx.stroke();
+  }
+}
+
+// Threat Display: the stiff, jerky swimming shown as little shudder marks at the head and the tail
+function threatMarks(ctx) {
+  const k = S9.pk, t = AN.t, lw = AN.lw, j = sin(t * 23) > 0 ? 1 : 0.6; // (a flicker)
+  ctx.beginPath();
+  for (const sd of SIDES) for (const [x, n] of [[0.62, 3], [-0.95, 2]]) {
+    edge(x, sd); const ex = EP[0], ey = EP[1], nx = EP[2], ny = EP[3], tx = -ny, ty = nx;
+    for (let i = 0; i < n; i++) { const d = 0.1 + 0.075 * i, h = 0.07 - 0.012 * i; ctx.moveTo(ex + nx * d - tx * h, ey + ny * d - ty * h); ctx.quadraticCurveTo(ex + nx * (d + 0.03), ey + ny * (d + 0.03), ex + nx * d + tx * h, ey + ny * d + ty * h); }
+  }
+  ctx.strokeStyle = rgbStr([230, 245, 255], 0.55 * k * j); ctx.lineWidth = lw(1.4); ctx.lineCap = 'round'; ctx.stroke();
+}
+function sharkBack(ctx, m) {
+  if (S9.rush > 0.02) rushLines(ctx);
+  if (S9.pk > 0.3) threatMarks(ctx);
+  if (S9.sl > 0.02) slashArc(ctx, 0.06, F9.xf + 0.04);
+  if (S9.br > 0.02) sharkSpray(ctx, 0);
+  sharkTail(ctx, m);
+  sharkLowerFins(ctx, m);
+  if (m.gills) gillFilaments(ctx, m.gills);
+  sharkPecs(ctx, m);
+  if (m.gelskin) thickSkin(ctx, m.gelskin, 0);
+}
+function sharkInside(ctx, m) {
+  if (m.mimicry) mottle(ctx, m.mimicry);
+  if (m.chloro) sunBask(ctx, m.chloro);
+  if (m.vacuole) swimBladder(ctx, m.vacuole);
+  if (m.lysosome) fishGut(ctx, m.lysosome);
+  if (m.polyps) caeca(ctx, m.polyps);
+  if (m.stingproof) sharkGullet(ctx, m.stingproof);
+  if (m.muscle || m.mito) myomeres(ctx, m, 0.45, -1.15, 15, 0.9, 0.08);
+  if (m.mito) mitoGlow(ctx, m.mito);
+  if (m.warmblood) warmMuscle(ctx, m.warmblood);
+  if (m.hide) denticles(ctx, m.hide);
+  if (m.nova) novaOrgan(ctx, m.nova);
+  if (m.tetrodo) sailMucus(ctx, m.tetrodo);
+  if (m.photo) bellyFlash(ctx, m.photo);
+  if (m.nerve) nerveSys(ctx, m.nerve);
+  sharkScars(ctx);
+  sharkGills(ctx, m);
+}
+function sharkFront(ctx, m) {
+  if (m.shell) placoderm(ctx, m.shell);
+  if (m.guard) scutes(ctx, m.guard);
+  if (m.cilia) lateralLine(ctx, m.cilia);
+  if (m.biolum) biolumSpots(ctx, m.biolum);
+  if (m.dash) dashMuscle(ctx, m.dash);
+  if (m.cnido) stingSlime(ctx, m.cnido);
+  if (m.tetrodo) sailMucusFilm(ctx, m.tetrodo);
+  if (m.spikes || m.toxin) fishSpines(ctx, m);
+  sharkDorsals(ctx, m);
+  if (m.warmeyes) warmEyes(ctx, m.warmeyes, EYE9_X, sharkEyeR(m), 0.62);
+  if (m.beak) sharkCheeks(ctx, m.beak);
+  sharkMouth(ctx, m);
+  sharkNose(ctx, m);
+  sharkPores(ctx);
+  sharkEyes(ctx, m);
+  if (m.gelskin) thickSkin(ctx, m.gelskin, 1);
+  if (S9.br > 0.02) sharkSpray(ctx, 1);
+  if (m.cleaners) cleanerWrasses(ctx, m.cleaners, 0.0, 0.6, 0.6, 0.3);
+}
+
 // ============================ the animal pipeline ============================
 function drawAnimal(ctx, p, m, t, s, ph, stage, body, mem, A0) {
   const lw = (px) => px / s;
@@ -4042,10 +4735,10 @@ function drawAnimal(ctx, p, m, t, s, ph, stage, body, mem, A0) {
   AN.os = outlineXs(stage, AN.lo);
   mixRGB(body, [6, 40, 60], 0.52, AN.dark); mixRGB(body, WHITE, 0.5, AN.pale);
   // (the flatworm and the larva are drawn a little larger so each stage keeps the colony's visual weight)
-  const s6 = stage === 6, s7 = stage === 7, s8 = stage === 8, st = (p.stretch || 0) * (1 - AN.pk), k = stage === 3 ? 1.1 : stage === 4 ? 1.05 : 1;
-  if (s7) sailPalette(m); else if (s8) molaPalette(m);
+  const s6 = stage === 6, s7 = stage === 7, s8 = stage === 8, s9 = stage === 9, st = (p.stretch || 0) * (1 - AN.pk), k = stage === 3 ? 1.1 : stage === 4 ? 1.05 : 1;
+  if (s7) sailPalette(m); else if (s8) molaPalette(m); else if (s9) sharkPalette(m);
   ctx.save();
-  ctx.scale(k * (1 + st * 0.4), k * (1 - st * 0.28));
+  ctx.scale(k * (1 + st * 0.4) * (s9 ? 1 - 0.06 * S9.pk : 1), k * (1 - st * 0.28)); // (a great white's Threat Display hunches it up shorter)
   ctx.lineJoin = 'round';
   // ---- behind the body
   if (m.signal) {
@@ -4054,23 +4747,23 @@ function drawAnimal(ctx, p, m, t, s, ph, stage, body, mem, A0) {
   }
   if (m.dash && p.dashT > 0) (stage >= 4 ? dashWake : dashJet)(ctx, m.dash);
   if (stage === 5 && m.tentacles) barbels(ctx, m.tentacles); // (a pufferfish's tentacles are its nostrils: pufferFront)
-  if (stage === 3) wormBack(ctx, m); else if (stage === 4) larvaBack(ctx, m); else if (s6) pufferBack(ctx, m); else if (s7) sailBack(ctx, m); else if (s8) molaBack(ctx, m); else fishBack(ctx, m);
+  if (stage === 3) wormBack(ctx, m); else if (stage === 4) larvaBack(ctx, m); else if (s6) pufferBack(ctx, m); else if (s7) sailBack(ctx, m); else if (s8) molaBack(ctx, m); else if (s9) sharkBack(ctx, m); else fishBack(ctx, m);
   if (m.polyps && stage === 3) animalPolyps(ctx, m.polyps); // a fish digests with pyloric caeca instead (inside)
   // ---- the body
   const n = bodyPts(1, true);
   if (m.cyst) cystCoat(ctx, m.cyst, n);
   emitPath(ctx, n);
-  if (stage === 3) wormBody(ctx, m, n); else if (stage === 4) larvaBody(ctx, n); else if (s6) pufferBody(ctx, n); else if (s7) sailBody(ctx, n); else if (s8) molaBody(ctx, n); else fishBody(ctx, n);
+  if (stage === 3) wormBody(ctx, m, n); else if (stage === 4) larvaBody(ctx, n); else if (s6) pufferBody(ctx, n); else if (s7) sailBody(ctx, n); else if (s8) molaBody(ctx, n); else if (s9) sharkBody(ctx, n); else fishBody(ctx, n);
   ctx.save(); ctx.clip();
-  if (stage === 3) wormInside(ctx, m); else if (stage === 4) larvaInside(ctx, m); else if (s6) pufferInside(ctx, m); else if (s7) sailInside(ctx, m); else if (s8) molaInside(ctx, m); else fishInside(ctx, m);
+  if (stage === 3) wormInside(ctx, m); else if (stage === 4) larvaInside(ctx, m); else if (s6) pufferInside(ctx, m); else if (s7) sailInside(ctx, m); else if (s8) molaInside(ctx, m); else if (s9) sharkInside(ctx, m); else fishInside(ctx, m);
   ctx.restore();
   emitPath(ctx, n);
   ctx.strokeStyle = cstr(mem); ctx.lineWidth = lw(1.5 + (m.membrane || 0) * 0.8); ctx.stroke();
   if (m.membrane) membraneIn(ctx, m.membrane);
   // ---- on the skin
-  if (stage === 3) wormFront(ctx, m); else if (stage === 4) larvaFront(ctx, m); else if (s6) pufferFront(ctx, m); else if (s7) sailFront(ctx, m); else if (s8) molaFront(ctx, m); else fishFront(ctx, m);
+  if (stage === 3) wormFront(ctx, m); else if (stage === 4) larvaFront(ctx, m); else if (s6) pufferFront(ctx, m); else if (s7) sailFront(ctx, m); else if (s8) molaFront(ctx, m); else if (s9) sharkFront(ctx, m); else fishFront(ctx, m);
   if (s6) hiliteAt(ctx, 0.3, 0.8 + 0.75 * AN.pk);
-  else hiliteAt(ctx, stage === 3 ? 0.3 : stage === 4 ? 0.62 : s7 ? 0.45 : s8 ? 0.2 : 0.4, stage === 4 ? 0.5 : s7 ? 0.62 : s8 ? 0.95 : 0.72);
+  else hiliteAt(ctx, stage === 3 ? 0.3 : stage === 4 ? 0.62 : s7 ? 0.45 : s8 ? 0.2 : s9 ? 0.3 : 0.4, stage === 4 ? 0.5 : s7 ? 0.62 : s8 ? 0.95 : s9 ? 0.66 : 0.72);
   if (p.cyst > 0) cystShell(ctx, t, lw);
   ctx.restore();
   AN.pk = 0; // (skin() is only ever the pufferfish's balloon while it is being drawn)
@@ -4340,10 +5033,10 @@ function drawSiphPortrait(g, size) {
 }
 
 // evolution stage framing for portraits: [radius as a fraction of size, x offset (units), rotation]
-const STAGE_FRAME = [null, [0.27, 0, -0.4], [0.235, 0.3, -0.4], [0.32, 0.04, -0.42], [0.32, 0.2, -0.45], [0.3, 0.2, -0.42], [0.31, 0.04, -0.42], [0.2, -0.2, -0.58], [0.235, 0.12, -0.3]];
+const STAGE_FRAME = [null, [0.27, 0, -0.4], [0.235, 0.3, -0.4], [0.32, 0.04, -0.42], [0.32, 0.2, -0.45], [0.3, 0.2, -0.42], [0.31, 0.04, -0.42], [0.2, -0.2, -0.58], [0.235, 0.12, -0.3], [0.245, 0.42, -0.5]];
 // the evolution stage each campaign mutation belongs to (its portrait shows that body)
 const MUT_STAGE = { guard: 2, polyps: 2, signal: 2, muscle: 3, jaws: 3, nerve: 3, cnido: 3, fins: 4, eyes: 4, shell: 4, tentacles: 5, hide: 5, gills: 5, beak: 6, tetrodo: 6, hover: 6, sail: 7, warmeyes: 7, stripes: 7,
-  gelskin: 8, stingproof: 8, cleaners: 8 };
+  gelskin: 8, stingproof: 8, cleaners: 8, serrated: 9, warmblood: 9, countershade: 9 };
 // per-trait framing tweaks (zoom toward the feature)
 const MUT_FRAME = { jaws: [0.38, -0.45, -0.3], eyes: [0.36, -0.35, -0.45], polyps: [0.215, 0.3, -0.4], signal: [0.2, 0.3, -0.4], tentacles: [0.3, -0.25, -0.5],
   fins: [0.34, 0.05, -0.42], shell: [0.4, -0.3, -0.45], hide: [0.31, 0.15, -0.42], gills: [0.36, -0.3, -0.45] };
@@ -4354,9 +5047,10 @@ const MUT_GLOW = {
   beak: [255, 236, 190], tetrodo: [255, 214, 80], hover: [150, 235, 255], puff: [255, 226, 150],
   sail: [90, 160, 255], warmeyes: [255, 160, 90], stripes: [80, 185, 255], slash: [180, 225, 255],
   gelskin: [190, 235, 255], stingproof: [255, 160, 200], cleaners: [90, 160, 255], breach: [200, 238, 255], photo8: [220, 240, 255],
+  serrated: [255, 246, 228], warmblood: [255, 120, 70], countershade: [200, 222, 240], sense: [190, 165, 255], photo9: [232, 244, 255],
 };
 
-const MUT_T = { jaws: 1.0 }; // portrait time per trait (jaws at rest: mandibles apart)
+const MUT_T = { jaws: 1.0, serrated: 1.0 }; // portrait time per trait (jaws at rest: mandibles apart)
 function framedBody(g, size, stage, muts, frame, glowC, T = FAKE_T, props = null) {
   g.translate(size / 2, size / 2);
   g.globalCompositeOperation = 'lighter'; g.globalAlpha = 0.5;
@@ -4388,44 +5082,52 @@ const MOLA_FRAME = { jaws: [0.4, -0.55, -0.25], beak: [0.42, -0.62, -0.25], stin
   vacuole: [0.32, 0, -0.3], lysosome: [0.32, -0.05, -0.3], polyps: [0.33, -0.12, -0.3], pseudopod: [0.36, -0.3, -0.3], nerve: [0.3, 0, -0.3], muscle: [0.28, 0.12, -0.3],
   mito: [0.28, 0.12, -0.3], guard: [0.3, 0.02, -0.3], tetrodo: [0.29, 0.04, -0.3], mimicry: [0.29, 0.04, -0.3], chloro: [0.29, 0.04, -0.3], photo: [0.29, 0.04, -0.3] };
 const MOLA_PROPS = { sail: { sailK: 1 }, stripes: { stripeK: 0.85 } };
+// every trait shown on the great white (stage 9): the long body runs corner to corner; head traits zoom in on the head
+const SHARK_FRAME = { jaws: [0.44, -0.62, -0.32], serrated: [0.56, -0.72, -0.3], beak: [0.44, -0.6, -0.32], eyes: [0.44, -0.62, -0.32], warmeyes: [0.44, -0.62, -0.32],
+  stingproof: [0.42, -0.6, -0.32], gills: [0.4, -0.45, -0.32], osmo: [0.42, -0.5, -0.32], tentacles: [0.38, -0.8, -0.32], shell: [0.36, -0.45, -0.35],
+  sail: [0.34, 0.05, -0.38], hover: [0.31, -0.18, -0.4], flagellum: [0.3, 1.2, -0.45], cleaners: [0.3, 0.12, -0.45], warmblood: [0.27, 0.35, -0.45],
+  countershade: [0.27, 0.4, -0.5], stripes: [0.235, 0.45, -0.5], gelskin: [0.265, 0.42, -0.5], hide: [0.4, 0.05, -0.4], nerve: [0.26, 0.35, -0.48],
+  vacuole: [0.3, 0.2, -0.45], lysosome: [0.3, 0.1, -0.45], polyps: [0.32, -0.05, -0.42], muscle: [0.27, 0.35, -0.48], mito: [0.27, 0.35, -0.48],
+  pseudopod: [0.28, 0.1, -0.45], spikes: [0.27, 0.3, -0.48], toxin: [0.27, 0.3, -0.48], cilia: [0.27, 0.35, -0.48], photo: [0.27, 0.4, -0.5] };
+const SHARK_PROPS = { sail: { sailK: 1 }, stripes: { stripeK: 1 } };
 // an early trait in its fish form (on a fish body): pyloric caeca for polyps, pilot fish for symbionts, …
 const FISH_FRAME = { cilia: [0.31, 0.12, -0.42], spikes: [0.3, 0.15, -0.42], toxin: [0.31, 0.05, -0.42], polyps: [0.34, -0.1, -0.42], lysosome: [0.34, 0, -0.42],
   vacuole: [0.33, 0.05, -0.42], osmo: [0.36, -0.3, -0.45], nerve: [0.31, 0.1, -0.42], biolum: [0.3, 0.15, -0.42], pseudopod: [0.27, 0.1, -0.42],
   flagellum: [0.25, 0.45, -0.42], mito: [0.28, 0.25, -0.42], mimicry: [0.27, 0.25, -0.42], muscle: [0.28, 0.25, -0.42] };
 function fishFormPortrait(id, size, st) {
   const [c, g] = portraitCanvas(size);
-  const muts = { [id]: 3 }, s6 = st === 6, s7 = st === 7, s8 = st === 8, props = s7 ? { ...SAIL_PROPS[id] } : s8 ? { ...MOLA_PROPS[id] } : {};
-  let frame = (s8 ? MOLA_FRAME[id] : s7 ? SAIL_FRAME[id] : s6 ? PUFF_FRAME[id] : FISH_FRAME[id]) || STAGE_FRAME[st];
+  const muts = { [id]: 3 }, s6 = st === 6, s7 = st === 7, s8 = st === 8, s9 = st === 9, props = s7 ? { ...SAIL_PROPS[id] } : s8 ? { ...MOLA_PROPS[id] } : s9 ? { ...SHARK_PROPS[id] } : {};
+  let frame = (s9 ? SHARK_FRAME[id] : s8 ? MOLA_FRAME[id] : s7 ? SAIL_FRAME[id] : s6 ? PUFF_FRAME[id] : FISH_FRAME[id]) || STAGE_FRAME[st];
   if (id === 'mito') muts.mito = 4;
   if (id === 'membrane') muts.membrane = 5;
-  if (id === 'dash') { props.dashT = 0.2; frame = s8 ? [0.21, 0.5, -0.3] : s7 ? [0.17, 0.5, -0.5] : s6 ? [0.23, 0.55, -0.42] : [0.22, 0.75, -0.42]; }
-  if (id === 'cyst') { props.cyst = 1; frame = s8 ? [0.25, 0.04, -0.3] : s7 ? [0.18, -0.16, -0.58] : s6 ? [0.22, 0.04, -0.42] : [0.23, 0.22, -0.42]; }
-  if (id === 'jaws') frame = st === 4 ? [0.4, -0.55, -0.42] : s8 ? MOLA_FRAME.jaws : s7 ? SAIL_FRAME.jaws : s6 ? PUFF_FRAME.jaws : [0.38, -0.45, -0.3];
-  if (id === 'symbionts' || id === 'fission' || id === 'signal' || id === 'nova') frame = s8 ? [0.18, 0.06, -0.3] : s7 ? [0.15, -0.15, -0.58] : s6 ? [0.21, 0.04, -0.42] : [0.2, 0.12, -0.42];
+  if (id === 'dash') { props.dashT = 0.2; frame = s9 ? [0.19, 0.8, -0.45] : s8 ? [0.21, 0.5, -0.3] : s7 ? [0.17, 0.5, -0.5] : s6 ? [0.23, 0.55, -0.42] : [0.22, 0.75, -0.42]; }
+  if (id === 'cyst') { props.cyst = 1; frame = s9 ? [0.215, 0.42, -0.5] : s8 ? [0.25, 0.04, -0.3] : s7 ? [0.18, -0.16, -0.58] : s6 ? [0.22, 0.04, -0.42] : [0.23, 0.22, -0.42]; }
+  if (id === 'jaws') frame = st === 4 ? [0.4, -0.55, -0.42] : s9 ? SHARK_FRAME.jaws : s8 ? MOLA_FRAME.jaws : s7 ? SAIL_FRAME.jaws : s6 ? PUFF_FRAME.jaws : [0.38, -0.45, -0.3];
+  if (id === 'symbionts' || id === 'fission' || id === 'signal' || id === 'nova') frame = s9 ? [0.16, 0.42, -0.5] : s8 ? [0.18, 0.06, -0.3] : s7 ? [0.15, -0.15, -0.58] : s6 ? [0.21, 0.04, -0.42] : [0.2, 0.12, -0.42];
   framedBody(g, size, st, muts, frame, MUT_GLOW[id] || [110, 255, 225], FAKE_T, props);
   const R = size * frame[0];
   if (id === 'symbionts') {
     for (let i = 0; i < 3; i++) {
-      const a = (i / 3) * TAU + 0.6, d = s7 ? 2.35 : s8 ? 2.05 : 1.8;
-      g.save(); g.translate(cos(a) * d + (s7 ? 0.15 : 0), sin(a) * d * (s7 ? 0.62 : 1)); g.rotate(a + PI / 2); g.scale(0.55, 0.55); drawPilotFish(g, FAKE_T + i, R * 1.1, i); g.restore();
+      const a = (i / 3) * TAU + 0.6, d = s7 || s9 ? 2.35 : s8 ? 2.05 : 1.8;
+      g.save(); g.translate(cos(a) * d + (s7 ? 0.15 : s9 ? -0.45 : 0), sin(a) * d * (s7 || s9 ? 0.62 : 1)); g.rotate(a + PI / 2); g.scale(0.55, 0.55); drawPilotFish(g, FAKE_T + i, R * 1.1, i); g.restore();
     }
   } else if (id === 'fission') {
-    g.save(); if (s7) g.translate(-0.55, 1.45); else if (s8) g.translate(1.15, 1.35); else g.translate(-0.35, 1.3); g.scale(0.55, 0.55);
+    g.save(); if (s7) g.translate(-0.55, 1.45); else if (s8) g.translate(1.15, 1.35); else if (s9) g.translate(-0.8, 1.35); else g.translate(-0.35, 1.3); g.scale(0.55, 0.55);
     drawPlayer(g, { r: 1, ang: frame[2], seed: 1.7, muts: {}, stage: st, speedN: 0.3, bodyCol: KIN_BODY, memCol: KIN_MEM }, FAKE_T + 0.7, R * 1.1);
     g.restore();
   } else if (id === 'nova') {
     // (the sailfish is long: the rings stretch along it)
     // (the sailfish is long, the sunfish tall: the rings stretch along them)
-    const ex = s7 ? 1.55 : s8 ? 0.72 : 1, ey = s8 ? 1.75 : 1, cx = s7 ? 0.2 : s8 ? -0.1 : 0.05;
+    const ex = s7 || s9 ? 1.55 : s8 ? 0.72 : 1, ey = s8 ? 1.75 : 1, cx = s7 ? 0.2 : s8 ? -0.1 : s9 ? -0.45 : 0.05;
     g.globalCompositeOperation = 'lighter'; g.lineCap = 'round'; g.lineJoin = 'round';
     for (let i = 0; i < 2; i++) { g.beginPath(); g.ellipse(cx, 0, (1.6 + i * 0.4) * ex, (1.0 + i * 0.4) * ey, 0, 0, TAU); g.strokeStyle = `rgba(200,170,255,${0.65 - i * 0.25})`; g.lineWidth = 0.09 - i * 0.03; g.stroke(); }
     g.beginPath();
-    const bx = s7 || s8 ? cx : 0;
+    const bx = s7 || s8 || s9 ? cx : 0;
     for (let b = 0; b < 6; b++) { const a = b * 1.05 + 0.3; let r = 0.95; g.moveTo(bx + cos(a) * r * 1.3 * ex, sin(a) * r * 0.85 * ey); for (let j = 0; j < 4; j++) { r += 0.22; const aj = a + (j % 2 ? 0.12 : -0.12); g.lineTo(bx + cos(aj) * r * 1.3 * ex, sin(aj) * r * 0.85 * ey); } }
     g.strokeStyle = 'rgba(235,225,255,0.9)'; g.lineWidth = 0.05; g.stroke();
     g.globalCompositeOperation = 'source-over';
   } else if (id === 'dash') {
-    const x0 = s7 ? -2.05 : s8 ? -1.55 : -1.75;
+    const x0 = s7 || s9 ? -2.05 : s8 ? -1.55 : -1.75;
     g.beginPath();
     for (let i = 0; i < 4; i++) { const y = (i - 1.5) * 0.4; g.moveTo(x0, y); g.lineTo(x0 - 0.5 - (i % 2) * 0.35, y); }
     g.strokeStyle = 'rgba(200,255,245,0.75)'; g.lineWidth = 0.07; g.lineCap = 'round'; g.stroke();
@@ -4454,8 +5156,10 @@ function abilityPortrait(id, size, stage) {
   const [c, g] = portraitCanvas(size), bst = bodyStage(stage || 1);
   if (id === 'breach') {
     // Breach: the sunfish leaping clear of the water, a splash bursting up from the surface beneath it
+    // (the great white too: it famously breaches when it ambushes seals)
     g.save();
-    framedBody(g, size, 8, {}, [0.2, 0.15, -0.78], MUT_GLOW.breach, FAKE_T, { breachK: 0.8 });
+    if (bst >= 9) framedBody(g, size, 9, {}, [0.235, 0.72, -0.98], MUT_GLOW.breach, FAKE_T, { breachK: 0.8 });
+    else framedBody(g, size, 8, {}, [0.2, 0.15, -0.78], MUT_GLOW.breach, FAKE_T, { breachK: 0.8 });
     g.restore();
     const W = size, y0 = size * 0.86;
     g.lineCap = 'round'; g.lineJoin = 'round';
@@ -4471,6 +5175,63 @@ function abilityPortrait(id, size, stage) {
     for (let i = 1; i <= 12; i++) { const x = W * (0.04 + 0.92 * i / 12); g.lineTo(x, y0 + W * 0.012 * sin(i * 1.7)); }
     g.strokeStyle = 'rgba(190,232,255,0.85)'; g.lineWidth = W * 0.018; g.stroke();
     g.beginPath(); g.ellipse(W * 0.3, y0 + W * 0.02, W * 0.2, W * 0.035, 0, 0, TAU); g.strokeStyle = 'rgba(200,238,255,0.5)'; g.lineWidth = W * 0.012; g.stroke();
+    return c;
+  }
+  if (id === 'sense') {
+    // Electrosense: the great white's snout, its pores aglow, electric ripples spreading out through the dark to the
+    // heartbeat of an animal hidden there
+    framedBody(g, size, 9, {}, [0.3, -1.42, -0.3], MUT_GLOW.sense, FAKE_T, { senseK: 1 });
+    const hx = 2.5, hy = 0.5;
+    g.lineCap = 'round'; g.lineJoin = 'round';
+    // the hidden animal: a dark fish shape in the gloom
+    g.save(); g.translate(hx, hy); g.rotate(2.6);
+    g.beginPath(); g.ellipse(0, 0, 0.42, 0.15, 0, 0, TAU); g.moveTo(-0.36, 0); g.lineTo(-0.62, -0.16); g.lineTo(-0.56, 0); g.lineTo(-0.62, 0.16); g.closePath();
+    g.fillStyle = 'rgba(14,24,44,0.6)'; g.fill(); g.strokeStyle = 'rgba(150,140,230,0.35)'; g.lineWidth = 0.025; g.stroke();
+    g.restore();
+    // a ripple reaching it, and its heart beating: a glow and pulse rings
+    g.globalCompositeOperation = 'lighter';
+    g.beginPath(); g.arc(1.1, 0, Math.hypot(hx - 1.1, hy) + 0.05, Math.atan2(hy, hx - 1.1) - 0.45, Math.atan2(hy, hx - 1.1) + 0.3);
+    g.strokeStyle = 'rgba(190,165,255,0.55)'; g.lineWidth = 0.05; g.stroke();
+    g.globalAlpha = 0.9; g.drawImage(glowSprite([255, 110, 170], 1), hx - 0.45, hy - 0.45, 0.9, 0.9); g.globalAlpha = 1;
+    for (let i = 0; i < 2; i++) { g.beginPath(); g.arc(hx, hy, 0.26 + 0.16 * i, 0, TAU); g.strokeStyle = `rgba(255,150,200,${0.6 - 0.25 * i})`; g.lineWidth = 0.035; g.stroke(); }
+    g.globalCompositeOperation = 'source-over';
+    g.save(); g.translate(hx, hy); g.rotate(0.3); g.fillStyle = '#ff5f8f'; heart(g, 0, 0.01, 0.3); g.restore();
+    return c;
+  }
+  if (id === 'puff' && bst >= 9) {
+    // Threat Display: the great white hunched, pectorals dropped, jaws agape, swimming stiff and jerky
+    framedBody(g, size, 9, {}, [0.25, 0.42, -0.45], MUT_GLOW.puff, FAKE_T, { puffK: 1, sailK: 1 });
+    bristle(g, -0.42, 1.75, 0.95);
+    return c;
+  }
+  if (id === 'slash' && bst >= 9) {
+    // Head Shake: the great white wrenches its head round with its jaws wide, flinging small fish aside
+    framedBody(g, size, 9, {}, [0.25, 0.32, -0.42], MUT_GLOW.slash, FAKE_T, { slashK: 1, slashDir: 1 });
+    const fish = [[1.1, 1.05, 1.9], [0.5, 1.42, 0.7], [1.5, 0.45, -2.4]];
+    for (const [x, y, a] of fish) {
+      g.save(); g.translate(x, y); g.rotate(a);
+      g.beginPath(); g.ellipse(0, 0, 0.22, 0.075, 0, 0, TAU); g.moveTo(-0.18, 0); g.lineTo(-0.34, -0.095); g.lineTo(-0.34, 0.095); g.closePath();
+      g.fillStyle = 'rgba(222,238,250,0.96)'; g.fill(); g.strokeStyle = 'rgba(50,80,120,0.75)'; g.lineWidth = 0.03; g.stroke();
+      g.restore();
+    }
+    g.globalCompositeOperation = 'lighter';
+    for (const [x, y] of fish) g.drawImage(glowSprite([255, 240, 170], 1), x - 0.22, y - 0.22, 0.44, 0.44);
+    g.globalCompositeOperation = 'source-over';
+    return c;
+  }
+  if (id === 'photo' && bst >= 9) {
+    // Belly Flash: the great white rolled onto its side, its white belly flashing in the light
+    framedBody(g, size, 9, { photo: 3 }, [0.25, 0.42, -0.45], MUT_GLOW.photo9, FAKE_T, { rollK: 1 });
+    g.globalCompositeOperation = 'lighter';
+    g.globalAlpha = 0.4; g.drawImage(glowSprite([235, 248, 255], 1), -1.6, -0.75, 2.4, 1.5); g.globalAlpha = 1;
+    g.beginPath();
+    for (let i = 0; i < 10; i++) { const a = (i / 10) * TAU + 0.3, r0 = 1 + 0.1 * (i % 2); g.moveTo(-0.42 + cos(a) * r0 * 1.7, sin(a) * r0 * 0.95); g.lineTo(-0.42 + cos(a) * (r0 * 1.7 + 0.4), sin(a) * (r0 * 0.95 + 0.4)); }
+    g.strokeStyle = 'rgba(225,242,255,0.7)'; g.lineWidth = 0.07; g.lineCap = 'round'; g.stroke();
+    for (const [x, y, r] of [[-0.1, -0.12, 0.3], [-0.8, 0.12, 0.22]]) {
+      g.beginPath(); g.moveTo(x - r, y); g.quadraticCurveTo(x, y, x, y - r); g.quadraticCurveTo(x, y, x + r, y); g.quadraticCurveTo(x, y, x, y + r); g.quadraticCurveTo(x, y, x - r, y);
+      g.fillStyle = 'rgba(255,255,255,0.95)'; g.fill();
+    }
+    g.globalCompositeOperation = 'source-over';
     return c;
   }
   if (id === 'slash' && bst >= 8) {
@@ -4577,15 +5338,16 @@ function abilityPortrait(id, size, stage) {
 // draws a "mini player" with a single mutation emphasised
 // stage: the body the trait is shown on; fish bodies show early traits in their fish form
 export function mutationPortrait(id, size, stage) {
-  if (id === 'photo' || id === 'shoal' || id === 'suction' || id === 'puff' || id === 'slash' || id === 'breach') return abilityPortrait(id, size, stage);
+  if (id === 'photo' || id === 'shoal' || id === 'suction' || id === 'puff' || id === 'slash' || id === 'breach' || id === 'sense') return abilityPortrait(id, size, stage);
   const fst = bodyStage(stage || 1);
   if (fst >= 4 && (MUT_STAGE[id] || 1) < 4) return fishFormPortrait(id, size, fst);
   if (MUT_STAGE[id]) {
     const [c, g] = portraitCanvas(size);
     // fins, eyes and the head shield shown on the jawed fish once you are one; every fish trait (and the
     // pufferfish's own) on the pufferfish once you are one, and on the sailfish once you are that
-    const ms = MUT_STAGE[id], stage = ms === 8 || (ms >= 4 && fst === 8) ? 8 : ms === 7 || (ms >= 4 && fst === 7) ? 7 : ms === 6 || (ms >= 4 && fst === 6) ? 6 : ms === 4 && fst === 5 ? 5 : ms;
-    if (stage === 8) framedBody(g, size, 8, { [id]: 3 }, MOLA_FRAME[id] || STAGE_FRAME[8], MUT_GLOW[id], MUT_T[id], MOLA_PROPS[id]);
+    const ms = MUT_STAGE[id], stage = ms === 9 || (ms >= 4 && fst === 9) ? 9 : ms === 8 || (ms >= 4 && fst === 8) ? 8 : ms === 7 || (ms >= 4 && fst === 7) ? 7 : ms === 6 || (ms >= 4 && fst === 6) ? 6 : ms === 4 && fst === 5 ? 5 : ms;
+    if (stage === 9) framedBody(g, size, 9, { [id]: 3 }, SHARK_FRAME[id] || STAGE_FRAME[9], MUT_GLOW[id], MUT_T[id], SHARK_PROPS[id]);
+    else if (stage === 8) framedBody(g, size, 8, { [id]: 3 }, MOLA_FRAME[id] || STAGE_FRAME[8], MUT_GLOW[id], MUT_T[id], MOLA_PROPS[id]);
     else if (stage === 7) framedBody(g, size, 7, { [id]: 3 }, SAIL_FRAME[id] || STAGE_FRAME[7], MUT_GLOW[id], MUT_T[id], SAIL_PROPS[id]);
     else if (stage === 6) framedBody(g, size, 6, { [id]: 3 }, PUFF_FRAME[id] || STAGE_FRAME[6], MUT_GLOW[id], MUT_T[id], PUFF_PROPS[id]);
     else framedBody(g, size, stage, { [id]: 3 }, MUT_FRAME[id] || STAGE_FRAME[stage], MUT_GLOW[id], MUT_T[id]);
