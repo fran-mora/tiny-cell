@@ -2,7 +2,7 @@
 
 Tiny Cell's world changes scale as the player evolves (roughly x10 per body stage). Each scale
 ("tier") has its own cast of real organisms. The microbial tier (T1) is drawn in `../art.js`
-(`drawSpecies`). Tiers 2–5 live here, one module per tier:
+(`drawSpecies`). Tiers 2–6 live here, one module per tier:
 
 | file  | tier | player body stage        | real scale  | look & feel |
 |-------|------|--------------------------|-------------|-------------|
@@ -10,6 +10,7 @@ Tiny Cell's world changes scale as the player evolves (roughly x10 per body stag
 | t3.js | T3   | Flatworm (first animals) | 1–10 mm     | glassy plankton: crustaceans, jellies, worms; iridescence |
 | t4.js | T4   | Primordial fish          | 1–10 cm     | reef life: shrimp, larval fish, jellyfish, anemones |
 | t5.js | T5   | Jawed fish               | 10 cm – 1 m | sea creatures: fish, squid, eels, deep-sea glow |
+| t6.js | T6   | Pufferfish               | 0.5 – 3 m   | reef, shipwreck & cold upwelling: big fish, sharks, cephalopods |
 
 ## Module shape
 
@@ -148,3 +149,48 @@ screenshots). It shows each state large, in-game size, tiny/LOD and the codex po
   dactylozooid with a long coiled fishing tentacle, core = glowing stem node. Dead parts look
   collapsed/dark. `draw` itself draws a compact chain (float, 2 bells, feeder, stinger) for the
   codex.
+
+### T6 — pufferfish scale (0.5–3 m)
+* **parrotfish** — chunky blue-green parrotfish, big scales edged pink/orange, pink face paint, fused
+  turquoise beak with pink lips at +x, big rowing pectorals, lunate tail. Neutral grazer. `biteK` (beak
+  plates part sideways and crunch; coral crumbs fly).
+* **seaurchin** — long-spined urchin (Diadema): dark purple test with five rows of iridescent blue dots
+  and an orange-ringed anal cone, ~60–100 long thin swaying spines, tube feet round the rim. Radial (no
+  mirror symmetry). Shell from `e.armor / e.armorMax` (k): as k drops spines snap off (blunt pale stubs),
+  hairline cracks appear below ~0.6, and at 0 the test is broken into five plates showing the soft
+  orange roe inside.
+* **triggerfish** — titan triggerfish: diamond body, scale lattice, dark face saddle, orange lips and
+  "moustache", big chisel buck teeth, eyes set far back, lyre tail, rippling soft dorsal. Aggressive
+  predator. `biteK` (lunges, lips part showing the teeth, the first dorsal "trigger" spine snaps up).
+* **lionfish** — red/cream barred body, huge banded pectoral fans swept back like wings, a crown of long
+  banded venomous dorsal spines with webbing, brow tentacles, spotted see-through tail. Predator that
+  corners prey. `biteK` (fans and spines flare wide and forward, mouth gulps open).
+* **octopus** — day octopus: mantle at −x, head and big bar-pupilled eyes near the centre, dark ocelli,
+  chromatophore "passing clouds", 8 sucker-lined arms webbed at the base, trailing to −x. `inkK` (ink
+  cloud behind; it blanches and streamlines its arms), `grabK` (arms shoot forward to ~+2.5, tips
+  curling in).
+* **reefshark** — blacktip reef shark: pale grey shark silhouette, sickle pectorals, tall first dorsal,
+  lunate tail, black tips on every fin, white flank band, gill slits, cat-eye pupils. `sprintK` (body
+  straightened, fins swept back, motion streaks), `biteK` (lower jaw swings forward ahead of the snout,
+  serrated teeth, eyes roll white).
+* **seasnake** — banded sea krait: ~3.6 units of sinuous blue-white body with black rings trailing to
+  −x, black head with yellow snout and brow stripes, paddle tail, flicking forked tongue. Predator.
+  `biteK` (neck straightens, head lunges, lower jaw drops forward showing a pink mouth and fangs). The
+  codex portrait coils it up and centres it.
+* **seaturtle** — green sea turtle: domed olive carapace with marginal, vertebral and costal scutes and
+  radiating streaks, long front flippers flapping slowly like wings (feathering at the end of each
+  stroke), small rear flippers, beaked head with plated scales at +x. Neutral, too big to eat. No hooks.
+* **humboldt** — Humboldt (jumbo) squid: long torpedo mantle, arrowhead fins at −x, stout arms and two
+  long tentacles at +x, big eyes. Used for the regular squid and for each squid of the boss pack (`H.hd`
+  when big). `flashK` (strength of fast red/white bands travelling head → tail across the mantle, head
+  and fins; the pattern itself comes from `t`), `redK` (whole body flushes deep red: the attack signal),
+  `grabK` (tentacles shoot out ahead to ~+3 units), `inkK` (ink cloud behind, it blanches).
+* **grouper** (boss) — Goliath grouper: massive rounded body, mottled olive/brown/yellow with dark
+  bars and spots, huge wide mouth with a jutting lower lip at +x, small eyes, rounded fins and tail.
+  `gapeK` (lower jaw swings forward into a huge dark gape, gill covers flare showing red gills),
+  `suckK` (streaks and particles drawn into the mouth), `chokeK` (mouth jammed half open on an inflated
+  spiny pufferfish, cheeks bulging, eyes bulging white, shaking, frantic fins, bubbles), `stunK` (dazed:
+  eyelids drooping, pupils rolled, body tilted and rolled showing its pale flank, slow fins, sparkles
+  circling the head). Also export `wreck(ctx, t, H)`: its lair, a rusted shipwreck hull section
+  (~7 × 3 units, centred at 0,0, drawn under the grouper) with a torn end, ribs, plating, a collapsed
+  deckhouse, a fallen mast, barnacles, soft coral tufts, sea fans and a dark open cargo hatch near +x.

@@ -928,7 +928,12 @@ const F3 = { xf: 1.12, xr: -1.2 }, F4 = { xf: 1.16, xr: -1.3 }, F5 = { xf: 1.24,
 // Inflated (p.puffK → 1) it becomes a ball of radius PUFF_R, centred on the collision circle (see skin()).
 const F6M = 0.26, PUFF_R = 1.55;
 function w6(x) {
-  if (x >= F6M) { const q = (x - F6M) / (F6.xf - F6M); return q >= 1 ? 0 : 0.75 * Math.pow(1 - Math.pow(q, 2.6), 0.385); }
+  if (x >= F6M) {
+    const q = (x - F6M) / (F6.xf - F6M); if (q >= 1) return 0;
+    const w = 0.75 * Math.pow(1 - Math.pow(q, 2.6), 0.385);
+    if (!AN.chk) return w;
+    const d = (x - 0.93) / 0.1; return w + AN.chk * exp(-d * d); // Jaw Muscles: cheeks bulging behind the beak
+  }
   const q = min(1, (F6M - x) / (F6M - F6.xr));
   return 0.085 + 0.665 * Math.pow(1 - Math.pow(q, 1.9), 1.25);
 }
@@ -963,7 +968,7 @@ const AN = {
   st: 3, W: w3, x0: 1.2, dx: 0.1, xf: 1, xr: -1, tip: -1, cx: 0, hl: 1, hw: 0.5, os: null,
   aur: 0.13, rip: 0.03, ripK: 15, t: 0, ph: 0, sp: 0, s: 1, lw: null, fine: false, lo: false, A0: 1,
   p: null, m: NOMUT, body: null, mem: null, dark: [0, 0, 0], pale: [0, 0, 0], ang: 0,
-  pk: 0, pxf: 1, pxr: -1, // pufferfish: inflation 0…1 and the current (inflated) nose / tail ends
+  pk: 0, pxf: 1, pxr: -1, chk: 0, // pufferfish: inflation 0…1, the current (inflated) nose / tail ends, cheek bulge
 };
 // the pufferfish's current half-width at skinned x (the rest profile blended toward the balloon)
 function w6cur(x) {
@@ -979,12 +984,13 @@ function ripF(x) {
 const wEff = (x) => AN.W(x) * ripF(x);
 
 function setupAnimal(p, m, stage, t, ph) {
-  AN.st = stage; AN.t = t; AN.ph = ph; AN.p = p; AN.m = m; AN.pk = 0;
+  AN.st = stage; AN.t = t; AN.ph = ph; AN.p = p; AN.m = m; AN.pk = 0; AN.chk = 0;
   const sp = AN.sp = min(1.5, p.speedN || 0);
   let f, x1;
   if (stage === 6) {
     f = F6; AN.W = w6; AN.hw = 0.75;
     const pk = AN.pk = min(1, max(0, p.puffK || 0));
+    AN.chk = m.jaws ? (0.05 + 0.026 * min(3, m.jaws)) * (1 - 0.6 * pk) : 0;
     AN.pxf = f.xf + (PUFF_R - f.xf) * pk; AN.pxr = f.xr - (PUFF_R + f.xr) * pk;
     AN.tip = f.xr - 0.03; x1 = AN.pxr - 0.55;
   } else if (stage === 3) {
@@ -2389,11 +2395,11 @@ function fishFront(ctx, m) {
 // ============================ stage 6: pufferfish ============================
 // Drawn in the same rest frame as the other animals (F6, w6). Inflation (AN.pk) is handled by skin(), which maps
 // the rest body onto a ball of radius PUFF_R, so every trait placed with skin()/edge()/at() follows the balloon.
-const TET_Y = [255, 214, 64], TET_D = [30, 26, 34], PRICKLE_C = [0, 0, 0];
+const TET_Y = [255, 214, 64], TET_D = [42, 34, 32], PRICKLE_C = [0, 0, 0];
 const smooth01 = (k) => k * k * (3 - 2 * k);
 // how far the prickles stand up (0 folded flat … 1 straight out): inflation raises them; porcupinefish spines
 // (spikes), Prickles (hide) and venom spines (toxin) keep them a little raised even at rest
-function prickleUp(m) { return max(smooth01(AN.pk), 0.13 * (m.spikes || 0) + 0.05 * (m.hide || 0) + 0.06 * (m.toxin || 0)); }
+function prickleUp(m) { return max(smooth01(AN.pk), 0.13 * (m.spikes || 0) + 0.075 * (m.hide || 0) + 0.06 * (m.toxin || 0)); }
 // the prickles round the outline, drawn behind the body: lying back along the skin, then standing straight out
 function prickleRim(ctx, m) {
   const up = prickleUp(m);
@@ -2434,7 +2440,7 @@ function prickleField(ctx, m) {
     ctx.moveTo(px, py); ctx.lineTo(tx, ty);
     B[i * 2] = px; B[i * 2 + 1] = py;
   }
-  ctx.strokeStyle = rgbStr(mixRGB(AN.mem, WHITE, 0.35, PRICKLE_C), min(0.9, 0.2 + 0.08 * hd + 0.55 * up)); ctx.lineWidth = lw(0.9 + 0.5 * up + 0.15 * hd); ctx.lineCap = 'round'; ctx.stroke();
+  ctx.strokeStyle = rgbStr(mixRGB(AN.mem, WHITE, 0.35, PRICKLE_C), min(0.9, 0.2 + 0.12 * hd + 0.55 * up)); ctx.lineWidth = lw(0.9 + 0.5 * up + 0.25 * hd); ctx.lineCap = 'round'; ctx.stroke();
   if (!AN.lo) {
     const r = 0.012 + 0.003 * hd;
     ctx.beginPath(); for (let i = 0; i < n; i++) { ctx.moveTo(B[i * 2] + r, B[i * 2 + 1]); ctx.arc(B[i * 2], B[i * 2 + 1], r, 0, TAU); }
@@ -2462,7 +2468,7 @@ function pufferMedianFin(ctx, xa, xb, H, sw, alpha) {
   ctx.restore();
 }
 // the rowing stroke shared by the dorsal and anal fins (they beat together), and their height
-function pufferRow(m) { return 0.3 + 0.7 * sin(AN.ph * (1.15 + 0.2 * (m.hover || 0)) + 0.4); }
+function pufferRow(m) { return 0.45 + 0.55 * sin(AN.ph * (1.15 + 0.2 * (m.hover || 0)) + 0.4); }
 function pufferFinH(m) { return 0.25 * (1 + 0.14 * (m.fins || 0) + 0.3 * (m.hover || 0)) * (1 - 0.6 * AN.pk); }
 function pufferTail(ctx, m) {
   // a short, rounded tail fin that sways gently; inflated, the pufferfish curls it in against its side
@@ -2550,21 +2556,23 @@ function backGrad(ctx, c) {
   return g;
 }
 // Tetrodotoxin: the most poisonous puffers advertise it, with bold dark saddles and yellow spots on the back
-const TET_X = [0.38, -0.12, -0.52, 0.72];
+const TET_X = [0.38, -0.12, -0.52, 0.72], SAD = new Float32Array(24);
 function tetroWarn(ctx, lv) {
   const lw = AN.lw;
-  insetFill(ctx, 0.78, rgbStr(TET_Y, 0.08 + 0.05 * lv));
+  insetFill(ctx, 0.8, rgbStr(TET_Y, 0.1 + 0.07 * lv));
   ctx.beginPath();
   for (let i = 0; i < min(4, 1 + lv); i++) {
-    const xc = TET_X[i], h = 0.085 + 0.018 * lv, w = (x) => w6(x) * 0.84;
-    sm(ctx, xc + h * 0.55, -w(xc)); sl(ctx, xc + h * 1.1, -w(xc) * 0.45); sl(ctx, xc + h, 0); sl(ctx, xc + h * 1.1, w(xc) * 0.45); sl(ctx, xc + h * 0.55, w(xc));
-    sl(ctx, xc - h * 0.55, w(xc)); sl(ctx, xc - h * 1.05, w(xc) * 0.45); sl(ctx, xc - h, 0); sl(ctx, xc - h * 1.05, -w(xc) * 0.45); sl(ctx, xc - h * 0.55, -w(xc)); ctx.closePath();
+    // a saddle: broad over the back, narrowing to a rounded point down each flank
+    const xc = TET_X[i], h = 0.06 + 0.014 * lv, W = w6(xc) * (0.6 + 0.07 * lv);
+    SAD[0] = xc + h * 0.5; SAD[1] = -W; SAD[2] = xc + h * 0.95; SAD[3] = -W * 0.5; SAD[4] = xc + h; SAD[5] = 0; SAD[6] = xc + h * 0.95; SAD[7] = W * 0.5; SAD[8] = xc + h * 0.5; SAD[9] = W; SAD[10] = xc; SAD[11] = W * 1.1;
+    SAD[12] = xc - h * 0.5; SAD[13] = W; SAD[14] = xc - h * 0.95; SAD[15] = W * 0.5; SAD[16] = xc - h; SAD[17] = 0; SAD[18] = xc - h * 0.95; SAD[19] = -W * 0.5; SAD[20] = xc - h * 0.5; SAD[21] = -W; SAD[22] = xc; SAD[23] = -W * 1.1;
+    smoothLine(ctx, SAD); ctx.closePath();
   }
-  ctx.fillStyle = rgbStr(TET_D, 0.5 + 0.12 * lv); ctx.fill();
+  ctx.fillStyle = rgbStr(TET_D, 0.4 + 0.12 * lv); ctx.fill();
   ctx.beginPath(); scatter(ctx, (AN.lo ? 4 : 7) + 5 * lv, 50, 0.06, 0.9, 0.8, 0.028 + 0.004 * lv, 0.05 + 0.006 * lv);
   ctx.fillStyle = rgbStr(TET_Y, 0.82 + 0.06 * lv); ctx.fill();
   if (!AN.lo) { ctx.strokeStyle = rgbStr(TET_D, 0.5); ctx.lineWidth = lw(0.8); ctx.stroke(); }
-  if (lv >= 2) { const n = bodyPts(0.92, true, TX, TY); emitPath(ctx, n, TX, TY); ctx.strokeStyle = rgbStr(TET_Y, 0.3 + 0.12 * lv); ctx.lineWidth = lw(1.6 + 0.6 * lv); ctx.stroke(); }
+  if (lv >= 2) { const n = bodyPts(0.92, true, TX, TY); emitPath(ctx, n, TX, TY); ctx.strokeStyle = rgbStr(TET_Y, 0.25 + 0.1 * lv); ctx.lineWidth = lw(1.2 + 0.5 * lv); ctx.stroke(); }
 }
 function pufferGills(ctx, m) {
   // the gill opening: a small slit on each side just in front of the pectoral fin (larger with Gills)
@@ -2577,7 +2585,7 @@ function pufferGills(ctx, m) {
     for (const sd of SIDES) { sm(ctx, x + 0.035, sd * w * 0.72); skin(x - 0.025, sd * w * 0.86); const cx = SK[0], cy = SK[1]; skin(x + 0.022, sd * w * 1.02); ctx.quadraticCurveTo(cx, cy, SK[0], SK[1]); }
     ctx.strokeStyle = rgbStr(os ? OSMO_C : gl ? GILL_C : AN.pale, 0.7); ctx.lineWidth = lw(1); ctx.stroke();
   }
-  if (os) gillGlow(ctx, os, 0.43, 0.04, 2, 0.86);
+  if (os) gillGlow(ctx, os, 0.45, 0.03, 3, 0.86);
 }
 function pufferInside(ctx, m) {
   if (m.mimicry) mottle(ctx, m.mimicry);
@@ -2652,17 +2660,18 @@ function pufferVenom(ctx, lv) {
 }
 function cheeks(ctx, lv) {
   // Jaw Muscles: the bite muscles bulge out of the cheeks behind the beak, swelling with every crunch
-  const s = sin(AN.t * 3.1), bite = s > 0 ? s * s : 0, lw = AN.lw, x = 0.9, r = (0.085 + 0.025 * lv) * (1 + 0.14 * bite);
-  for (let pass = 0; pass < 2; pass++) {
+  // (the bulge itself is in the outline, w6 / AN.chk: here the muscle shows through, fibres fanning to the jaw)
+  const s = sin(AN.t * 3.1), bite = s > 0 ? s * s : 0, lw = AN.lw, x = 0.93, r = 0.055 + 0.015 * lv;
+  ctx.beginPath();
+  for (const sd of SIDES) { skin(x, sd * (w6(x) - r * 1.25)); ctx.moveTo(SK[0] + r * 1.3, SK[1]); ctx.ellipse(SK[0], SK[1], r * 1.3, r, SK[2], 0, TAU); }
+  ctx.fillStyle = rgbStr(MUSCLE_C, 0.16 + 0.05 * lv + 0.12 * bite); ctx.fill();
+  if (!AN.lo) {
     ctx.beginPath();
     for (const sd of SIDES) {
-      skin(x, sd * (w6(x) - r * 0.35)); const cx = SK[0], cy = SK[1], a = SK[2];
-      if (!pass) { ctx.moveTo(cx + r, cy); ctx.ellipse(cx, cy, r * 1.08, r, a, 0, TAU); continue; }
-      if (AN.lo) continue;
-      for (let k = -1; k <= 1; k++) { const b = a + sd * (PI / 2 + k * 0.5); ctx.moveTo(cx + cos(b) * r * 0.2, cy + sin(b) * r * 0.2); ctx.lineTo(cx + cos(b) * r * 0.82, cy + sin(b) * r * 0.82); }
+      skin(x, sd * (w6(x) - r * 1.25)); const cx = SK[0], cy = SK[1], a = SK[2], ca = cos(a), sa = sin(a), qx = cx - ca * r * 0.9, qy = cy - sa * r * 0.9;
+      for (let k = -2; k <= 2; k++) { const b = a + sd * (PI / 2 + k * 0.42); ctx.moveTo(qx, qy); ctx.quadraticCurveTo(cx + cos(b) * r * 0.35, cy + sin(b) * r * 0.35, cx + cos(b) * r * 0.75 + ca * r * 0.55, cy + sin(b) * r * 0.75 + sa * r * 0.55); }
     }
-    if (!pass) { ctx.fillStyle = rgbStr(mixRGB(AN.body, MUSCLE_C, 0.22 + 0.06 * lv, TMPC), 0.96); ctx.fill(); ctx.strokeStyle = rgbStr(AN.mem, 0.8); ctx.lineWidth = lw(1.1); ctx.stroke(); }
-    else { ctx.strokeStyle = rgbStr(MUSCLE_C, 0.4 + 0.15 * bite); ctx.lineWidth = lw(1); ctx.lineCap = 'round'; ctx.stroke(); }
+    ctx.strokeStyle = rgbStr(mixRGB(MUSCLE_C, [120, 20, 40], 0.3, TMPC), 0.55 + 0.25 * bite); ctx.lineWidth = lw(1.2); ctx.lineCap = 'round'; ctx.stroke();
   }
 }
 function pufferEyes(ctx, m) {
@@ -2701,11 +2710,11 @@ function pufferEyes(ctx, m) {
 }
 function nasalTentacles(ctx, lv) {
   // Nasal Tentacles: a pufferfish smells through little paired tentacles just in front of its eyes
-  const t = AN.t, lw = AN.lw, per = lv >= 2 ? 2 : 1, L = 0.075 + 0.04 * lv;
+  const t = AN.t, lw = AN.lw, per = lv >= 2 ? 2 : 1, L = 0.09 + 0.05 * lv;
   for (let pass = 0; pass < 2; pass++) {
     ctx.beginPath();
     for (const sd of SIDES) for (let j = 0; j < per; j++) {
-      const x = 0.82 + 0.05 * j, v = sd * (w6(0.82) * (0.8 - 0.12 * j));
+      const x = 0.92 + 0.05 * j, v = sd * (w6(0.92) * (0.74 - 0.14 * j));
       skin(x, v); let px = SK[0], py = SK[1], a = SK[2] + sd * (0.75 - 0.45 * j);
       ctx.moveTo(px, py);
       const N = 5, l = L * (1 - 0.15 * j);
@@ -2722,8 +2731,8 @@ function pufferBeak(ctx, m) {
   const t = AN.t, lw = AN.lw, pk = AN.pk, bk = m.beak || 0, jw = m.jaws || 0;
   const s = sin(t * 3.1), chomp = jw || bk >= 2 ? (s > 0 ? s * s : 0) : 0.5 + 0.5 * sin(t * 1.7);
   const open = max(0.12 + (jw || bk >= 2 ? 0.55 : 0.18) * chomp, 0.75 * pk);
-  const sz = 1 + 0.13 * bk + 0.1 * jw, R = 0.18 * sz, rx = 0.085 * sz, th = 0.05 + 0.018 * bk + 0.008 * jw, A = 1.3;
-  at(ctx, F6.xf - 0.07 * sz, 0);
+  const sz = 1 + 0.2 * bk + 0.13 * jw, R = 0.18 * sz, rx = 0.085 * sz + 0.02 * bk, th = 0.05 + 0.024 * bk + 0.012 * jw, A = 1.3 + 0.05 * bk;
+  at(ctx, F6.xf - 0.07 + 0.02 * bk + 0.01 * jw, 0);
   // fleshy lips round the plates
   ctx.beginPath(); ctx.ellipse(-0.01, 0, rx + 0.035, R + 0.04, 0, -PI / 2 - 0.15, PI / 2 + 0.15); ctx.closePath();
   ctx.fillStyle = rgbStr(mixRGB(AN.body, AN.pale, 0.45, TMPC), 0.96); ctx.fill();
@@ -2733,9 +2742,9 @@ function pufferBeak(ctx, m) {
   // the lower plates, pushed forward as the mouth opens, with the dark mouth between
   const d = open * 0.06 * sz;
   if (open > 0.15) { ctx.beginPath(); ctx.ellipse(0, 0, rx + d * 0.9, R * (0.92 + 0.1 * pk), 0, -A, A); ctx.closePath(); ctx.fillStyle = 'rgba(40,8,22,0.92)'; ctx.fill(); }
-  plate(d, 0.94); ctx.fillStyle = '#e9dcbf'; ctx.fill(); ctx.strokeStyle = 'rgba(110,80,55,0.6)'; ctx.lineWidth = lw(0.8); ctx.stroke();
+  plate(d, 0.94); ctx.fillStyle = '#e9dcbf'; ctx.fill(); ctx.strokeStyle = 'rgba(95,65,45,0.65)'; ctx.lineWidth = lw(0.9); ctx.stroke();
   // the upper plates: a rounded ivory rim, split down the middle where the two teeth meet
-  plate(0, 1); ctx.fillStyle = '#fbf4e0'; ctx.fill(); ctx.strokeStyle = 'rgba(110,80,55,0.65)'; ctx.lineWidth = lw(0.9); ctx.stroke();
+  plate(0, 1); ctx.fillStyle = '#fdf7e6'; ctx.fill(); ctx.strokeStyle = 'rgba(95,65,45,0.75)'; ctx.lineWidth = lw(1 + 0.15 * bk); ctx.stroke();
   if (!AN.lo) {
     ctx.beginPath(); ctx.moveTo(rx - th * 1.1, 0); ctx.lineTo(rx + 0.004, 0);
     if (bk) for (let k = 1; k <= bk; k++) { const f = 1 - (k * th) / (bk + 1) / max(rx, 0.03); ctx.moveTo(rx * f * cos(-A * 0.8), R * f * sin(-A * 0.8)); ctx.ellipse(0, 0, rx * f, R * f - (k * th * 0.75) / (bk + 1), 0, -A * 0.8, A * 0.8); }
@@ -3053,9 +3062,9 @@ function drawSiphPortrait(g, size) {
 }
 
 // evolution stage framing for portraits: [radius as a fraction of size, x offset (units), rotation]
-const STAGE_FRAME = [null, [0.27, 0, -0.4], [0.235, 0.3, -0.4], [0.32, 0.04, -0.42], [0.32, 0.2, -0.45], [0.3, 0.2, -0.42]];
+const STAGE_FRAME = [null, [0.27, 0, -0.4], [0.235, 0.3, -0.4], [0.32, 0.04, -0.42], [0.32, 0.2, -0.45], [0.3, 0.2, -0.42], [0.31, 0.04, -0.42]];
 // the evolution stage each campaign mutation belongs to (its portrait shows that body)
-const MUT_STAGE = { guard: 2, polyps: 2, signal: 2, muscle: 3, jaws: 3, nerve: 3, cnido: 3, fins: 4, eyes: 4, shell: 4, tentacles: 5, hide: 5, gills: 5 };
+const MUT_STAGE = { guard: 2, polyps: 2, signal: 2, muscle: 3, jaws: 3, nerve: 3, cnido: 3, fins: 4, eyes: 4, shell: 4, tentacles: 5, hide: 5, gills: 5, beak: 6, tetrodo: 6, hover: 6 };
 // per-trait framing tweaks (zoom toward the feature)
 const MUT_FRAME = { jaws: [0.38, -0.45, -0.3], eyes: [0.36, -0.35, -0.45], polyps: [0.215, 0.3, -0.4], signal: [0.2, 0.3, -0.4], tentacles: [0.3, -0.25, -0.5],
   fins: [0.34, 0.05, -0.42], shell: [0.4, -0.3, -0.45], hide: [0.31, 0.15, -0.42], gills: [0.36, -0.3, -0.45] };
@@ -3063,6 +3072,7 @@ const MUT_GLOW = {
   toxin: [190, 110, 255], nova: [200, 120, 255], chloro: [120, 255, 140], mito: [255, 160, 90], spikes: [220, 255, 250], lysosome: [255, 110, 130], biolum: [130, 255, 230], cyst: [255, 220, 150], mimicry: [140, 200, 255],
   guard: [190, 240, 255], polyps: [255, 170, 210], signal: [180, 160, 255], muscle: [255, 120, 130], jaws: [255, 220, 160], nerve: [140, 200, 255], cnido: [230, 160, 255],
   fins: [140, 230, 255], eyes: [150, 255, 235], shell: [255, 210, 140], tentacles: [230, 180, 255], hide: [140, 190, 230], gills: [255, 140, 190],
+  beak: [255, 236, 190], tetrodo: [255, 214, 80], hover: [150, 235, 255], puff: [255, 226, 150],
 };
 
 const MUT_T = { jaws: 1.0 }; // portrait time per trait (jaws at rest: mandibles apart)
@@ -3077,20 +3087,25 @@ function framedBody(g, size, stage, muts, frame, glowC, T = FAKE_T, props = null
   drawPlayer(g, { r: 1, ang: rot, seed: 0.5, muts, stage, speedN: 0.35, ...props }, T, R * 2);
 }
 
+// every trait shown on the pufferfish (stage 6): framing per trait, and the body state that shows it best
+const PUFF_FRAME = { beak: [0.4, -0.4, -0.3], jaws: [0.38, -0.36, -0.3], eyes: [0.36, -0.3, -0.42], tentacles: [0.38, -0.36, -0.42], gills: [0.36, -0.2, -0.42],
+  osmo: [0.36, -0.22, -0.42], shell: [0.32, -0.02, -0.42], hide: [0.25, 0.03, -0.42], spikes: [0.27, 0.06, -0.42], fins: [0.28, 0.06, -0.42], hover: [0.27, 0.06, -0.42],
+  flagellum: [0.3, 0.38, -0.42], pseudopod: [0.28, 0.02, -0.42], mito: [0.3, 0.12, -0.42], nova: [0.2, 0.06, -0.42], muscle: [0.3, 0.12, -0.42], tetrodo: [0.31, 0.06, -0.42] };
+const PUFF_PROPS = { hide: { puffK: 0.45 } };
 // an early trait in its fish form (on a fish body): pyloric caeca for polyps, pilot fish for symbionts, …
 const FISH_FRAME = { cilia: [0.31, 0.12, -0.42], spikes: [0.3, 0.15, -0.42], toxin: [0.31, 0.05, -0.42], polyps: [0.34, -0.1, -0.42], lysosome: [0.34, 0, -0.42],
   vacuole: [0.33, 0.05, -0.42], osmo: [0.36, -0.3, -0.45], nerve: [0.31, 0.1, -0.42], biolum: [0.3, 0.15, -0.42], pseudopod: [0.27, 0.1, -0.42],
   flagellum: [0.25, 0.45, -0.42], mito: [0.28, 0.25, -0.42], mimicry: [0.27, 0.25, -0.42], muscle: [0.28, 0.25, -0.42] };
 function fishFormPortrait(id, size, st) {
   const [c, g] = portraitCanvas(size);
-  const muts = { [id]: 3 }, props = {};
-  let frame = FISH_FRAME[id] || STAGE_FRAME[st];
+  const muts = { [id]: 3 }, props = {}, s6 = st === 6;
+  let frame = (s6 ? PUFF_FRAME[id] : FISH_FRAME[id]) || STAGE_FRAME[st];
   if (id === 'mito') muts.mito = 4;
   if (id === 'membrane') muts.membrane = 5;
-  if (id === 'dash') { props.dashT = 0.2; frame = [0.22, 0.75, -0.42]; }
-  if (id === 'cyst') { props.cyst = 1; frame = [0.23, 0.22, -0.42]; }
-  if (id === 'jaws') frame = st === 4 ? [0.4, -0.55, -0.42] : [0.38, -0.45, -0.3];
-  if (id === 'symbionts' || id === 'fission' || id === 'signal' || id === 'nova') frame = [0.2, 0.12, -0.42];
+  if (id === 'dash') { props.dashT = 0.2; frame = s6 ? [0.23, 0.55, -0.42] : [0.22, 0.75, -0.42]; }
+  if (id === 'cyst') { props.cyst = 1; frame = s6 ? [0.22, 0.04, -0.42] : [0.23, 0.22, -0.42]; }
+  if (id === 'jaws') frame = st === 4 ? [0.4, -0.55, -0.42] : s6 ? PUFF_FRAME.jaws : [0.38, -0.45, -0.3];
+  if (id === 'symbionts' || id === 'fission' || id === 'signal' || id === 'nova') frame = s6 ? [0.21, 0.04, -0.42] : [0.2, 0.12, -0.42];
   framedBody(g, size, st, muts, frame, MUT_GLOW[id] || [110, 255, 225], FAKE_T, props);
   const R = size * frame[0];
   if (id === 'symbionts') {
@@ -3128,6 +3143,15 @@ export function stagePortrait(stage, size = 96) {
 // the fish bodies' active abilities: the body plus what the ability does
 function abilityPortrait(id, size) {
   const [c, g] = portraitCanvas(size);
+  if (id === 'puff') {
+    // Inflate: the pufferfish blown up into a spiky ball, water rushing out round it
+    framedBody(g, size, 6, {}, [0.19, 0, -0.42], MUT_GLOW.puff, FAKE_T, { puffK: 1 });
+    g.lineCap = 'round';
+    g.beginPath();
+    for (let i = 0; i < 10; i++) { const a = (i / 10) * TAU + 0.2, r0 = 2.08 + 0.12 * (i % 2); g.moveTo(cos(a) * r0, sin(a) * r0); g.lineTo(cos(a) * (r0 + 0.3), sin(a) * (r0 + 0.3)); }
+    g.strokeStyle = 'rgba(220,248,255,0.8)'; g.lineWidth = 0.08; g.stroke();
+    return c;
+  }
   const st = id === 'suction' ? 5 : 4;
   const glowC = id === 'photo' ? [140, 210, 255] : id === 'shoal' ? [255, 215, 150] : [160, 255, 215];
   if (id === 'shoal') {
@@ -3162,13 +3186,16 @@ function abilityPortrait(id, size) {
 // draws a "mini player" with a single mutation emphasised
 // stage: the body the trait is shown on; fish bodies show early traits in their fish form
 export function mutationPortrait(id, size, stage) {
-  if (id === 'photo' || id === 'shoal' || id === 'suction') return abilityPortrait(id, size);
+  if (id === 'photo' || id === 'shoal' || id === 'suction' || id === 'puff') return abilityPortrait(id, size);
   const fst = clampStage(stage || 1);
   if (fst >= 4 && (MUT_STAGE[id] || 1) < 4) return fishFormPortrait(id, size, fst);
   if (MUT_STAGE[id]) {
     const [c, g] = portraitCanvas(size);
-    const stage = MUT_STAGE[id] === 4 && fst === 5 ? 5 : MUT_STAGE[id]; // fins, eyes and the head shield shown on the jawed fish once you are one
-    framedBody(g, size, stage, { [id]: 3 }, MUT_FRAME[id] || STAGE_FRAME[stage], MUT_GLOW[id], MUT_T[id]);
+    // fins, eyes and the head shield shown on the jawed fish once you are one; every fish trait (and the
+    // pufferfish's own) on the pufferfish once you are one
+    const ms = MUT_STAGE[id], stage = ms === 6 || (ms >= 4 && fst === 6) ? 6 : ms === 4 && fst === 5 ? 5 : ms;
+    if (stage === 6) framedBody(g, size, 6, { [id]: 3 }, PUFF_FRAME[id] || STAGE_FRAME[6], MUT_GLOW[id], MUT_T[id], PUFF_PROPS[id]);
+    else framedBody(g, size, stage, { [id]: 3 }, MUT_FRAME[id] || STAGE_FRAME[stage], MUT_GLOW[id], MUT_T[id]);
     return c;
   }
   const [c, g] = portraitCanvas(size);
@@ -3314,7 +3341,7 @@ function heart(g, x, y, s) {
   g.fill(); g.restore();
 }
 
-// kind: 'microbe' (species + boss ids) | 'mutation' | 'genome' | 'stage' (id = 1..5)
+// kind: 'microbe' (species + boss ids) | 'mutation' | 'genome' | 'stage' (id = 1..6)
 export function portrait(kind, id, size = 96, stage) {
   try {
     if (kind === 'microbe') return microbePortrait(id, size);
