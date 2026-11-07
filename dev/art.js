@@ -142,7 +142,7 @@ if (view === 'sheet') {
   // ?view=sheet&stage=n&lv=3&R=56 — every trait the stage can own, one big labelled tile each
   const stg = +(q.get('stage') || 5), lv = +(q.get('lv') || 3), R = +(q.get('R') || (stg === 7 ? 40 : stg === 8 ? 42 : 56)), cols = 3;
   const ids = [...NEW, ...OLD].filter((id) => (NEW_STAGE[id] || 1) <= stg && id !== 'symbionts' && id !== 'fission');
-  const cw = 900 / cols, rh = R * 3.3, tiles = [];
+  const cw = 900 / cols, rh = R * (stg === 8 ? 4.5 : 3.3), tiles = [];
   ids.forEach((id, i) => {
     const x = cw * ((i % cols) + 0.5), y = rh * (Math.floor(i / cols) + 0.5);
     tiles.push(playerTile(x, y - 8, R, mkP(stg, { [id]: Math.min(lv, MAXLV[id]) }, { ang: -0.25, dashT: id === 'dash' ? 0.2 : 0, cyst: id === 'cyst' ? 1 : 0, puffK: +(q.get('puff') || 0) }), `${id} ${Math.min(lv, MAXLV[id])}`, { ly: y + rh * (stg === 8 ? 0.47 : 0.44) }));
