@@ -160,7 +160,7 @@ export const SPECIES = {
     desc: 'The top predator of the sea. Pods of orcas hunt sharks, seals and whales together, and are smaller than a whale shark but far more dangerous.' },
   whitetip: { tier: 10, ai: 'hunter', size: [0.45, 0.6], spd: 95, xp: 3, hostile: true, inedible: true, bite: [14, 4], pcol: [150, 140, 120], name: 'Oceanic Whitetip', role: 'predator',
     desc: 'A bold, white-tipped shark of the open ocean that follows whale sharks and ships looking for scraps.' },
-  bluewhale: { tier: 10, ai: 'volvox', size: [3.0, 3.6], spd: 30, xp: 1, inedible: true, pcol: [110, 140, 170], name: 'Blue Whale', role: 'neutral',
+  bluewhale: { tier: 10, ai: 'volvox', size: [0.85, 1.05], spd: 30, xp: 1, inedible: true, pcol: [110, 140, 170], name: 'Blue Whale', role: 'neutral',
     desc: 'The biggest animal that has ever lived: thirty metres long, with a heart the size of a small car. Even a whale shark looks small beside it.' },
 };
 

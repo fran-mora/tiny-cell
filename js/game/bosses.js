@@ -1794,7 +1794,7 @@ BOSS_KIT.lionsmane = {
 // the gang: a Breach landing in their midst, a spiny Inflate or a Bill Slash all leave them dazed.
 const GANG = 4, SL_HITS = 4;
 BOSS_KIT.sealions = {
-  r: (p) => 26 + p.r * 0.85,
+  r: (p) => 10 + p.r * 0.8, // a sea lion is smaller than a sunfish
   fixed: true, chip: 0.08, phaseAt: [0.5], phaseText: ['Bolder: two at a time'],
   hint: ['bolt', 'They dart in to nip your fins. Bite one as it rolls away, or Breach to stun the whole gang'],
   spawn(g, b, k) {
@@ -2182,7 +2182,7 @@ const clamp01 = (x) => max(0, min(1, x));
 // may stun its prey. Stay out of the beam. Sperm whales also sleep: after a while it hangs still in the water,
 // fast asleep, and you can bite it until it wakes with a thrash.
 BOSS_KIT.spermwhale = {
-  r: (p) => 58 + p.r * 1.0,
+  r: (p) => 16 + p.r * 0.9, // its body is long (to −2.35 r), so this is a whale a bit bigger than you
   chip: 0.06, phaseAt: [0.5], phaseText: ['Faster clicks'],
   hint: ['bolt', 'Keep out of its sonar beam. After a few clicks it falls asleep: bite it before it wakes'],
   spawn(g, b, k) { k.state = 'hunt'; k.st = 0; k.clickT = 2.6; k.clicks = 0; k.bumpT = 0; k.backT = 0; b.clickK = 0; b.sleepK = 0; b.biteK = 0; },
@@ -2289,7 +2289,7 @@ BOSS_KIT.spermwhale = {
 // up to breathe after an attack: that is your moment to bite it.
 const POD = 3, OR_HITS = 5;
 BOSS_KIT.orcas = {
-  r: (p) => 30 + p.r * 0.55,
+  r: (p) => p.r * 0.8, // smaller than a whale shark, but far more dangerous
   fixed: true, chip: 0.06, phaseAt: [0.5], phaseText: ['Two at a time!'],
   hint: ['bolt', 'Orcas ram you to roll you over. Swim away hard or dash to stay upright, then bite them while they breathe'],
   spawn(g, b, k) {

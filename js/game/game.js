@@ -1164,7 +1164,7 @@ class MicrobeGame {
     this.sparkle(e.x - nx * e.r, e.y - ny * e.r, [255, 235, 170], 5); this.sfx('hit', { pitch: 1.6 }); this.buzz(10);
   }
   // a small animal nips, one your size hurts, a big one bites hard
-  biteScale(e) { const k = e.r / this.p.r; if (k < 1 && SP[e.kind] && SP[e.kind].pack) return max(0.45, k * k); return k < 1 ? Math.pow(k, 2.5) : min(C.TUNE.biteCap, k); } // a pack hunter's bite still hurts a bigger animal
+  biteScale(e) { const k = e.r / this.p.r; if (k < 1 && SP[e.kind] && SP[e.kind].pack) return max(0.35, k * k); return k < 1 ? Math.pow(k, 2.5) : min(C.TUNE.biteCap, k); } // a pack hunter's bite still hurts a bigger animal
   // krill swarms and fish schools steer by the centre and heading of their group
   computeFlocks() {
     const F = this.flock || (this.flock = {});
